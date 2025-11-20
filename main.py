@@ -18,7 +18,7 @@ app.add_middleware(
 )
 
 DB_FILE = "ship_state.db"
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL_NAME = "llama3"  # User can change this via env var if needed
 
 def init_db():
@@ -145,7 +145,7 @@ Example:
         # Try to connect to Ollama
         ollama_req = {
             "model": os.environ.get("OLLAMA_MODEL", MODEL_NAME),
-            "prompt": prompt,
+            "messages": [{"role": "user", "content": prompt}],
             "stream": False,
             "format": "json"
         }
@@ -155,7 +155,10 @@ Example:
         res = requests.post(ollama_host, json=ollama_req, timeout=2)
         res.raise_for_status()
         result_json = res.json()
-        llm_output = json.loads(result_json.get("response", "{}"))
+
+        # Extract content from chat response
+        content = result_json.get("message", {}).get("content", "{}")
+        llm_output = json.loads(content)
 
     except Exception:
         # Fallback to mock logic if Ollama is down or errors
