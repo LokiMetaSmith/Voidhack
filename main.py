@@ -107,6 +107,9 @@ def mock_llm_logic(text):
         response = "Systems nominal."
 
     if not updates and response == "Command not recognized.":
+        # Handle wake word only
+        if text.strip() == "computer":
+            response = "Awaiting command."
         # Generic fallback if nothing matched but it wasn't status
         pass
 
