@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LCARS Terminal</title>
+    <link rel="icon" href="data:,">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Antonio:wght@400;700&display=swap');
 
@@ -237,6 +238,7 @@
         const logPanel = document.getElementById('log-panel');
         let recognition;
         let isListening = false;
+        let isStarting = false;
 
         // Chirp sound (simple beep/chirp using oscillator)
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -305,7 +307,7 @@
         }
 
         function handleHeadsetTrigger() {
-            if (isListening) return; // Debounce
+            if (isListening || isStarting) return; // Debounce
 
             playChirp();
             startListening();
@@ -331,12 +333,14 @@
 
             recognition.onstart = () => {
                 isListening = true;
+                isStarting = false;
                 document.getElementById('listening-indicator').style.display = 'block';
                 log("Listening...");
             };
 
             recognition.onend = () => {
                 isListening = false;
+                isStarting = false;
                 document.getElementById('listening-indicator').style.display = 'none';
             };
 
@@ -348,17 +352,26 @@
             };
 
             recognition.onerror = (event) => {
-                log("Speech Error: " + event.error);
+                // Ignore no-speech error as it's common
+                if (event.error !== 'no-speech') {
+                    log("Speech Error: " + event.error);
+                }
                 isListening = false;
+                isStarting = false;
             };
         }
 
         function startListening() {
-            if (recognition && !isListening) {
+            if (recognition && !isListening && !isStarting) {
+                isStarting = true;
                 try {
                     recognition.start();
                 } catch (e) {
-                    log("Recog start error: " + e);
+                    isStarting = false;
+                    // If it was already started by race condition, just ignore
+                    if (e.name !== 'InvalidStateError') {
+                         log("Recog start error: " + e);
+                    }
                 }
             }
         }
