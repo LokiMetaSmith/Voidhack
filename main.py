@@ -79,9 +79,23 @@ def get_current_status_dict():
 async def read_index():
     return FileResponse('index.html')
 
+def check_llm_status():
+    ollama_host = os.environ.get("OLLAMA_HOST", OLLAMA_URL)
+    # Strip /api/chat to get base URL for health check
+    base_url = ollama_host.replace("/api/chat", "")
+    try:
+        # Simple check to see if server is responding
+        requests.get(base_url, timeout=0.2)
+        return 100
+    except Exception:
+        return 0
+
 @app.get("/status", response_model=StatusResponse)
 def get_status():
-    return {"systems": get_current_status_dict()}
+    systems = get_current_status_dict()
+    # Inject Neural Net status
+    systems["neural_net"] = check_llm_status()
+    return {"systems": systems}
 
 def mock_llm_logic(text):
     text = text.lower()

@@ -166,6 +166,20 @@
             white-space: pre-wrap;
         }
 
+        .log-entry.system {
+            color: #999999;
+            font-size: 0.9em;
+        }
+
+        .log-entry.chat {
+            color: var(--lcars-orange);
+            font-weight: bold;
+        }
+
+        .log-panel.hide-system .log-entry.system {
+            display: none;
+        }
+
         /* Footer */
         .lcars-footer {
             grid-column: 1 / -1;
@@ -202,7 +216,7 @@
         <div class="lcars-sidebar">
             <div class="lcars-button" id="init-btn" onclick="initComms()">INIT COMMS</div>
             <div class="lcars-button">MODE</div>
-            <div class="lcars-button">LCARS</div>
+            <div class="lcars-button" id="logs-btn" onclick="toggleLogs()">LOGS</div>
             <div class="lcars-spacer"></div>
             <div class="lcars-elbow"></div>
         </div>
@@ -239,6 +253,19 @@
         let recognition;
         let isListening = false;
         let isStarting = false;
+        let showSystemLogs = true;
+
+        function toggleLogs() {
+            showSystemLogs = !showSystemLogs;
+            const btn = document.getElementById('logs-btn');
+            if (showSystemLogs) {
+                logPanel.classList.remove('hide-system');
+                btn.classList.remove('active');
+            } else {
+                logPanel.classList.add('hide-system');
+                btn.classList.add('active');
+            }
+        }
 
         // Chirp sound (simple beep/chirp using oscillator)
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -270,10 +297,11 @@
             window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
         }
 
-        function log(msg) {
+        function log(msg, type = 'system') {
             // Use requestAnimationFrame to batch DOM updates and avoid layout thrashing
             requestAnimationFrame(() => {
                 const line = document.createElement('div');
+                line.className = `log-entry ${type}`;
                 line.textContent = `> ${msg}`;
                 logPanel.appendChild(line);
                 logPanel.scrollTop = logPanel.scrollHeight;
@@ -284,7 +312,7 @@
             try {
                 // Play silent audio to engage Media Session
                 await silentAudio.play();
-                log("Comms Initialized. Silent loop active.");
+                log("Comms Initialized. Silent loop active.", "system");
                 document.getElementById('init-btn').textContent = "ACTIVE";
                 document.getElementById('init-btn').style.backgroundColor = "#9999ff";
 
@@ -297,7 +325,7 @@
                     });
 
                     const actionHandler = () => {
-                        log("Headset button detected!");
+                        log("Headset button detected!", "system");
                         handleHeadsetTrigger();
                     };
 
@@ -306,14 +334,14 @@
                     // Also listen for 'play' in case it toggles
                     navigator.mediaSession.setActionHandler('play', actionHandler);
                 } else {
-                    log("Media Session API not supported.");
+                    log("Media Session API not supported.", "error");
                 }
 
                 setupSpeechRecognition();
                 pollStatus();
 
             } catch (err) {
-                log("Error initializing comms: " + err);
+                log("Error initializing comms: " + err, "error");
             }
         }
 
@@ -346,7 +374,7 @@
                 isListening = true;
                 isStarting = false;
                 document.getElementById('listening-indicator').style.display = 'block';
-                log("Listening...");
+                log("Listening...", "system");
             };
 
             recognition.onend = () => {
@@ -357,7 +385,7 @@
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
-                log(`Heard: "${transcript}"`);
+                log(`Heard: "${transcript}"`, "chat");
                 document.getElementById('last-command').textContent = transcript;
                 sendCommand(transcript);
             };
@@ -365,7 +393,7 @@
             recognition.onerror = (event) => {
                 // Ignore no-speech error as it's common
                 if (event.error !== 'no-speech') {
-                    log("Speech Error: " + event.error);
+                    log("Speech Error: " + event.error, "error");
                 }
                 isListening = false;
                 isStarting = false;
@@ -381,7 +409,7 @@
                     isStarting = false;
                     // If it was already started by race condition, just ignore
                     if (e.name !== 'InvalidStateError') {
-                         log("Recog start error: " + e);
+                         log("Recog start error: " + e, "error");
                     }
                 }
             }
@@ -396,12 +424,12 @@
                 });
                 const data = await res.json();
 
-                log("Computer: " + data.response);
+                log("Computer: " + data.response, "chat");
                 speak(data.response);
                 updateStatusUI(data.updates);
 
             } catch (err) {
-                log("Backend Error: " + err);
+                log("Backend Error: " + err, "error");
                 speak("Communication Link Severed.");
             }
         }
