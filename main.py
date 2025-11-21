@@ -101,14 +101,15 @@ def check_llm_status():
         return 0
 
 @app.get("/status", response_model=StatusResponse)
-@profile_time
+@profile_time("Status Endpoint")
 def get_status():
     systems = get_current_status_dict()
     # Inject Neural Net status
-    systems["neural_net"] = check_llm_status()
+    with profile_block("Ollama Connectivity Check"):
+        systems["neural_net"] = check_llm_status()
     return {"systems": systems}
 
-@profile_time
+@profile_time("Mock Logic")
 def mock_llm_logic(text):
     text = text.lower()
     updates = {}
@@ -157,7 +158,7 @@ def mock_llm_logic(text):
     return {"updates": updates, "response": response}
 
 @app.post("/command")
-@profile_time
+@profile_time("Command Processing")
 def process_command(req: CommandRequest):
     current_status = get_current_status_dict()
 

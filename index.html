@@ -272,7 +272,8 @@
 
         function playChirp() {
             if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+                // This might fail if not triggered by user interaction
+                audioCtx.resume().catch(e => console.warn("AudioContext resume failed", e));
             }
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
@@ -348,7 +349,6 @@
         function handleHeadsetTrigger() {
             if (isListening || isStarting) return; // Debounce
 
-            playChirp();
             startListening();
 
             // Resume silent audio after a moment so we are ready for next tap
@@ -373,6 +373,7 @@
             recognition.onstart = () => {
                 isListening = true;
                 isStarting = false;
+                playChirp();
                 document.getElementById('listening-indicator').style.display = 'block';
                 log("Listening...", "system");
             };
@@ -403,9 +404,19 @@
         function startListening() {
             if (recognition && !isListening && !isStarting) {
                 isStarting = true;
+
+                // Safety timeout: if onstart doesn't fire in 2s, reset
+                const safetyTimer = setTimeout(() => {
+                    if (isStarting) {
+                        log("Microphone init timed out.", "error");
+                        isStarting = false;
+                    }
+                }, 2000);
+
                 try {
                     recognition.start();
                 } catch (e) {
+                    clearTimeout(safetyTimer);
                     isStarting = false;
                     // If it was already started by race condition, just ignore
                     if (e.name !== 'InvalidStateError') {
@@ -462,9 +473,11 @@
                 renderSystems(data.systems);
             } catch (e) {
                 console.log("Poll error", e);
-                // If repeated errors, maybe log to UI once?
+                log(`Status Poll Failed: ${e.message}`, "error");
+            } finally {
+                // Ensure we ALWAYS schedule the next poll, even if this one failed
+                setTimeout(pollStatus, 5000);
             }
-            setTimeout(pollStatus, 5000);
         }
 
         function updateStatusUI(updates) {
