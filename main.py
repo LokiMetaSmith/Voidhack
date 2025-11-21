@@ -33,7 +33,7 @@ app.add_middleware(
 )
 
 DB_FILE = "ship_state.db"
-OLLAMA_URL = "http://localhost:11434/api/chat"
+OLLAMA_DEFAULT_HOST = "http://localhost:11434"
 MODEL_NAME = "llama3"  # User can change this via env var if needed
 
 def init_db():
@@ -79,10 +79,19 @@ def get_current_status_dict():
 async def read_index():
     return FileResponse('index.html')
 
+def get_ollama_config():
+    host = os.environ.get("OLLAMA_HOST", OLLAMA_DEFAULT_HOST).rstrip("/")
+    # Check if user accidentally included /api/chat in the host variable
+    if host.endswith("/api/chat"):
+         base = host[:-9]
+         chat = host
+    else:
+         base = host
+         chat = f"{host}/api/chat"
+    return base, chat
+
 def check_llm_status():
-    ollama_host = os.environ.get("OLLAMA_HOST", OLLAMA_URL)
-    # Strip /api/chat to get base URL for health check
-    base_url = ollama_host.replace("/api/chat", "")
+    base_url, _ = get_ollama_config()
     try:
         # Simple check to see if server is responding
         requests.get(base_url, timeout=0.2)
@@ -178,10 +187,10 @@ Example:
             "stream": False,
             "format": "json"
         }
-        ollama_host = os.environ.get("OLLAMA_HOST", OLLAMA_URL)
+        _, ollama_chat_url = get_ollama_config()
 
         # Attempt connection with short timeout
-        res = requests.post(ollama_host, json=ollama_req, timeout=2)
+        res = requests.post(ollama_chat_url, json=ollama_req, timeout=2)
         res.raise_for_status()
         result_json = res.json()
 
