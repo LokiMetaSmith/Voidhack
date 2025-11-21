@@ -416,6 +416,7 @@
         }
 
         async function sendCommand(text) {
+            console.time('sendCommand');
             try {
                 const res = await fetch(API_URL + '/command', {
                     method: 'POST',
@@ -424,18 +425,22 @@
                 });
                 const data = await res.json();
 
+                console.timeEnd('sendCommand');
                 log("Computer: " + data.response, "chat");
                 speak(data.response);
                 updateStatusUI(data.updates);
 
             } catch (err) {
+                console.timeEnd('sendCommand');
                 log("Backend Error: " + err, "error");
                 speak("Communication Link Severed.");
             }
         }
 
         function speak(text) {
+            console.time('speak');
             const utterance = new SpeechSynthesisUtterance(text);
+            utterance.onend = () => console.timeEnd('speak');
             // Try to find a robotic voice if possible
             const voices = window.speechSynthesis.getVoices();
             // Just pick the first one for now, user can customize

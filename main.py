@@ -7,6 +7,7 @@ import requests
 import json
 import os
 import logging
+from profiling_utils import profile_time, profile_block
 
 class EndpointFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
@@ -100,12 +101,14 @@ def check_llm_status():
         return 0
 
 @app.get("/status", response_model=StatusResponse)
+@profile_time
 def get_status():
     systems = get_current_status_dict()
     # Inject Neural Net status
     systems["neural_net"] = check_llm_status()
     return {"systems": systems}
 
+@profile_time
 def mock_llm_logic(text):
     text = text.lower()
     updates = {}
@@ -154,6 +157,7 @@ def mock_llm_logic(text):
     return {"updates": updates, "response": response}
 
 @app.post("/command")
+@profile_time
 def process_command(req: CommandRequest):
     current_status = get_current_status_dict()
 
@@ -190,9 +194,10 @@ Example:
         _, ollama_chat_url = get_ollama_config()
 
         # Attempt connection with short timeout
-        res = requests.post(ollama_chat_url, json=ollama_req, timeout=2)
-        res.raise_for_status()
-        result_json = res.json()
+        with profile_block("Ollama API Call"):
+            res = requests.post(ollama_chat_url, json=ollama_req, timeout=2)
+            res.raise_for_status()
+            result_json = res.json()
 
         # Extract content from chat response
         content = result_json.get("message", {}).get("content", "{}")
@@ -208,11 +213,12 @@ Example:
     response_text = llm_output.get("response", "Unable to comply.")
 
     # 2. Update DB
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    for system, level in updates.items():
-        cursor.execute('UPDATE systems SET level = ? WHERE name = ?', (level, system))
-    conn.commit()
-    conn.close()
+    with profile_block("DB Update"):
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        for system, level in updates.items():
+            cursor.execute('UPDATE systems SET level = ? WHERE name = ?', (level, system))
+        conn.commit()
+        conn.close()
 
     return {"response": response_text, "updates": updates}
