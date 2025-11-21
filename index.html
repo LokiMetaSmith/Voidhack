@@ -255,6 +255,10 @@
         let isStarting = false;
         let showSystemLogs = true;
 
+        // Profiling timestamps
+        let t_trigger = 0;
+        let t_speak_req = 0;
+
         function toggleLogs() {
             showSystemLogs = !showSystemLogs;
             const btn = document.getElementById('logs-btn');
@@ -349,6 +353,7 @@
         function handleHeadsetTrigger() {
             if (isListening || isStarting) return; // Debounce
 
+            t_trigger = performance.now();
             startListening();
 
             // Resume silent audio after a moment so we are ready for next tap
@@ -371,11 +376,13 @@
             recognition.lang = 'en-US';
 
             recognition.onstart = () => {
+                const t_start = performance.now();
+                const latency = (t_start - t_trigger).toFixed(2);
                 isListening = true;
                 isStarting = false;
                 playChirp();
                 document.getElementById('listening-indicator').style.display = 'block';
-                log("Listening...", "system");
+                log(`Listening... (Wake Latency: ${latency}ms)`, "system");
             };
 
             recognition.onend = () => {
@@ -450,7 +457,15 @@
 
         function speak(text) {
             console.time('speak');
+            t_speak_req = performance.now();
             const utterance = new SpeechSynthesisUtterance(text);
+
+            utterance.onstart = () => {
+                const t_audio = performance.now();
+                const latency = (t_audio - t_speak_req).toFixed(2);
+                log(`TTS Latency: ${latency}ms`, "system");
+            };
+
             utterance.onend = () => console.timeEnd('speak');
             // Try to find a robotic voice if possible
             const voices = window.speechSynthesis.getVoices();
