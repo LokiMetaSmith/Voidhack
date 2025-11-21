@@ -7,6 +7,7 @@ import requests
 import json
 import os
 import logging
+import time
 from profiling_utils import profile_time, profile_block
 
 class EndpointFilter(logging.Filter):
@@ -91,14 +92,29 @@ def get_ollama_config():
          chat = f"{host}/api/chat"
     return base, chat
 
+# Global cache for LLM status
+_llm_status_cache = {"status": 0, "timestamp": 0}
+_llm_status_ttl = 60  # cache for 60 seconds
+
 def check_llm_status():
+    global _llm_status_cache
+    now = time.time()
+
+    # Return cached value if valid
+    if now - _llm_status_cache["timestamp"] < _llm_status_ttl:
+        return _llm_status_cache["status"]
+
     base_url, _ = get_ollama_config()
     try:
         # Simple check to see if server is responding
         requests.get(base_url, timeout=0.2)
-        return 100
+        status = 100
     except Exception:
-        return 0
+        status = 0
+
+    # Update cache
+    _llm_status_cache = {"status": status, "timestamp": now}
+    return status
 
 @app.get("/status", response_model=StatusResponse)
 @profile_time("Status Endpoint")
