@@ -204,6 +204,13 @@ Example:
         content = result_json.get("message", {}).get("content", "{}")
         llm_output = json.loads(content)
 
+    except requests.exceptions.HTTPError as e:
+        print(f"Ollama HTTP Error at {ollama_chat_url}: {e}")
+        # Attempt to print the response text which might contain the error details (e.g. 'model not found')
+        if e.response is not None:
+             print(f"Ollama Response Body: {e.response.text}")
+        print("Using mock logic.")
+        llm_output = mock_llm_logic(req.text)
     except Exception as e:
         # Fallback to mock logic if Ollama is down or errors
         print(f"Ollama not reachable at {ollama_chat_url}. Error: {e}")
