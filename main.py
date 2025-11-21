@@ -94,7 +94,7 @@ def get_ollama_config():
 
 # Global cache for LLM status
 _llm_status_cache = {"status": 0, "timestamp": 0}
-_llm_status_ttl = 10  # cache for 10 seconds
+_llm_status_ttl = 60  # cache for 60 seconds
 
 def check_llm_status():
     global _llm_status_cache
