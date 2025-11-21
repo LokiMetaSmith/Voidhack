@@ -338,7 +338,7 @@
                 }
 
                 setupSpeechRecognition();
-                pollStatus();
+                // pollStatus() is already running from initial load
 
             } catch (err) {
                 log("Error initializing comms: " + err, "error");
@@ -468,9 +468,8 @@
         }
 
         function updateStatusUI(updates) {
-            // We can just wait for poll, or optimistically update.
-            // Poll is simpler, but let's trigger a poll immediately.
-            pollStatus();
+            // Optimistically update the UI to avoid creating multiple polling loops
+            renderSystems(updates);
         }
 
         function renderSystems(systems) {
