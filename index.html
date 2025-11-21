@@ -473,6 +473,8 @@
             window.speechSynthesis.speak(utterance);
         }
 
+        let lastErrorMsg = "";
+
         async function pollStatus() {
             // Avoid polling if opened via file:// protocol as it will fail
             if (window.location.protocol === 'file:') {
@@ -486,9 +488,14 @@
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const data = await res.json();
                 renderSystems(data.systems);
+                lastErrorMsg = ""; // Clear error state on success
             } catch (e) {
                 console.log("Poll error", e);
-                log(`Status Poll Failed: ${e.message}`, "error");
+                const errMsg = `Status Poll Failed: ${e.message}`;
+                if (errMsg !== lastErrorMsg) {
+                    log(errMsg, "error");
+                    lastErrorMsg = errMsg;
+                }
             } finally {
                 // Ensure we ALWAYS schedule the next poll, even if this one failed
                 setTimeout(pollStatus, 5000);
