@@ -6,6 +6,21 @@ import sqlite3
 import requests
 import json
 import os
+import logging
+
+class EndpointFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            # Filter out /status endpoint from access logs
+            if len(record.args) >= 3:
+                if record.args[2] == "/status":
+                    return False
+        except Exception:
+            pass
+        return True
+
+# Apply filter to uvicorn access logger on startup
+logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
 app = FastAPI()
 
