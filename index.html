@@ -264,9 +264,20 @@
             oscillator.stop(audioCtx.currentTime + 0.1);
         }
 
+        // Pre-load voices to avoid blocking later
+        window.speechSynthesis.getVoices();
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+        }
+
         function log(msg) {
-            logPanel.textContent += `\n> ${msg}`;
-            logPanel.scrollTop = logPanel.scrollHeight;
+            // Use requestAnimationFrame to batch DOM updates and avoid layout thrashing
+            requestAnimationFrame(() => {
+                const line = document.createElement('div');
+                line.textContent = `> ${msg}`;
+                logPanel.appendChild(line);
+                logPanel.scrollTop = logPanel.scrollHeight;
+            });
         }
 
         async function initComms() {
@@ -404,12 +415,21 @@
         }
 
         async function pollStatus() {
+            // Avoid polling if opened via file:// protocol as it will fail
+            if (window.location.protocol === 'file:') {
+                console.warn("Running from file:// protocol. Backend features disabled.");
+                log("Warning: Running from file system. Backend unreachable.");
+                return;
+            }
+
             try {
                 const res = await fetch(API_URL + '/status');
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const data = await res.json();
                 renderSystems(data.systems);
             } catch (e) {
                 console.log("Poll error", e);
+                // If repeated errors, maybe log to UI once?
             }
             setTimeout(pollStatus, 5000);
         }

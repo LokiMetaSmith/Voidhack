@@ -67,3 +67,10 @@ The project uses a **Python (FastAPI)** backend with **SQLite** for state manage
 
 *   **Ollama Model:** Defaults to `llama3`. Can be changed via the `OLLAMA_MODEL` environment variable.
 *   **Ollama Host:** Defaults to `http://localhost:11434/api/generate`. Can be changed via the `OLLAMA_HOST` environment variable.
+
+## Troubleshooting
+
+### Common Console Errors
+
+*   **`[Password Alert] completePageInitializationIfReady_ ...`**:
+    *   If you see this error in the browser console, it is caused by the Google **Password Alert** Chrome extension. It is unrelated to the Voidhack application and can be safely ignored.
