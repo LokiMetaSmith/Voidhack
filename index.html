@@ -255,6 +255,10 @@
         let isStarting = false;
         let showSystemLogs = true;
 
+        // Profiling timestamps
+        let t_trigger = 0;
+        let t_speak_req = 0;
+
         function toggleLogs() {
             showSystemLogs = !showSystemLogs;
             const btn = document.getElementById('logs-btn');
@@ -272,7 +276,8 @@
 
         function playChirp() {
             if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+                // This might fail if not triggered by user interaction
+                audioCtx.resume().catch(e => console.warn("AudioContext resume failed", e));
             }
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
@@ -348,7 +353,7 @@
         function handleHeadsetTrigger() {
             if (isListening || isStarting) return; // Debounce
 
-            playChirp();
+            t_trigger = performance.now();
             startListening();
 
             // Resume silent audio after a moment so we are ready for next tap
@@ -371,10 +376,13 @@
             recognition.lang = 'en-US';
 
             recognition.onstart = () => {
+                const t_start = performance.now();
+                const latency = (t_start - t_trigger).toFixed(2);
                 isListening = true;
                 isStarting = false;
+                playChirp();
                 document.getElementById('listening-indicator').style.display = 'block';
-                log("Listening...", "system");
+                log(`Listening... (Wake Latency: ${latency}ms)`, "system");
             };
 
             recognition.onend = () => {
@@ -403,9 +411,19 @@
         function startListening() {
             if (recognition && !isListening && !isStarting) {
                 isStarting = true;
+
+                // Safety timeout: if onstart doesn't fire in 2s, reset
+                const safetyTimer = setTimeout(() => {
+                    if (isStarting) {
+                        log("Microphone init timed out.", "error");
+                        isStarting = false;
+                    }
+                }, 2000);
+
                 try {
                     recognition.start();
                 } catch (e) {
+                    clearTimeout(safetyTimer);
                     isStarting = false;
                     // If it was already started by race condition, just ignore
                     if (e.name !== 'InvalidStateError') {
@@ -439,7 +457,15 @@
 
         function speak(text) {
             console.time('speak');
+            t_speak_req = performance.now();
             const utterance = new SpeechSynthesisUtterance(text);
+
+            utterance.onstart = () => {
+                const t_audio = performance.now();
+                const latency = (t_audio - t_speak_req).toFixed(2);
+                log(`TTS Latency: ${latency}ms`, "system");
+            };
+
             utterance.onend = () => console.timeEnd('speak');
             // Try to find a robotic voice if possible
             const voices = window.speechSynthesis.getVoices();
@@ -462,9 +488,11 @@
                 renderSystems(data.systems);
             } catch (e) {
                 console.log("Poll error", e);
-                // If repeated errors, maybe log to UI once?
+                log(`Status Poll Failed: ${e.message}`, "error");
+            } finally {
+                // Ensure we ALWAYS schedule the next poll, even if this one failed
+                setTimeout(pollStatus, 5000);
             }
-            setTimeout(pollStatus, 5000);
         }
 
         function updateStatusUI(updates) {
