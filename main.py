@@ -198,9 +198,10 @@ Example:
         content = result_json.get("message", {}).get("content", "{}")
         llm_output = json.loads(content)
 
-    except Exception:
+    except Exception as e:
         # Fallback to mock logic if Ollama is down or errors
-        print("Ollama not reachable or error, using mock logic.")
+        print(f"Ollama not reachable at {ollama_chat_url}. Error: {e}")
+        print("Using mock logic.")
         llm_output = mock_llm_logic(req.text)
 
     updates = llm_output.get("updates", {})
