@@ -257,9 +257,13 @@
         let commandWindowEnd = 0; // Timestamp: ignore speech after this time
         let showSystemLogs = true;
         let wakeLock = null; // Added back
+        let isOnboarding = false; // Flag for first-time user setup
 
         // Profiling
         let t_trigger = 0;
+
+        // Audio Context for Chirp
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         function toggleLogs() {
             showSystemLogs = !showSystemLogs;
@@ -271,6 +275,27 @@
                 logPanel.classList.add('hide-system');
                 btn.classList.add('active');
             }
+        }
+
+        function playChirp() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(e => console.warn("AudioContext resume failed", e));
+            }
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(2000, audioCtx.currentTime + 0.1);
+
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.1);
         }
 
         // --- WAKE LOCK (Re-added) ---
@@ -288,11 +313,13 @@
             }
         }
 
-        // --- OPTIMIZATION 1: Use Vibration instead of Audio Context ---
-        // AudioContext takes time to initialize and fights the Mic for resources.
         function triggerFeedback() {
+            // Audio Chirp (Requested)
+            playChirp();
+
+            // Tactile Feedback
             if (navigator.vibrate) {
-                navigator.vibrate(200); // Tactile "Chirp"
+                navigator.vibrate(200);
             }
             document.getElementById('listening-indicator').style.display = 'block';
         }
@@ -311,6 +338,11 @@
         async function initComms() {
             try {
                 await requestWakeLock(); // Re-added
+
+                // Resume audio context on user gesture
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
 
                 // 1. Start Silent Loop (Keeps Media Session alive)
                 await silentAudio.play();
@@ -335,6 +367,18 @@
                 // 3. Start "Hot Mic" immediately
                 setupSpeechRecognition();
                 startContinuousMic();
+
+                // 4. Check Onboarding Status
+                const savedHandle = localStorage.getItem('lcars_handle');
+                if (!savedHandle) {
+                    isOnboarding = true;
+                    // Prompt user after a brief delay to ensure systems are ready
+                    setTimeout(() => {
+                        speak("Communication link established. Please state your identity.");
+                    }, 1000);
+                } else {
+                     log(`Identity confirmed: ${savedHandle}`, "system");
+                }
 
             } catch (err) {
                 log("Error initializing comms: " + err, "error");
@@ -402,11 +446,21 @@
                         // Valid Command
                         log(`Heard: "${finalTranscript}"`, "chat");
                         document.getElementById('last-command').textContent = finalTranscript;
-                        sendCommand(finalTranscript);
 
                         // Close the gate immediately after hearing a command
                         commandWindowEnd = 0;
                         document.getElementById('listening-indicator').style.display = 'none';
+
+                        if (isOnboarding) {
+                            // Handle Onboarding Response
+                            localStorage.setItem('lcars_handle', finalTranscript);
+                            isOnboarding = false;
+                            speak(`Identity confirmed, ${finalTranscript}. Systems online.`);
+                            log(`User handle saved: ${finalTranscript}`, "system");
+                        } else {
+                            // Normal Command
+                            sendCommand(finalTranscript);
+                        }
                     } else {
                         // Ignored (Background noise / Hot Mic buffer)
                         // log(`(Ignored): "${finalTranscript}"`, "system");
