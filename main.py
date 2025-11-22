@@ -86,11 +86,11 @@ def get_ollama_config():
     # Check if user accidentally included /api/chat in the host variable
     if host.endswith("/api/chat"):
          base = host[:-9]
-         chat = host
     else:
          base = host
-         chat = f"{host}/api/chat"
-    return base, chat
+
+    chat_url = f"{base}/api/generate"
+    return base, chat_url
 
 # Global cache for LLM status
 _llm_status_cache = {"status": 0, "timestamp": 0}
@@ -204,24 +204,35 @@ Example:
         # Try to connect to Ollama
         ollama_req = {
             "model": os.environ.get("OLLAMA_MODEL", MODEL_NAME),
-            "messages": [{"role": "user", "content": prompt}],
-            "stream": False,
+            "prompt": prompt,
+            "stream": True,
             "format": "json"
         }
-        _, ollama_chat_url = get_ollama_config()
+        _, ollama_generate_url = get_ollama_config()
 
-        # Attempt connection with short timeout
+        # Attempt connection with longer timeout
+        full_response_text = ""
+        eval_count = 0
+
         with profile_block("Ollama API Call"):
-            res = requests.post(ollama_chat_url, json=ollama_req, timeout=30)
-            res.raise_for_status()
-            result_json = res.json()
+            with requests.post(ollama_generate_url, json=ollama_req, stream=True, timeout=30) as res:
+                res.raise_for_status()
 
-        # Extract content from chat response
-        content = result_json.get("message", {}).get("content", "{}")
-        llm_output = json.loads(content)
+                for line in res.iter_lines():
+                    if line:
+                        chunk = json.loads(line.decode('utf-8'))
+                        if not chunk.get("done"):
+                            full_response_text += chunk.get("response", "")
+                        else:
+                            eval_count = chunk.get("eval_count", 0)
+                            eval_duration = chunk.get("eval_duration", 0)
+                            print(f"Ollama Stats: eval_count={eval_count}, eval_duration={eval_duration}ns")
+
+        llm_output = json.loads(full_response_text)
 
     except requests.exceptions.HTTPError as e:
-        print(f"Ollama HTTP Error at {ollama_chat_url}: {e}")
+        ollama_generate_url = get_ollama_config()[1]
+        print(f"Ollama HTTP Error at {ollama_generate_url}: {e}")
         # Attempt to print the response text which might contain the error details (e.g. 'model not found')
         if e.response is not None:
              print(f"Ollama Response Body: {e.response.text}")
@@ -229,7 +240,7 @@ Example:
         llm_output = mock_llm_logic(req.text)
     except Exception as e:
         # Fallback to mock logic if Ollama is down or errors
-        print(f"Ollama not reachable at {ollama_chat_url}. Error: {e}")
+        print(f"Ollama not reachable at {ollama_generate_url}. Error: {e}")
         print("Using mock logic.")
         llm_output = mock_llm_logic(req.text)
 
