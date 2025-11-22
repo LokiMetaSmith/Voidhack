@@ -250,6 +250,7 @@
         const API_URL = window.location.origin;
         const silentAudio = document.getElementById('silent-audio');
         const logPanel = document.getElementById('log-panel');
+        let wakeLock = null; // Track the wake lock
         let recognition;
         let isListening = false;
         let isStarting = false;
@@ -313,8 +314,26 @@
             });
         }
 
+        async function requestWakeLock() {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                log("Screen Wake Lock active.", "system");
+
+                // Re-acquire lock if visibility changes (user switches apps)
+                document.addEventListener('visibilitychange', async () => {
+                    if (wakeLock !== null && document.visibilityState === 'visible') {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                    }
+                });
+            } catch (err) {
+                log(`Wake Lock Error: ${err.name}, ${err.message}`, "error");
+            }
+        }
+
         async function initComms() {
             try {
+                await requestWakeLock(); // Request lock on init
+
                 // Play silent audio to engage Media Session
                 await silentAudio.play();
                 log("Comms Initialized. Silent loop active.", "system");
@@ -458,7 +477,15 @@
         function speak(text) {
             console.time('speak');
             t_speak_req = performance.now();
+
+            // CRITICAL FIX: Cancel any pending speech.
+            // This unblocks the queue on Android/iOS Chrome.
+            window.speechSynthesis.cancel();
+
             const utterance = new SpeechSynthesisUtterance(text);
+
+            // Optimization: Force a faster rate for a more "robotic" efficient feel
+            utterance.rate = 1.1;
 
             utterance.onstart = () => {
                 const t_audio = performance.now();
