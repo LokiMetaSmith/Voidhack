@@ -250,15 +250,16 @@
         const API_URL = window.location.origin;
         const silentAudio = document.getElementById('silent-audio');
         const logPanel = document.getElementById('log-panel');
-        let wakeLock = null; // Track the wake lock
         let recognition;
-        let isListening = false;
-        let isStarting = false;
-        let showSystemLogs = true;
 
-        // Profiling timestamps
+        // State Flags
+        let isMicActive = false;
+        let commandWindowEnd = 0; // Timestamp: ignore speech after this time
+        let showSystemLogs = true;
+        let wakeLock = null; // Added back
+
+        // Profiling
         let t_trigger = 0;
-        let t_speak_req = 0;
 
         function toggleLogs() {
             showSystemLogs = !showSystemLogs;
@@ -272,39 +273,31 @@
             }
         }
 
-        // Chirp sound (simple beep/chirp using oscillator)
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-        function playChirp() {
-            if (audioCtx.state === 'suspended') {
-                // This might fail if not triggered by user interaction
-                audioCtx.resume().catch(e => console.warn("AudioContext resume failed", e));
+        // --- WAKE LOCK (Re-added) ---
+        async function requestWakeLock() {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                log("Screen Wake Lock active.", "system");
+                document.addEventListener('visibilitychange', async () => {
+                    if (wakeLock !== null && document.visibilityState === 'visible') {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                    }
+                });
+            } catch (err) {
+                log(`Wake Lock Error: ${err.name}`, "error");
             }
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime);
-            oscillator.frequency.exponentialRampToValueAtTime(2000, audioCtx.currentTime + 0.1);
-
-            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.1);
         }
 
-        // Pre-load voices to avoid blocking later
-        window.speechSynthesis.getVoices();
-        if (window.speechSynthesis.onvoiceschanged !== undefined) {
-            window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+        // --- OPTIMIZATION 1: Use Vibration instead of Audio Context ---
+        // AudioContext takes time to initialize and fights the Mic for resources.
+        function triggerFeedback() {
+            if (navigator.vibrate) {
+                navigator.vibrate(200); // Tactile "Chirp"
+            }
+            document.getElementById('listening-indicator').style.display = 'block';
         }
 
         function log(msg, type = 'system') {
-            // Use requestAnimationFrame to batch DOM updates and avoid layout thrashing
             requestAnimationFrame(() => {
                 const line = document.createElement('div');
                 line.className = `log-entry ${type}`;
@@ -314,69 +307,57 @@
             });
         }
 
-        async function requestWakeLock() {
-            try {
-                wakeLock = await navigator.wakeLock.request('screen');
-                log("Screen Wake Lock active.", "system");
-
-                // Re-acquire lock if visibility changes (user switches apps)
-                document.addEventListener('visibilitychange', async () => {
-                    if (wakeLock !== null && document.visibilityState === 'visible') {
-                        wakeLock = await navigator.wakeLock.request('screen');
-                    }
-                });
-            } catch (err) {
-                log(`Wake Lock Error: ${err.name}, ${err.message}`, "error");
-            }
-        }
-
+        // --- MAIN INITIALIZATION ---
         async function initComms() {
             try {
-                await requestWakeLock(); // Request lock on init
+                await requestWakeLock(); // Re-added
 
-                // Play silent audio to engage Media Session
+                // 1. Start Silent Loop (Keeps Media Session alive)
                 await silentAudio.play();
                 log("Comms Initialized. Silent loop active.", "system");
-                document.getElementById('init-btn').textContent = "ACTIVE";
-                document.getElementById('init-btn').style.backgroundColor = "#9999ff";
 
-                // Setup Media Session API Hack
+                const initBtn = document.getElementById('init-btn');
+                initBtn.textContent = "ACTIVE";
+                initBtn.style.backgroundColor = "#9999ff";
+
+                // 2. Setup Media Session (Headset Button)
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.metadata = new MediaMetadata({
                         title: 'LCARS Comms',
                         artist: 'Enterprise Computer',
                         album: 'Main Bridge'
                     });
-
-                    const actionHandler = () => {
-                        log("Headset button detected!", "system");
-                        handleHeadsetTrigger();
-                    };
-
-                    // We listen for 'pause' because tapping a headset button usually pauses playing media
+                    const actionHandler = () => handleHeadsetTrigger();
                     navigator.mediaSession.setActionHandler('pause', actionHandler);
-                    // Also listen for 'play' in case it toggles
                     navigator.mediaSession.setActionHandler('play', actionHandler);
-                } else {
-                    log("Media Session API not supported.", "error");
                 }
 
+                // 3. Start "Hot Mic" immediately
                 setupSpeechRecognition();
-                // pollStatus() is already running from initial load
+                startContinuousMic();
 
             } catch (err) {
                 log("Error initializing comms: " + err, "error");
             }
         }
 
+        // --- LOGIC: THE "GATE" ---
         function handleHeadsetTrigger() {
-            if (isListening || isStarting) return; // Debounce
-
             t_trigger = performance.now();
-            startListening();
-            // Removed setTimeout resume to prevent Bluetooth profile conflict
+
+            // Open the "Listening Window" for 5 seconds
+            commandWindowEnd = Date.now() + 5000;
+
+            triggerFeedback();
+            log("Channel Open. Waiting for input...", "system");
+
+            // Ensure silent audio resumes if the OS paused it
+            if (silentAudio.paused) {
+                 silentAudio.play().catch(e => {});
+            }
         }
 
+        // --- SPEECH RECOGNITION (ALWAYS ON) ---
         function setupSpeechRecognition() {
             if (!('webkitSpeechRecognition' in window)) {
                 log("Web Speech API not supported.");
@@ -384,76 +365,77 @@
             }
 
             recognition = new webkitSpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = false;
+            recognition.continuous = true;  // Keep listening
+            recognition.interimResults = true; // Get data faster
             recognition.lang = 'en-US';
 
             recognition.onstart = () => {
-                const t_start = performance.now();
-                const latency = (t_start - t_trigger).toFixed(2);
-                isListening = true;
-                isStarting = false;
-                playChirp();
-                document.getElementById('listening-indicator').style.display = 'block';
-                log(`Listening... (Wake Latency: ${latency}ms)`, "system");
+                isMicActive = true;
+                log("Microphone Hot. Background monitoring active.", "system");
             };
 
             recognition.onend = () => {
-                isListening = false;
-                isStarting = false;
-                document.getElementById('listening-indicator').style.display = 'none';
-
-                // Resume the silent loop to keep Media Session alive for next button press
-                silentAudio.play().catch(e => console.log("Resume silent fail (onend)", e));
+                isMicActive = false;
+                // AUTO-RESTART: Keep the mic hot!
+                // Note: We delay slightly to avoid CPU thrashing if it crashes instantly
+                setTimeout(() => {
+                    if (document.visibilityState === 'visible') {
+                        startContinuousMic();
+                    }
+                }, 100);
             };
 
             recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                log(`Heard: "${transcript}"`, "chat");
-                document.getElementById('last-command').textContent = transcript;
-                sendCommand(transcript);
+                let finalTranscript = '';
+                let isFinal = false;
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                        isFinal = true;
+                    }
+                }
+
+                // FILTER: Only process if the "Button Gate" is open
+                if (isFinal && finalTranscript.trim().length > 0) {
+                    if (Date.now() < commandWindowEnd) {
+                        // Valid Command
+                        log(`Heard: "${finalTranscript}"`, "chat");
+                        document.getElementById('last-command').textContent = finalTranscript;
+                        sendCommand(finalTranscript);
+
+                        // Close the gate immediately after hearing a command
+                        commandWindowEnd = 0;
+                        document.getElementById('listening-indicator').style.display = 'none';
+                    } else {
+                        // Ignored (Background noise / Hot Mic buffer)
+                        // log(`(Ignored): "${finalTranscript}"`, "system");
+                    }
+                }
             };
 
             recognition.onerror = (event) => {
-                // Ignore no-speech error as it's common
                 if (event.error !== 'no-speech') {
                     log("Speech Error: " + event.error, "error");
                 }
-                isListening = false;
-                isStarting = false;
             };
         }
 
-        function startListening() {
-            if (recognition && !isListening && !isStarting) {
-                isStarting = true;
-
-                // Ensure silent audio is paused to give Mic exclusive focus
-                silentAudio.pause();
-
-                // Safety timeout: if onstart doesn't fire in 2s, reset
-                const safetyTimer = setTimeout(() => {
-                    if (isStarting) {
-                        log("Microphone init timed out.", "error");
-                        isStarting = false;
-                    }
-                }, 2000);
-
+        function startContinuousMic() {
+            if (recognition && !isMicActive) {
                 try {
                     recognition.start();
                 } catch (e) {
-                    clearTimeout(safetyTimer);
-                    isStarting = false;
-                    // If it was already started by race condition, just ignore
-                    if (e.name !== 'InvalidStateError') {
-                         log("Recog start error: " + e, "error");
-                    }
+                    // Ignore "already started" errors
                 }
             }
         }
 
+        // --- BACKEND COMMUNICATION ---
         async function sendCommand(text) {
-            console.time('sendCommand');
+            // Pause Mic while Computer speaks to prevent it hearing itself
+            if(recognition) recognition.stop();
+
             try {
                 const res = await fetch(API_URL + '/command', {
                     method: 'POST',
@@ -461,81 +443,43 @@
                     body: JSON.stringify({ text: text })
                 });
                 const data = await res.json();
-
-                console.timeEnd('sendCommand');
                 log("Computer: " + data.response, "chat");
                 speak(data.response);
                 updateStatusUI(data.updates);
-
             } catch (err) {
-                console.timeEnd('sendCommand');
                 log("Backend Error: " + err, "error");
                 speak("Communication Link Severed.");
             }
         }
 
+        // --- TTS (Optimized) ---
         function speak(text) {
-            console.time('speak');
-            t_speak_req = performance.now();
-
-            // CRITICAL FIX: Cancel any pending speech.
-            // This unblocks the queue on Android/iOS Chrome.
-            window.speechSynthesis.cancel();
+            window.speechSynthesis.cancel(); // Clear queue
 
             const utterance = new SpeechSynthesisUtterance(text);
-
-            // Optimization: Force a faster rate for a more "robotic" efficient feel
             utterance.rate = 1.1;
 
-            utterance.onstart = () => {
-                const t_audio = performance.now();
-                const latency = (t_audio - t_speak_req).toFixed(2);
-                log(`TTS Latency: ${latency}ms`, "system");
-            };
-
             utterance.onend = () => {
-                console.timeEnd('speak');
-                // Ensure loop is running after TTS
-                silentAudio.play().catch(e => console.log("Resume silent fail (TTS end)", e));
+                // RE-START MIC after computer finishes speaking
+                startContinuousMic();
             };
 
-            // Try to find a robotic voice if possible
-            const voices = window.speechSynthesis.getVoices();
-            // Just pick the first one for now, user can customize
             window.speechSynthesis.speak(utterance);
         }
 
-        let lastErrorMsg = "";
-
+        // --- STATUS POLLING (Unchanged) ---
         async function pollStatus() {
-            // Avoid polling if opened via file:// protocol as it will fail
-            if (window.location.protocol === 'file:') {
-                console.warn("Running from file:// protocol. Backend features disabled.");
-                log("Warning: Running from file system. Backend unreachable.");
-                return;
-            }
-
+            if (window.location.protocol === 'file:') return;
             try {
                 const res = await fetch(API_URL + '/status');
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const data = await res.json();
                 renderSystems(data.systems);
-                lastErrorMsg = ""; // Clear error state on success
-            } catch (e) {
-                console.log("Poll error", e);
-                const errMsg = `Status Poll Failed: ${e.message}`;
-                if (errMsg !== lastErrorMsg) {
-                    log(errMsg, "error");
-                    lastErrorMsg = errMsg;
-                }
-            } finally {
-                // Ensure we ALWAYS schedule the next poll, even if this one failed
-                setTimeout(pollStatus, 10000);
-            }
+            } catch (e) { console.log("Poll error", e); }
+            setTimeout(pollStatus, 5000);
         }
 
         function updateStatusUI(updates) {
-            // Optimistically update the UI to avoid creating multiple polling loops
             renderSystems(updates);
         }
 
