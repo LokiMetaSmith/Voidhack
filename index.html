@@ -374,13 +374,7 @@
 
             t_trigger = performance.now();
             startListening();
-
-            // Resume silent audio after a moment so we are ready for next tap
-            // If we pause immediately, the browser might not let us resume without user gesture?
-            // Actually, since we are in the event handler of a media key, we are 'blessed'
-            setTimeout(() => {
-                silentAudio.play().catch(e => console.log("Resume silent fail", e));
-            }, 500);
+            // Removed setTimeout resume to prevent Bluetooth profile conflict
         }
 
         function setupSpeechRecognition() {
@@ -408,6 +402,9 @@
                 isListening = false;
                 isStarting = false;
                 document.getElementById('listening-indicator').style.display = 'none';
+
+                // Resume the silent loop to keep Media Session alive for next button press
+                silentAudio.play().catch(e => console.log("Resume silent fail (onend)", e));
             };
 
             recognition.onresult = (event) => {
@@ -430,6 +427,9 @@
         function startListening() {
             if (recognition && !isListening && !isStarting) {
                 isStarting = true;
+
+                // Ensure silent audio is paused to give Mic exclusive focus
+                silentAudio.pause();
 
                 // Safety timeout: if onstart doesn't fire in 2s, reset
                 const safetyTimer = setTimeout(() => {
@@ -493,7 +493,12 @@
                 log(`TTS Latency: ${latency}ms`, "system");
             };
 
-            utterance.onend = () => console.timeEnd('speak');
+            utterance.onend = () => {
+                console.timeEnd('speak');
+                // Ensure loop is running after TTS
+                silentAudio.play().catch(e => console.log("Resume silent fail (TTS end)", e));
+            };
+
             // Try to find a robotic voice if possible
             const voices = window.speechSynthesis.getVoices();
             // Just pick the first one for now, user can customize
