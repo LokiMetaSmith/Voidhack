@@ -499,13 +499,13 @@
             if (recognition && !isListening && !isStarting) {
                 isStarting = true;
 
-                // Safety timeout: if onstart doesn't fire in 2s, reset
+                // Safety timeout: if onstart doesn't fire in 8s, reset
                 const safetyTimer = setTimeout(() => {
                     if (isStarting) {
                         log("Microphone init timed out.", "error");
                         isStarting = false;
                     }
-                }, 2000);
+                }, 8000);
 
                 try {
                     recognition.start();

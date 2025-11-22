@@ -179,16 +179,15 @@ def process_command(req: CommandRequest):
     current_status = get_current_status_dict()
 
     # 1. Call Ollama to interpret intent
-    prompt = f"""
+    # Qwen and other chat models perform better with structured prompts when using the raw generate endpoint.
+    prompt = f"""<|im_start|>system
 You are the intelligent computer of the Starship Enterprise.
 Current Ship Status: {json.dumps(current_status)}
-User Command: "{req.text}"
-
-Your goal is to interpret the command and update ship systems.
+Your goal is to interpret the user's command and update ship systems.
 Valid systems: shields, impulse, warp, phasers, life_support.
 Values must be integers between 0 and 100.
 
-Return ONLY a JSON object with two keys:
+Return ONLY a valid JSON object with two keys:
 1. "updates": a dictionary of system names and their new levels.
 2. "response": a short, robotic spoken response confirming the action.
 
@@ -197,6 +196,11 @@ Example:
   "updates": {{"shields": 50, "phasers": 100}},
   "response": "Shields at 50 percent. Phasers armed."
 }}
+<|im_end|>
+<|im_start|>user
+{req.text}
+<|im_end|>
+<|im_start|>assistant
 """
 
     llm_output = {}
@@ -228,6 +232,7 @@ Example:
                             eval_duration = chunk.get("eval_duration", 0)
                             print(f"Ollama Stats: eval_count={eval_count}, eval_duration={eval_duration}ns")
 
+        print(f"Ollama Raw Response: {full_response_text}")
         llm_output = json.loads(full_response_text)
 
     except requests.exceptions.HTTPError as e:
