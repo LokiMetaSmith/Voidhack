@@ -36,7 +36,7 @@ app.add_middleware(
 
 DB_FILE = "ship_state.db"
 OLLAMA_DEFAULT_HOST = "http://localhost:11434"
-MODEL_NAME = "qwen3:14b"  # User can change this via env var if needed
+MODEL_NAME = "llama3.2:3b"  # User can change this via env var if needed
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -178,74 +178,77 @@ def mock_llm_logic(text):
 def process_command(req: CommandRequest):
     current_status = get_current_status_dict()
 
-    # 1. Call Ollama to interpret intent
-    prompt = f"""
-You are the intelligent computer of the Starship Enterprise.
-Current Ship Status: {json.dumps(current_status)}
-User Command: "{req.text}"
+    # OPTIMIZATION: Check for exact keywords first (0ms latency)
+    text_lower = req.text.lower()
+    fast_response = None
 
-Your goal is to interpret the command and update ship systems.
-Valid systems: shields, impulse, warp, phasers, life_support.
-Values must be integers between 0 and 100.
+    if "status" in text_lower and len(text_lower) < 20:
+        fast_response = {"updates": {}, "response": "Systems nominal. displaying current status."}
+    elif "shields up" in text_lower:
+        fast_response = {"updates": {"shields": 100}, "response": "Shields raised."}
 
-Return ONLY a JSON object with two keys:
-1. "updates": a dictionary of system names and their new levels.
-2. "response": a short, robotic spoken response confirming the action.
+    if fast_response:
+        # Skip Ollama entirely for these commands
+        updates = fast_response["updates"]
+        response_text = fast_response["response"]
+    else:
+        # CHANGE 2: drastic prompt reduction for speed
+        # We remove "fluff" and ask for strict JSON.
+        prompt = f"""
+System: Starship Enterprise Computer.
+Status: {json.dumps(current_status)}
+Command: "{req.text}"
 
-Example:
-{{
-  "updates": {{"shields": 50, "phasers": 100}},
-  "response": "Shields at 50 percent. Phasers armed."
-}}
-"""
+Task: Update systems (shields, impulse, warp, phasers, life_support) 0-100.
+Output: JSON object with "updates" (dict) and "response" (short spoken string).
+""".strip()
 
-    llm_output = {}
-    try:
-        # Try to connect to Ollama
-        ollama_req = {
-            "model": os.environ.get("OLLAMA_MODEL", MODEL_NAME),
-            "prompt": prompt,
-            "stream": True,
-            "format": "json"
-        }
-        _, ollama_generate_url = get_ollama_config()
+        llm_output = {}
+        try:
+            ollama_req = {
+                "model": os.environ.get("OLLAMA_MODEL", MODEL_NAME),
+                "prompt": prompt,
+                "stream": False, # CHANGE 3: Turn off streaming for simple JSON tasks to reduce overhead
+                "format": "json",
+                "options": {
+                    "num_predict": 128, # CHANGE 4: Limit output tokens (prevents long rambles)
+                    "temperature": 0.1  # Make it deterministic and faster
+                }
+            }
 
-        # Attempt connection with longer timeout
-        full_response_text = ""
-        eval_count = 0
+            _, ollama_generate_url = get_ollama_config()
 
-        with profile_block("Ollama API Call"):
-            with requests.post(ollama_generate_url, json=ollama_req, stream=True, timeout=30) as res:
-                res.raise_for_status()
+            # Attempt connection with longer timeout
+            full_response_text = ""
+            eval_count = 0
 
-                for line in res.iter_lines():
-                    if line:
-                        chunk = json.loads(line.decode('utf-8'))
-                        if not chunk.get("done"):
-                            full_response_text += chunk.get("response", "")
-                        else:
-                            eval_count = chunk.get("eval_count", 0)
-                            eval_duration = chunk.get("eval_duration", 0)
-                            print(f"Ollama Stats: eval_count={eval_count}, eval_duration={eval_duration}ns")
+            with profile_block("Ollama API Call"):
+                with requests.post(ollama_generate_url, json=ollama_req, stream=False, timeout=30) as res:
+                    res.raise_for_status()
+                    response_json = res.json()
+                    full_response_text = response_json.get("response", "")
+                    eval_count = response_json.get("eval_count", 0)
+                    eval_duration = response_json.get("eval_duration", 0)
+                    print(f"Ollama Stats: eval_count={eval_count}, eval_duration={eval_duration}ns")
 
-        llm_output = json.loads(full_response_text)
+            llm_output = json.loads(full_response_text)
 
-    except requests.exceptions.HTTPError as e:
-        ollama_generate_url = get_ollama_config()[1]
-        print(f"Ollama HTTP Error at {ollama_generate_url}: {e}")
-        # Attempt to print the response text which might contain the error details (e.g. 'model not found')
-        if e.response is not None:
-             print(f"Ollama Response Body: {e.response.text}")
-        print("Using mock logic.")
-        llm_output = mock_llm_logic(req.text)
-    except Exception as e:
-        # Fallback to mock logic if Ollama is down or errors
-        print(f"Ollama not reachable at {ollama_generate_url}. Error: {e}")
-        print("Using mock logic.")
-        llm_output = mock_llm_logic(req.text)
+        except requests.exceptions.HTTPError as e:
+            ollama_generate_url = get_ollama_config()[1]
+            print(f"Ollama HTTP Error at {ollama_generate_url}: {e}")
+            # Attempt to print the response text which might contain the error details (e.g. 'model not found')
+            if e.response is not None:
+                 print(f"Ollama Response Body: {e.response.text}")
+            print("Using mock logic.")
+            llm_output = mock_llm_logic(req.text)
+        except Exception as e:
+            # Fallback to mock logic if Ollama is down or errors
+            print(f"Ollama not reachable at {ollama_generate_url}. Error: {e}")
+            print("Using mock logic.")
+            llm_output = mock_llm_logic(req.text)
 
-    updates = llm_output.get("updates", {})
-    response_text = llm_output.get("response", "Unable to comply.")
+        updates = llm_output.get("updates", {})
+        response_text = llm_output.get("response", "Unable to comply.")
 
     # 2. Update DB
     with profile_block("DB Update"):
