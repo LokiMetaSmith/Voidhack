@@ -204,6 +204,93 @@
             50% { opacity: 0; }
         }
 
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            /* Tablet */
+            .lcars-container {
+                grid-template-columns: 120px 1fr;
+            }
+            .lcars-header {
+                font-size: 36px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            /* Mobile */
+            .lcars-container {
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                overflow-y: auto;
+                gap: 5px;
+            }
+
+            .lcars-header {
+                height: 60px;
+                font-size: 24px;
+                border-radius: 0 0 0 20px;
+                padding-right: 10px;
+            }
+
+            .lcars-sidebar {
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 5px;
+                height: auto;
+                order: 3; /* Move to bottom on mobile */
+                padding-bottom: 10px;
+            }
+
+            .lcars-button {
+                flex: 1;
+                height: 50px;
+                font-size: 16px;
+                border-radius: 10px;
+                justify-content: center;
+                padding-right: 0;
+            }
+
+            .lcars-spacer, .lcars-elbow {
+                display: none;
+            }
+
+            .lcars-main {
+                order: 2;
+                border-radius: 10px;
+                padding: 10px;
+                grid-template-columns: 1fr;
+                overflow-y: visible;
+                flex-grow: 1;
+            }
+
+            .status-panel {
+                gap: 10px;
+            }
+
+            .system-display {
+                width: 80px;
+            }
+
+            .bar-container {
+                width: 30px;
+                height: 150px;
+            }
+
+            .system-name {
+                font-size: 14px;
+            }
+
+            .system-value {
+                font-size: 18px;
+            }
+
+            .lcars-footer {
+                order: 4;
+                text-align: center;
+                padding: 5px;
+            }
+        }
+
     </style>
 </head>
 <body>
