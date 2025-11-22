@@ -254,6 +254,7 @@
 
         // State Flags
         let isMicActive = false;
+        let isSystemSpeaking = false; // Flag to prevent Mic restart during TTS
         let commandWindowEnd = 0; // Timestamp: ignore speech after this time
         let showSystemLogs = true;
         let wakeLock = null; // Added back
@@ -375,6 +376,10 @@
                     // Prompt user after a brief delay to ensure systems are ready
                     setTimeout(() => {
                         speak("Communication link established. Please state your identity.");
+                        // Open the gate automatically for the reply
+                        commandWindowEnd = Date.now() + 10000;
+                        triggerFeedback();
+                        log("Channel Open for Identity Confirmation...", "system");
                     }, 1000);
                 } else {
                      log(`Identity confirmed: ${savedHandle}`, "system");
@@ -416,15 +421,19 @@
             recognition.onstart = () => {
                 isMicActive = true;
                 log("Microphone Hot. Background monitoring active.", "system");
+                // Try to keep the button alive
+                if (silentAudio.paused) silentAudio.play().catch(e => {});
             };
 
             recognition.onend = () => {
                 isMicActive = false;
                 // AUTO-RESTART: Keep the mic hot!
-                // Note: We delay slightly to avoid CPU thrashing if it crashes instantly
+                // Only if the system ISN'T speaking (prevent echo)
                 setTimeout(() => {
-                    if (document.visibilityState === 'visible') {
+                    if (document.visibilityState === 'visible' && !isSystemSpeaking) {
                         startContinuousMic();
+                        // Ensure button stays alive
+                        if (silentAudio.paused) silentAudio.play().catch(e => {});
                     }
                 }, 100);
             };
@@ -488,6 +497,7 @@
         // --- BACKEND COMMUNICATION ---
         async function sendCommand(text) {
             // Pause Mic while Computer speaks to prevent it hearing itself
+            isSystemSpeaking = true;
             if(recognition) recognition.stop();
 
             try {
@@ -514,8 +524,11 @@
             utterance.rate = 1.1;
 
             utterance.onend = () => {
+                isSystemSpeaking = false;
                 // RE-START MIC after computer finishes speaking
                 startContinuousMic();
+                // Restore silent loop for button
+                silentAudio.play().catch(e => {});
             };
 
             window.speechSynthesis.speak(utterance);
@@ -523,6 +536,11 @@
 
         // --- STATUS POLLING (Unchanged) ---
         async function pollStatus() {
+            // Fail-safe: Ensure silent audio is playing to keep button alive
+            if (silentAudio.paused && !isSystemSpeaking) {
+                 silentAudio.play().catch(e => {});
+            }
+
             if (window.location.protocol === 'file:') return;
             try {
                 const res = await fetch(API_URL + '/status');
