@@ -212,7 +212,7 @@ Example:
 
         # Attempt connection with short timeout
         with profile_block("Ollama API Call"):
-            res = requests.post(ollama_chat_url, json=ollama_req, timeout=2)
+            res = requests.post(ollama_chat_url, json=ollama_req, timeout=30)
             res.raise_for_status()
             result_json = res.json()
 
