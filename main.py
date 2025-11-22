@@ -36,7 +36,7 @@ app.add_middleware(
 
 DB_FILE = "ship_state.db"
 OLLAMA_DEFAULT_HOST = "http://localhost:11434"
-MODEL_NAME = "llama3.2:3b"  # User can change this via env var if needed
+MODEL_NAME = "qwen2.5:1.5b"  # User can change this via env var if needed
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
