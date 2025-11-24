@@ -204,6 +204,12 @@
             50% { opacity: 0; }
         }
 
+        @keyframes flash-gold {
+            0% { background-color: var(--lcars-bg); }
+            50% { background-color: #554400; }
+            100% { background-color: var(--lcars-bg); }
+        }
+
     </style>
 </head>
 <body>
@@ -626,6 +632,12 @@
                 });
                 const data = await res.json();
 
+                // Check for Rank Up (Game Feature)
+                if (data.updates && data.updates.rank_up) {
+                    playRankUpSound();
+                    triggerRankAnimation(data.updates.rank_up);
+                }
+
                 if (!skipTTS) {
                     log("Computer: " + data.response, "chat");
                     speak(data.response);
@@ -640,6 +652,40 @@
                 log("Backend Error: " + err, "error");
                 if (!skipTTS) speak("Communication Link Severed.");
             }
+        }
+
+        function playRankUpSound() {
+            // The TNG "Boatswain Whistle"
+            new Audio('https://www.trekcore.com/audio/communications/boatswainwhistle.mp3').play().catch(e => console.log("Audio play error", e));
+        }
+
+        function triggerRankAnimation(newRank) {
+            // Flash the screen Gold/Yellow
+            document.body.style.animation = "flash-gold 1s";
+
+            // Show overlay message
+            const overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100%';
+            overlay.style.height = '100%';
+            overlay.style.display = 'flex';
+            overlay.style.flexDirection = 'column';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.style.zIndex = '1000';
+            overlay.style.pointerEvents = 'none'; // Click through
+            overlay.innerHTML = `<span style="color: #FFD700; font-size: 3em; font-weight: bold; text-shadow: 0 0 20px gold; text-align: center;">
+                ⚠ PROMOTION AUTHORIZED ⚠<br><span style="font-size: 0.8em; color: white;">RANK: ${newRank.toUpperCase()}</span>
+            </span>`;
+
+            document.body.appendChild(overlay);
+
+            setTimeout(() => {
+                document.body.style.animation = "";
+                overlay.remove();
+            }, 3000);
         }
 
         // --- TTS (Optimized) ---
