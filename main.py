@@ -92,7 +92,8 @@ def init_db():
             rank TEXT DEFAULT 'Ensign',
             current_location TEXT DEFAULT 'Bridge',
             mission_stage INTEGER DEFAULT 1,
-            rank_level INTEGER DEFAULT 0
+            rank_level INTEGER DEFAULT 0,
+            xp INTEGER DEFAULT 0
         )
     ''')
 
@@ -107,6 +108,10 @@ def init_db():
         pass
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN rank_level INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN xp INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
 
@@ -239,6 +244,16 @@ def get_status():
     systems["neural_net"] = check_llm_status_non_blocking()
     return {"systems": systems}
 
+@app.get("/leaderboard")
+def get_leaderboard():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, rank, xp FROM users ORDER BY rank_level DESC, xp DESC LIMIT 10")
+    rows = cursor.fetchall()
+    conn.close()
+    return {"leaderboard": [dict(row) for row in rows]}
+
 @profile_time("Mock Logic")
 def mock_llm_logic(text):
     text = text.lower()
@@ -327,7 +342,8 @@ def promote_user(uuid):
 
     if current_level < max_rank:
         new_level = current_level + 1
-        c.execute("UPDATE users SET rank_level = ? WHERE user_id = ?", (new_level, uuid))
+        # Bonus XP for promotion
+        c.execute("UPDATE users SET rank_level = ?, xp = xp + 1000 WHERE user_id = ?", (new_level, uuid))
 
         # Get new title for response
         c.execute("SELECT title FROM ranks WHERE level = ?", (new_level,))
@@ -473,6 +489,11 @@ Output: JSON object with "updates" (dict) and "response" (spoken string).
         cursor = conn.cursor()
         for system, level in updates.items():
             cursor.execute('UPDATE systems SET level = ? WHERE name = ?', (level, system))
+
+        # Award small XP for interaction if user is registered and not just status/wake word
+        if req.user_id and len(updates) > 0:
+             cursor.execute("UPDATE users SET xp = xp + 10 WHERE user_id = ?", (req.user_id,))
+
         conn.commit()
         conn.close()
 
