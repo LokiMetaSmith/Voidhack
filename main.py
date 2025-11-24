@@ -8,6 +8,7 @@ import json
 import os
 import logging
 import time
+import threading
 from profiling_utils import profile_time, profile_block
 
 class EndpointFilter(logging.Filter):
@@ -80,6 +81,23 @@ def get_current_status_dict():
 @app.get("/")
 async def read_index():
     return FileResponse('index.html')
+
+def preload_model():
+    """Wakes up Ollama on startup to avoid cold start latency."""
+    base_url, generate_url = get_ollama_config()
+    print(f"Attempting to pre-load model {MODEL_NAME} at {generate_url}...")
+    try:
+        requests.post(generate_url, json={
+            "model": os.environ.get("OLLAMA_MODEL", MODEL_NAME),
+            "prompt": "",
+            "keep_alive": -1 # Keep loaded indefinitely (or until default timeout)
+        }, timeout=1)
+    except Exception as e:
+        print(f"Pre-load warning: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    threading.Thread(target=preload_model).start()
 
 def get_ollama_config():
     host = os.environ.get("OLLAMA_HOST", OLLAMA_DEFAULT_HOST).rstrip("/")
@@ -184,8 +202,20 @@ def process_command(req: CommandRequest):
 
     if "status" in text_lower and len(text_lower) < 20:
         fast_response = {"updates": {}, "response": "Systems nominal. displaying current status."}
-    elif "shields up" in text_lower:
-        fast_response = {"updates": {"shields": 100}, "response": "Shields raised."}
+    elif "shields" in text_lower:
+        if "up" in text_lower or "raise" in text_lower or "maximum" in text_lower:
+             fast_response = {"updates": {"shields": 100}, "response": "Shields raised."}
+        elif "down" in text_lower or "lower" in text_lower:
+             fast_response = {"updates": {"shields": 0}, "response": "Shields lowered."}
+    elif "red alert" in text_lower:
+         fast_response = {"updates": {"shields": 100, "phasers": 100}, "response": "Red Alert! Shields and Phasers at maximum."}
+    elif "warp" in text_lower:
+        if "engage" in text_lower or "go" in text_lower:
+            fast_response = {"updates": {"warp": 90}, "response": "Warp drive engaged."}
+        elif "stop" in text_lower or "disengage" in text_lower:
+             fast_response = {"updates": {"warp": 0}, "response": "Warp drive disengaged."}
+    elif "phaser" in text_lower and ("arm" in text_lower or "lock" in text_lower):
+        fast_response = {"updates": {"phasers": 100}, "response": "Phasers armed."}
 
     if fast_response:
         # Skip Ollama entirely for these commands
