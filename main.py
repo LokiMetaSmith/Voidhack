@@ -113,34 +113,43 @@ def get_ollama_config():
 # Global cache for LLM status
 _llm_status_cache = {"status": 0, "timestamp": 0}
 _llm_status_ttl = 60  # cache for 60 seconds
+_status_lock = threading.Lock()
 
-def check_llm_status():
+def update_llm_status_background():
+    """Updates the LLM status in a background thread."""
     global _llm_status_cache
-    now = time.time()
-
-    # Return cached value if valid
-    if now - _llm_status_cache["timestamp"] < _llm_status_ttl:
-        return _llm_status_cache["status"]
-
     base_url, _ = get_ollama_config()
+
+    # Check if we need to update
+    with _status_lock:
+        now = time.time()
+        if now - _llm_status_cache["timestamp"] < _llm_status_ttl:
+            return
+
+    # Perform check (blocking, but in a thread)
     try:
-        # Simple check to see if server is responding
         requests.get(base_url, timeout=0.2)
         status = 100
     except Exception:
         status = 0
 
-    # Update cache
-    _llm_status_cache = {"status": status, "timestamp": now}
-    return status
+    with _status_lock:
+        _llm_status_cache = {"status": status, "timestamp": time.time()}
+
+def check_llm_status_non_blocking():
+    """Returns the cached status immediately. Triggers update if stale."""
+    # Fire and forget update if needed
+    threading.Thread(target=update_llm_status_background).start()
+
+    with _status_lock:
+        return _llm_status_cache["status"]
 
 @app.get("/status", response_model=StatusResponse)
 @profile_time("Status Endpoint")
 def get_status():
     systems = get_current_status_dict()
-    # Inject Neural Net status
-    with profile_block("Ollama Connectivity Check"):
-        systems["neural_net"] = check_llm_status()
+    # Inject Neural Net status (Non-blocking)
+    systems["neural_net"] = check_llm_status_non_blocking()
     return {"systems": systems}
 
 @profile_time("Mock Logic")
@@ -257,9 +266,16 @@ Output: JSON object with "updates" (dict) and "response" (short spoken string).
                     res.raise_for_status()
                     response_json = res.json()
                     full_response_text = response_json.get("response", "")
+
+                    # Detailed Logging
                     eval_count = response_json.get("eval_count", 0)
                     eval_duration = response_json.get("eval_duration", 0)
-                    print(f"Ollama Stats: eval_count={eval_count}, eval_duration={eval_duration}ns")
+                    prompt_eval_count = response_json.get("prompt_eval_count", 0)
+                    prompt_eval_duration = response_json.get("prompt_eval_duration", 0)
+                    load_duration = response_json.get("load_duration", 0)
+                    total_duration = response_json.get("total_duration", 0)
+
+                    print(f"Ollama Stats: Total={total_duration/1e9:.2f}s, Load={load_duration/1e9:.2f}s, Prompt={prompt_eval_duration/1e9:.2f}s, Gen={eval_duration/1e9:.2f}s")
 
             llm_output = json.loads(full_response_text)
 
