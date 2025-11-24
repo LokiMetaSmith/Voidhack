@@ -274,6 +274,7 @@
         // Profiling
         let t_trigger = 0;
         let lastInterimTime = 0; // Track when we last heard silence
+        let listeningTimeout = null; // Auto-close window if no speech
 
         // Audio Context for Chirp
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -403,8 +404,7 @@
                     setTimeout(() => {
                         speak("Communication link established. Please state your identity.");
                         // Open the gate automatically for the reply
-                        commandWindowEnd = Date.now() + 10000;
-                        triggerFeedback();
+                        openChannel(10000);
                         log("Channel Open for Identity Confirmation...", "system");
                     }, 1000);
                 } else {
@@ -419,12 +419,24 @@
         // --- LOGIC: THE "GATE" ---
         function handleHeadsetTrigger() {
             t_trigger = performance.now();
+            openChannel(5000);
+            log("Channel Open. Waiting for input...", "system");
+        }
 
-            // Open the "Listening Window" for 5 seconds
-            commandWindowEnd = Date.now() + 5000;
+        function openChannel(durationMs) {
+            commandWindowEnd = Date.now() + durationMs;
 
             triggerFeedback();
-            log("Channel Open. Waiting for input...", "system");
+
+            // Reset Timeout
+            if (listeningTimeout) clearTimeout(listeningTimeout);
+            listeningTimeout = setTimeout(() => {
+                // If window closed and we are still "Listening", close UI
+                if (Date.now() >= commandWindowEnd) {
+                    document.getElementById('listening-indicator').style.display = 'none';
+                    // Optional: log("Channel Closed (Timeout).", "system");
+                }
+            }, durationMs + 100); // Small buffer
 
             // Ensure silent audio resumes if the OS paused it
             if (silentAudio.paused) {
@@ -561,6 +573,7 @@
         function handleInstantCommand(text, cmdData) {
             // Close gate
             commandWindowEnd = 0;
+            if (listeningTimeout) clearTimeout(listeningTimeout); // Stop timeout
             document.getElementById('listening-indicator').style.display = 'none';
             document.getElementById('last-command').textContent = text;
 
