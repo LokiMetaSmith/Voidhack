@@ -249,7 +249,9 @@ Output: JSON object with "updates" (dict) and "response" (short spoken string).
                 "prompt": prompt,
                 "stream": False, # CHANGE 3: Turn off streaming for simple JSON tasks to reduce overhead
                 "format": "json",
+                "keep_alive": -1, # Enforce model stays loaded indefinitely
                 "options": {
+                    "num_ctx": 2048,    # Limit context window to reduce memory usage
                     "num_predict": 128, # CHANGE 4: Limit output tokens (prevents long rambles)
                     "temperature": 0.1  # Make it deterministic and faster
                 }
