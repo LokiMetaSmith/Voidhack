@@ -300,6 +300,19 @@ def update_location(req: LocationUpdate):
     print(f"User {req.user_id} moved to {match}")
     return {"status": "success", "location": match, "message": f"Transport complete. Welcome to {match}."}
 
+class EventRequest(BaseModel):
+    user_id: str
+
+@app.post("/event/radiation_cleared")
+def event_radiation_cleared(req: EventRequest):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    # Award Medium XP
+    cursor.execute("UPDATE users SET xp = xp + 25 WHERE user_id = ?", (req.user_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "success", "xp_awarded": 25}
+
 @profile_time("Mock Logic")
 def mock_llm_logic(text):
     text = text.lower()

@@ -237,6 +237,17 @@
             100% { background-color: var(--lcars-bg); }
         }
 
+        @keyframes pulse-red {
+            0% { box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0); }
+            50% { box-shadow: inset 0 0 50px 20px rgba(255, 0, 0, 0.5); }
+            100% { box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+
+        .radiation-active {
+            animation: pulse-red 1s infinite;
+            border-color: red !important;
+        }
+
     </style>
 </head>
 <body>
@@ -311,6 +322,11 @@
         let wakeLock = null; // Added back
         let isOnboarding = false; // Flag for first-time user setup
         let userId = localStorage.getItem('lcars_user_id');
+
+        // Radiation Game State
+        let isRadiationActive = false;
+        let repairProgress = 0;
+        let geigerInterval = null;
 
         if (!userId) {
             userId = 'user_' + Math.random().toString(36).substr(2, 9);
@@ -423,6 +439,24 @@
 
                 oscillator.start();
                 oscillator.stop(audioCtx.currentTime + 0.15);
+            } else if (type === 'geiger') {
+                // Short burst of white noise
+                const bufferSize = audioCtx.sampleRate * 0.01; // 10ms
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+
+                const gain = audioCtx.createGain();
+                gain.gain.value = 0.5;
+
+                noise.connect(gain);
+                gain.connect(audioCtx.destination);
+                noise.start();
             }
         }
 
@@ -525,6 +559,12 @@
 
         // --- LOGIC: THE "GATE" ---
         function handleHeadsetTrigger() {
+            // Radiation Logic Override
+            if (isRadiationActive) {
+                repairRadiation();
+                return;
+            }
+
             t_trigger = performance.now();
             openChannel(5000);
             log("Channel Open. Waiting for input...", "system");
@@ -686,6 +726,49 @@
                     // Ignore "already started" errors
                 }
             }
+        }
+
+        // --- RADIATION MINI-GAME ---
+        function triggerRadiationLeak() {
+            if (isRadiationActive) return;
+            isRadiationActive = true;
+            repairProgress = 0;
+
+            log("WARNING: RADIATION LEAK DETECTED.", "error");
+            document.body.classList.add('radiation-active');
+            speak("Warning. Radiation leak detected. Tap interaction button to calibrate shields.");
+
+            // Start Audio Loop
+            geigerInterval = setInterval(() => {
+                playChirp('geiger');
+            }, 200); // Initial speed
+        }
+
+        function repairRadiation() {
+            repairProgress += 10;
+
+            // Visual Feedback
+            log(`Calibrating Shields... ${repairProgress}%`, "system");
+            playChirp('processing');
+
+            if (repairProgress >= 100) {
+                clearRadiationLeak();
+            }
+        }
+
+        function clearRadiationLeak() {
+            isRadiationActive = false;
+            clearInterval(geigerInterval);
+            document.body.classList.remove('radiation-active');
+            log("Radiation leak contained. Systems normalizing.", "system");
+            speak("Shield calibration complete. Radiation levels normal.");
+
+            // Award XP
+            fetch(API_URL + '/event/radiation_cleared', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+            }).catch(e => console.error("XP Error", e));
         }
 
         // --- INSTANT COMMAND HANDLER ---
@@ -863,6 +946,12 @@
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const data = await res.json();
                 renderSystems(data.systems);
+
+                // Random Radiation Event (Example: 1% chance per poll)
+                if (Math.random() < 0.01 && !isRadiationActive) {
+                    triggerRadiationLeak();
+                }
+
             } catch (e) { console.log("Poll error", e); }
             setTimeout(pollStatus, 5000);
         }
