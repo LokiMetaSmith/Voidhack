@@ -180,6 +180,33 @@
             display: none;
         }
 
+        /* Leaderboard */
+        .leaderboard-panel {
+            grid-column: 1 / -1;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: var(--lcars-orange);
+            font-size: 1.2em;
+        }
+
+        .leaderboard-table th {
+            text-align: left;
+            border-bottom: 2px solid var(--lcars-purple);
+            padding: 5px;
+            color: var(--lcars-purple);
+        }
+
+        .leaderboard-table td {
+            padding: 5px;
+            border-bottom: 1px solid #333;
+        }
+
         /* Footer */
         .lcars-footer {
             grid-column: 1 / -1;
@@ -221,7 +248,8 @@
 
         <div class="lcars-sidebar">
             <div class="lcars-button" id="init-btn" onclick="initComms()">INIT COMMS</div>
-            <div class="lcars-button">MODE</div>
+            <div class="lcars-button" id="mode-btn" onclick="toggleView('status')">STATUS</div>
+            <div class="lcars-button" id="leaderboard-btn" onclick="toggleView('leaderboard')">RANK</div>
             <div class="lcars-button" id="logs-btn" onclick="toggleLogs()">LOGS</div>
             <div class="lcars-spacer"></div>
             <div class="lcars-elbow"></div>
@@ -230,6 +258,22 @@
         <div class="lcars-main">
             <div class="status-panel" id="status-panel">
                 <!-- Systems generated here -->
+            </div>
+
+            <div class="leaderboard-panel" id="leaderboard-panel">
+                <h3>PERSONNEL RECORDS</h3>
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>RANK</th>
+                            <th>NAME</th>
+                            <th>XP</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                        <!-- Rows injected here -->
+                    </tbody>
+                </table>
             </div>
 
             <div style="grid-column: 1/-1; text-align: center;">
@@ -290,6 +334,49 @@
 
         // Audio Context for Chirp
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        async function toggleView(viewName) {
+            const statusPanel = document.getElementById('status-panel');
+            const leaderboardPanel = document.getElementById('leaderboard-panel');
+            const modeBtn = document.getElementById('mode-btn');
+            const rankBtn = document.getElementById('leaderboard-btn');
+
+            if (viewName === 'leaderboard') {
+                statusPanel.style.display = 'none';
+                leaderboardPanel.style.display = 'flex';
+                rankBtn.classList.add('active');
+                modeBtn.classList.remove('active');
+
+                // Fetch Data
+                await fetchLeaderboard();
+            } else {
+                statusPanel.style.display = 'flex';
+                leaderboardPanel.style.display = 'none';
+                rankBtn.classList.remove('active');
+                modeBtn.classList.add('active');
+            }
+        }
+
+        async function fetchLeaderboard() {
+            try {
+                const res = await fetch(API_URL + '/leaderboard');
+                const data = await res.json();
+                const tbody = document.getElementById('leaderboard-body');
+                tbody.innerHTML = '';
+
+                data.leaderboard.forEach(user => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${user.rank.toUpperCase()}</td>
+                        <td>${user.name}</td>
+                        <td>${user.xp}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error("Failed to fetch leaderboard", e);
+            }
+        }
 
         function toggleLogs() {
             showSystemLogs = !showSystemLogs;
