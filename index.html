@@ -260,6 +260,17 @@
         let wakeLock = null; // Added back
         let isOnboarding = false; // Flag for first-time user setup
 
+        // INSTANT COMMAND CONFIG (Turbo Mode)
+        const PRE_DEFINED_COMMANDS = [
+            { regex: /shield(s)?\s+(up|raise|maximum)/i, response: "Shields raised.", updates: { shields: 100 } },
+            { regex: /shield(s)?\s+(down|lower|off)/i, response: "Shields lowered.", updates: { shields: 0 } },
+            { regex: /red\s+alert/i, response: "Red Alert! Shields and Phasers at maximum.", updates: { shields: 100, phasers: 100 } },
+            { regex: /warp\s+(engage|go)/i, response: "Warp drive engaged.", updates: { warp: 90 } },
+            { regex: /warp\s+(stop|disengage)/i, response: "Warp drive disengaged.", updates: { warp: 0 } },
+            { regex: /phaser(s)?\s+(arm|lock)/i, response: "Phasers armed.", updates: { phasers: 100 } },
+            { regex: /status(\s+report)?/i, response: "Systems nominal. Displaying current status.", updates: {} }
+        ];
+
         // Profiling
         let t_trigger = 0;
 
@@ -440,18 +451,42 @@
 
             recognition.onresult = (event) => {
                 let finalTranscript = '';
+                let interimTranscript = '';
                 let isFinal = false;
 
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
                         finalTranscript += event.results[i][0].transcript;
                         isFinal = true;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
                     }
+                }
+
+                // CHECK INTERIM RESULTS FOR "TURBO" COMMANDS
+                if (Date.now() < commandWindowEnd && interimTranscript.length > 0) {
+                     // Attempt to match interim transcript against known commands
+                     for (const cmd of PRE_DEFINED_COMMANDS) {
+                         if (cmd.regex.test(interimTranscript)) {
+                             log(`Fast-Match: "${interimTranscript}"`, "chat");
+                             handleInstantCommand(interimTranscript, cmd);
+                             return; // Stop processing
+                         }
+                     }
                 }
 
                 // FILTER: Only process if the "Button Gate" is open
                 if (isFinal && finalTranscript.trim().length > 0) {
                     if (Date.now() < commandWindowEnd) {
+                        // Check exact match on final (if interim missed it or wasn't used)
+                         for (const cmd of PRE_DEFINED_COMMANDS) {
+                             if (cmd.regex.test(finalTranscript)) {
+                                 log(`Fast-Match (Final): "${finalTranscript}"`, "chat");
+                                 handleInstantCommand(finalTranscript, cmd);
+                                 return;
+                             }
+                         }
+
                         // Valid Command
                         log(`Heard: "${finalTranscript}"`, "chat");
                         document.getElementById('last-command').textContent = finalTranscript;
@@ -494,11 +529,35 @@
             }
         }
 
-        // --- BACKEND COMMUNICATION ---
-        async function sendCommand(text) {
-            // Pause Mic while Computer speaks to prevent it hearing itself
+        // --- INSTANT COMMAND HANDLER ---
+        function handleInstantCommand(text, cmdData) {
+            // Close gate
+            commandWindowEnd = 0;
+            document.getElementById('listening-indicator').style.display = 'none';
+            document.getElementById('last-command').textContent = text;
+
+            // 1. Optimistic UI Update (0ms)
+            updateStatusUI(cmdData.updates);
+
+            // 2. Instant TTS (0ms)
+            // We set isSystemSpeaking to true immediately so the mic restart logic works correctly
             isSystemSpeaking = true;
-            if(recognition) recognition.stop();
+            if(recognition) recognition.abort(); // Hard stop to reset
+
+            log("Computer (Fast): " + cmdData.response, "chat");
+            speak(cmdData.response);
+
+            // 3. Sync Backend (Fire & Forget)
+            sendCommand(text, true);
+        }
+
+        // --- BACKEND COMMUNICATION ---
+        async function sendCommand(text, skipTTS = false) {
+            // Pause Mic while Computer speaks to prevent it hearing itself
+            if (!skipTTS) {
+                isSystemSpeaking = true;
+                if(recognition) recognition.stop();
+            }
 
             try {
                 const res = await fetch(API_URL + '/command', {
@@ -507,12 +566,20 @@
                     body: JSON.stringify({ text: text })
                 });
                 const data = await res.json();
-                log("Computer: " + data.response, "chat");
-                speak(data.response);
-                updateStatusUI(data.updates);
+
+                if (!skipTTS) {
+                    log("Computer: " + data.response, "chat");
+                    speak(data.response);
+                    updateStatusUI(data.updates);
+                } else {
+                    log(`Sync Complete: ${text}`, "system");
+                    // Ensure backend state is consistent, but we trust our optimistic update.
+                    // If backend returned different updates, we *could* apply them here.
+                    updateStatusUI(data.updates);
+                }
             } catch (err) {
                 log("Backend Error: " + err, "error");
-                speak("Communication Link Severed.");
+                if (!skipTTS) speak("Communication Link Severed.");
             }
         }
 
