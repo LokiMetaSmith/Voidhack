@@ -244,6 +244,7 @@
     <div class="lcars-container">
         <div class="lcars-header">
             USS ENTERPRISE <span style="margin-left: 20px; font-size: 24px;">NCC-1701-D</span>
+            <span id="location-display" style="margin-left: auto; font-size: 24px; color: var(--lcars-orange);">LOC: BRIDGE</span>
         </div>
 
         <div class="lcars-sidebar">
@@ -464,6 +465,13 @@
         // --- MAIN INITIALIZATION ---
         async function initComms() {
             try {
+                // Check for Location Update (Passive Scan)
+                const urlParams = new URLSearchParams(window.location.search);
+                const locToken = urlParams.get('loc');
+                if (locToken && userId) {
+                     updateLocation(locToken);
+                }
+
                 await requestWakeLock(); // Re-added
 
                 // Resume audio context on user gesture
@@ -701,6 +709,55 @@
 
             // 3. Sync Backend (Fire & Forget)
             sendCommand(text, true);
+        }
+
+        // --- LOCATION UPDATE ---
+        async function updateLocation(token) {
+            try {
+                const res = await fetch(API_URL + '/location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, token: token })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    // Update UI
+                    document.getElementById('location-display').textContent = `LOC: ${data.location.toUpperCase()}`;
+                    log(`Transport Complete: ${data.location}`, "system");
+
+                    // Show Overlay
+                    showOverlay(`LOCATION: ${data.location.toUpperCase()}`, "#9999ff");
+                    playChirp('start'); // reusing chirp
+
+                    // Clear URL
+                    window.history.replaceState({}, document.title, "/");
+                } else {
+                    log(`Transport Error: ${data.message}`, "error");
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function showOverlay(text, color) {
+             const overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100%';
+            overlay.style.height = '100%';
+            overlay.style.display = 'flex';
+            overlay.style.flexDirection = 'column';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.style.zIndex = '1000';
+            overlay.style.pointerEvents = 'none';
+            overlay.innerHTML = `<span style="color: ${color}; font-size: 3em; font-weight: bold; text-shadow: 0 0 20px ${color}; text-align: center;">
+                ${text}
+            </span>`;
+            document.body.appendChild(overlay);
+            setTimeout(() => overlay.remove(), 3000);
         }
 
         // --- BACKEND COMMUNICATION ---
