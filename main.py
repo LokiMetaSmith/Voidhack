@@ -48,6 +48,13 @@ def init_db():
             level INTEGER
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id TEXT PRIMARY KEY,
+            name TEXT,
+            rank TEXT DEFAULT 'Ensign'
+        )
+    ''')
     # Initialize default values if empty
     cursor.execute('SELECT count(*) FROM systems')
     if cursor.fetchone()[0] == 0:
@@ -66,9 +73,33 @@ init_db()
 
 class CommandRequest(BaseModel):
     text: str
+    user_id: str = None # Optional for backward compatibility but recommended
+
+class UserRegister(BaseModel):
+    user_id: str
+    name: str
 
 class StatusResponse(BaseModel):
     systems: dict
+
+@app.post("/user")
+def register_user(req: UserRegister):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    # Check if user exists
+    cursor.execute('SELECT rank FROM users WHERE user_id = ?', (req.user_id,))
+    row = cursor.fetchone()
+    if row:
+        # Update name if needed
+        cursor.execute('UPDATE users SET name = ? WHERE user_id = ?', (req.name, req.user_id))
+        rank = row[0]
+    else:
+        # Insert new user with default rank
+        cursor.execute('INSERT INTO users (user_id, name, rank) VALUES (?, ?, ?)', (req.user_id, req.name, 'Ensign'))
+        rank = 'Ensign'
+    conn.commit()
+    conn.close()
+    return {"status": "registered", "rank": rank}
 
 def get_current_status_dict():
     conn = sqlite3.connect(DB_FILE)
@@ -204,6 +235,18 @@ def mock_llm_logic(text):
 @profile_time("Command Processing")
 def process_command(req: CommandRequest):
     current_status = get_current_status_dict()
+
+    # Identify User (optional logging)
+    user_rank = "Ensign"
+    if req.user_id:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute('SELECT rank, name FROM users WHERE user_id = ?', (req.user_id,))
+        row = cursor.fetchone()
+        if row:
+            user_rank = row[0]
+            print(f"Command from {user_rank} {row[1]} ({req.user_id}): {req.text}")
+        conn.close()
 
     # OPTIMIZATION: Check for exact keywords first (0ms latency)
     text_lower = req.text.lower()

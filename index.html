@@ -259,6 +259,12 @@
         let showSystemLogs = true;
         let wakeLock = null; // Added back
         let isOnboarding = false; // Flag for first-time user setup
+        let userId = localStorage.getItem('lcars_user_id');
+
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('lcars_user_id', userId);
+        }
 
         // INSTANT COMMAND CONFIG (Turbo Mode)
         const PRE_DEFINED_COMMANDS = [
@@ -537,8 +543,20 @@
                             // Handle Onboarding Response
                             localStorage.setItem('lcars_handle', finalTranscript);
                             isOnboarding = false;
-                            speak(`Identity confirmed, ${finalTranscript}. Systems online.`);
-                            log(`User handle saved: ${finalTranscript}`, "system");
+
+                            // Register User with Backend
+                            fetch(API_URL + '/user', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ user_id: userId, name: finalTranscript })
+                            }).then(res => res.json()).then(data => {
+                                speak(`Identity confirmed, ${data.rank} ${finalTranscript}. Systems online.`);
+                                log(`User registered: ${data.rank} ${finalTranscript}`, "system");
+                            }).catch(err => {
+                                console.error("Registration failed", err);
+                                speak(`Identity confirmed, ${finalTranscript}. Warning: Database connection failed.`);
+                            });
+
                         } else {
                             // Normal Command
                             // Play "Processing" sound to fill the gap
@@ -604,7 +622,7 @@
                 const res = await fetch(API_URL + '/command', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: text })
+                    body: JSON.stringify({ text: text, user_id: userId })
                 });
                 const data = await res.json();
 
