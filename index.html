@@ -207,6 +207,55 @@
             border-bottom: 1px solid #333;
         }
 
+        /* Coms / Terminal */
+        .coms-panel {
+            grid-column: 1 / -1;
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .terminal-output {
+            flex-grow: 1;
+            background-color: #000;
+            color: var(--lcars-orange);
+            font-family: monospace;
+            font-size: 1.2em;
+            padding: 10px;
+            overflow-y: auto;
+            border: 1px solid var(--lcars-purple);
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+        }
+
+        .terminal-input-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .terminal-prompt {
+            color: var(--lcars-purple);
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-right: 10px;
+        }
+
+        #terminal-input {
+            flex-grow: 1;
+            background-color: #111;
+            color: var(--lcars-orange);
+            border: none;
+            border-bottom: 2px solid var(--lcars-orange);
+            font-family: monospace;
+            font-size: 1.2em;
+            padding: 5px;
+            outline: none;
+        }
+
+        #terminal-input:focus {
+            background-color: #222;
+        }
+
         /* Footer */
         .lcars-footer {
             grid-column: 1 / -1;
@@ -260,6 +309,7 @@
 
         <div class="lcars-sidebar">
             <div class="lcars-button" id="init-btn" onclick="initComms()">INIT COMMS</div>
+            <div class="lcars-button" id="coms-btn" onclick="toggleView('coms')">COMS</div>
             <div class="lcars-button" id="mode-btn" onclick="toggleView('status')">STATUS</div>
             <div class="lcars-button" id="leaderboard-btn" onclick="toggleView('leaderboard')">RANK</div>
             <div class="lcars-button" id="logs-btn" onclick="toggleLogs()">LOGS</div>
@@ -286,6 +336,18 @@
                         <!-- Rows injected here -->
                     </tbody>
                 </table>
+            </div>
+
+            <div class="coms-panel" id="coms-panel">
+                <div class="terminal-output" id="terminal-output">
+                    LCARS TERMINAL INTERFACE
+                    ENCRYPTION: ENABLED
+                    -------------------------
+                </div>
+                <div class="terminal-input-container">
+                    <span class="terminal-prompt">COMMAND ></span>
+                    <input type="text" id="terminal-input" placeholder="ENTER COMMAND..." autocomplete="off">
+                </div>
             </div>
 
             <div style="grid-column: 1/-1; text-align: center;">
@@ -355,21 +417,32 @@
         async function toggleView(viewName) {
             const statusPanel = document.getElementById('status-panel');
             const leaderboardPanel = document.getElementById('leaderboard-panel');
+            const comsPanel = document.getElementById('coms-panel');
+
             const modeBtn = document.getElementById('mode-btn');
             const rankBtn = document.getElementById('leaderboard-btn');
+            const comsBtn = document.getElementById('coms-btn');
+
+            // Reset all panels
+            statusPanel.style.display = 'none';
+            leaderboardPanel.style.display = 'none';
+            comsPanel.style.display = 'none';
+
+            // Reset all buttons
+            modeBtn.classList.remove('active');
+            rankBtn.classList.remove('active');
+            comsBtn.classList.remove('active');
 
             if (viewName === 'leaderboard') {
-                statusPanel.style.display = 'none';
                 leaderboardPanel.style.display = 'flex';
                 rankBtn.classList.add('active');
-                modeBtn.classList.remove('active');
-
-                // Fetch Data
                 await fetchLeaderboard();
+            } else if (viewName === 'coms') {
+                comsPanel.style.display = 'flex';
+                comsBtn.classList.add('active');
+                document.getElementById('terminal-input').focus();
             } else {
                 statusPanel.style.display = 'flex';
-                leaderboardPanel.style.display = 'none';
-                rankBtn.classList.remove('active');
                 modeBtn.classList.add('active');
             }
         }
@@ -493,6 +566,15 @@
                 line.textContent = `> ${msg}`;
                 logPanel.appendChild(line);
                 logPanel.scrollTop = logPanel.scrollHeight;
+
+                // Sync with Terminal
+                const termOut = document.getElementById('terminal-output');
+                if (termOut) {
+                    const tLine = document.createElement('div');
+                    tLine.textContent = `> ${msg}`;
+                    termOut.appendChild(tLine);
+                    termOut.scrollTop = termOut.scrollHeight;
+                }
             });
         }
 
@@ -991,6 +1073,23 @@
                 }
             }
         }
+
+        // Terminal Input Handler
+        document.getElementById('terminal-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const text = this.value.trim();
+                if (text) {
+                    // Log the command immediately to terminal
+                    // log("USER: " + text, "chat"); // sendCommand will log it or we rely on 'Heard' logic?
+                    // Wait, sendCommand logs response.
+                    // Let's manually log the input here as if it was heard.
+                    log(`Typed: "${text}"`, "chat");
+
+                    sendCommand(text, false); // false = don't skip TTS, keeps it consistent
+                    this.value = '';
+                }
+            }
+        });
 
         // Initial load
         pollStatus();
