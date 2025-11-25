@@ -486,7 +486,13 @@ def process_command(req: CommandRequest):
     current_status = get_current_status_dict()
 
     # 1. Get User Context & Mission
-    user_data = get_user_rank_data(req.user_id) if req.user_id else {"rank_level": 0, "mission_stage": 1, "title": "Cadet", "sys_permissions": "read-only access"}
+    user_data = get_user_rank_data(req.user_id) if req.user_id else {
+        "rank_level": 0,
+        "mission_stage": 1,
+        "title": "Cadet",
+        "sys_permissions": "read-only access",
+        "current_location": "Bridge"
+    }
 
     # 2. Fast Path & Easter Eggs
     text_lower = req.text.lower()
