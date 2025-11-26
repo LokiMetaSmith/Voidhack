@@ -1,5 +1,18 @@
+#-*- mode: git-ignore -*-
+
+# Python
+*.py[co]
+*.pyo
+*.pyd
+*.swp
+*~
 __pycache__/
-*.py[cod]
-*.db
+.python-version
+# Env
+.env
+.venv
+# data
+dump.rdb
+# misc
+.DS_Store
 *.log
-verification/

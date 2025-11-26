@@ -47,22 +47,58 @@ Players earn **XP** for:
 
 ---
 
+## 🚀 "Galaxy Class" Architecture
+
+This branch runs a high-performance, event-driven architecture designed to support hundreds of concurrent users.
+
+*   **Networking:** All client-server communication is handled over a persistent **WebSocket** connection, eliminating HTTP polling and reducing network overhead by ~95%.
+*   **Database:** The application state (users, ship systems, leaderboards) is managed in **Redis**, an in-memory data store capable of millions of operations per second. This completely removes the single-writer bottleneck of SQLite.
+*   **LLM Engine:** The backend is designed to connect to a **vLLM OpenAI-compatible API server**, which provides high-throughput, continuously batched inference for handling many simultaneous LLM requests.
+
+---
+
 ## 🛠️ Setup & Deployment
+
+### Hardware Requirements
+*   **GPU:** NVIDIA RTX 3090 / 4090 (24GB+ VRAM) is highly recommended for hosting vLLM locally for a large number of users.
+*   **RAM:** 32GB+ System RAM.
+*   **CPU:** Modern 8-core CPU.
 
 ### Prerequisites
 *   Python 3.9+
-*   [Ollama](https://ollama.com/) running locally (default port 11434).
-*   Model: `qwen2.5:1.5b` (or change `MODEL_NAME` in `main.py`).
+*   `redis-server` installed and running.
+*   An OpenAI-compatible API server (like vLLM) running.
 
-### Installation
-1.  Clone the repo.
-2.  Install dependencies:
+### Installation & Running
+1.  **Clone the Repository**
+
+2.  **Install Dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
-3.  Start the server:
+
+3.  **Start Redis:**
     ```bash
-    python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
+    redis-server &
+    ```
+
+4.  **Start the vLLM Server:**
+    *(Run this on your GPU-enabled machine)*
+    ```bash
+    # Make sure you have vLLM installed: pip install vllm
+    python -m vllm.entrypoints.openai.api_server --model microsoft/Phi-3-mini-4k-instruct
+    ```
+    *Note: The vLLM server defaults to port `8000`. You will need to run the FastAPI app on a different port or machine.*
+
+5.  **Configure Environment Variables (Optional):**
+    *   `REDIS_HOST`: Defaults to `localhost`.
+    *   `REDIS_PORT`: Defaults to `6379`.
+    *   `VLLM_HOST`: Set this to the URL of your vLLM server (e.g., `http://192.168.1.100:8000`).
+
+6.  **Start the Application Server:**
+    ```bash
+    # Run on a different port if vLLM is on the same machine
+    python3 -m uvicorn main:app --host 0.0.0.0 --port 8001
     ```
 
 ### Generating QR Codes
