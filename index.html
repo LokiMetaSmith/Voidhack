@@ -290,8 +290,17 @@
         };
 
         async function initComms() {
-            try { await navigator.wakeLock.request('screen'); log("Screen wake lock active."); } catch (err) { log("Wake Lock API not supported."); }
-            try { await document.getElementById('silent-audio').play(); } catch(e){ log("Audio playback failed, interactions may be limited.");}
+            try {
+                await navigator.wakeLock.request('screen');
+                log("Screen wake lock active.");
+            } catch (err) {
+                log("Wake Lock API not supported.");
+            }
+            try {
+                await document.getElementById('silent-audio').play();
+            } catch (e) {
+                log("Audio playback failed, interactions may be limited.");
+            }
             setupWebSocket();
             setupSpeechRecognition();
             document.getElementById('terminal-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCommand(e.target.value); });

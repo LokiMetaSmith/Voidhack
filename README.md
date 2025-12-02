@@ -66,7 +66,7 @@ This branch runs a high-performance, event-driven architecture designed to suppo
 
 ### Prerequisites
 *   Python 3.9+
-*   `redis-server` installed and running.
+*   `redis-server` installed and running (optional for local dev, required for production).
 *   An OpenAI-compatible API server (like vLLM) running.
 
 ### Installation & Running
@@ -77,10 +77,12 @@ This branch runs a high-performance, event-driven architecture designed to suppo
     pip install -r requirements.txt
     ```
 
-3.  **Start Redis:**
-    ```bash
-    redis-server &
-    ```
+3.  **Setup Redis:**
+    The application uses Redis for state management.
+    *   **Production/Full Features:** You need a running Redis server.
+        *   **Ubuntu/Debian:** `sudo apt-get update && sudo apt-get install -y redis-server`
+        *   **Start Server:** `redis-server --daemonize yes`
+    *   **Local Development (Fallback):** If no Redis server is found, the app will automatically fall back to an in-memory **MockRedis**. This allows you to run the app without installing Redis, but state (users, rankings) will be lost on restart.
 
 4.  **Start the vLLM Server:**
     *(Run this on your GPU-enabled machine)*

@@ -135,10 +135,35 @@ class MockRedis:
         return [k for k in self.store.keys() if fnmatch.fnmatch(k, pattern)]
 
     def pipeline(self):
-        return self
-
-    def execute(self):
-        pass
+        return MockPipeline(self)
 
     def ping(self):
         return True
+
+class MockPipeline:
+    def __init__(self, redis_instance):
+        self.redis = redis_instance
+        self.commands = []
+
+    def set(self, *args, **kwargs):
+        self.commands.append((self.redis.set, args, kwargs))
+        return self
+
+    def hset(self, *args, **kwargs):
+        self.commands.append((self.redis.hset, args, kwargs))
+        return self
+
+    def hincrby(self, *args, **kwargs):
+        self.commands.append((self.redis.hincrby, args, kwargs))
+        return self
+
+    def zadd(self, *args, **kwargs):
+        self.commands.append((self.redis.zadd, args, kwargs))
+        return self
+
+    def execute(self):
+        results = []
+        for func, args, kwargs in self.commands:
+            results.append(func(*args, **kwargs))
+        self.commands = []
+        return results
