@@ -40,7 +40,35 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 # --- Redis Connection ---
-r = redis.Redis(host=os.environ.get("REDIS_HOST", "localhost"), port=int(os.environ.get("REDIS_PORT", 6379)), db=0, decode_responses=True)
+import time
+from mock_redis import MockRedis
+
+MAX_RETRIES = 5
+RETRY_DELAY = 2
+
+r = None
+for attempt in range(MAX_RETRIES):
+    try:
+        r = redis.Redis(host=os.environ.get("REDIS_HOST", "localhost"), port=int(os.environ.get("REDIS_PORT", 6379)), db=0, decode_responses=True)
+        r.ping() # Force connection check
+        logging.info("Connected to Redis.")
+        break
+    except redis.ConnectionError:
+        logging.warning(f"Redis connection failed. Retrying in {RETRY_DELAY} seconds... (Attempt {attempt + 1}/{MAX_RETRIES})")
+        time.sleep(RETRY_DELAY)
+
+# Check connection one last time or fallback
+connected = False
+if r:
+    try:
+        r.ping()
+        connected = True
+    except redis.ConnectionError:
+        connected = False
+
+if not connected:
+    logging.warning("Could not connect to Redis after 5 attempts. Using in-memory MockRedis.")
+    r = MockRedis()
 
 # --- vLLM Configuration ---
 VLLM_HOST = os.environ.get('VLLM_HOST', 'http://localhost:8000')
