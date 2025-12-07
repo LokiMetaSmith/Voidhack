@@ -7,6 +7,7 @@ import random
 import re
 from typing import Dict, List
 
+import hashlib
 import httpx
 import redis
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -190,6 +191,16 @@ def process_turbo_mode(text: str, user_id: str):
             return handler(match)
     return None
 
+def generate_semantic_key(text: str, user_data: dict) -> str:
+    """Generates a cache key based on the text and user context (rank, mission stage, location)."""
+    # Normalize text: lowercase, strip whitespace
+    normalized_text = text.lower().strip()
+    # Context factors that should change the answer
+    context_str = f"{user_data.get('rank_level')}-{user_data.get('mission_stage')}-{user_data.get('current_location')}"
+    # Create hash
+    raw_key = f"{context_str}:{normalized_text}"
+    return f"sem_cache:{hashlib.sha256(raw_key.encode()).hexdigest()}"
+
 # --- Main Command Processing ---
 async def process_command_logic(req: CommandRequest):
     text = req.text.lower()
@@ -207,8 +218,20 @@ async def process_command_logic(req: CommandRequest):
             update_leaderboard(user_id, 10)
         return turbo_response
 
-    # 3. LLM Path
+    # 3. Get User Context
     user_data = get_user_rank_data(user_id)
+
+    # 4. Semantic Caching Check
+    cache_key = generate_semantic_key(req.text, user_data)
+    cached_response = r.get(cache_key)
+    if cached_response:
+        logging.info(f"Cache Hit for key: {cache_key}")
+        try:
+            return json.loads(cached_response)
+        except json.JSONDecodeError:
+            logging.warning("Invalid JSON in cache, proceeding to LLM.")
+
+    # 5. LLM Path
     mission_data = r.hgetall(f"mission:{user_data.get('mission_stage', 1)}")
     mission_prompt = mission_data.get('system_prompt_modifier', 'Act as the USS Enterprise computer.')
 
@@ -255,6 +278,9 @@ async def process_command_logic(req: CommandRequest):
             if updates:
                 r.hset("ship:systems", mapping=updates)
             update_leaderboard(user_id, 10)
+
+        # Cache the successful response (TTL 5 minutes)
+        r.set(cache_key, json.dumps(data), ex=300)
 
         return data
 
