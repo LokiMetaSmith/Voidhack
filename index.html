@@ -234,6 +234,16 @@
             width: 100%;
             box-sizing: border-box;
         }
+
+        #audio-quality {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: none;
+        }
+        .audio-good { color: var(--lcars-orange); }
+        .audio-silence { color: gray; }
+        .audio-clipping { color: var(--lcars-red); }
     </style>
 </head>
 <body>
@@ -258,6 +268,7 @@
             </div>
             <div class="log-panel">
                 <div id="listening-indicator">LISTENING...</div>
+                <div id="audio-quality">AUDIO: CHECKING...</div>
                 <div id="last-command">Awaiting input...</div>
                 <div id="log-panel" style="height: calc(100% - 40px); overflow-y: auto;">SYSTEM READY.</div>
             </div>
@@ -273,6 +284,7 @@
     <script>
         const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
         let socket, recognition, userId, isSystemSpeaking = false, silenceTimer;
+        let wasmExports = null, audioCtx, scriptNode, source;
 
         const INSTANT_COMMANDS = [
             { regex: /shield(s)?\s+(up|raise|maximum)/i, response: "Shields at maximum.", updates: { shields: 100 } },
@@ -287,6 +299,7 @@
             if (!userId) { userId = 'user_' + Math.random().toString(36).substr(2, 9); localStorage.setItem('lcars_user_id', userId); }
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('loc')) { updateLocation(urlParams.get('loc')); }
+            loadWasm();
         };
 
         async function initComms() {
@@ -303,6 +316,7 @@
             }
             setupWebSocket();
             setupSpeechRecognition();
+            setupAudioProcessing();
             document.getElementById('terminal-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCommand(e.target.value); });
         }
 
@@ -448,6 +462,72 @@
         function playSound(id) {
             const sound = document.getElementById(id);
             if (sound) sound.play().catch(e => console.log("Audio play failed"));
+        }
+
+        async function loadWasm() {
+            try {
+                const response = await fetch('audio_processor.wasm');
+                const bytes = await response.arrayBuffer();
+                const results = await WebAssembly.instantiate(bytes, {});
+                wasmExports = results.instance.exports;
+                log("Audio preprocessor loaded.");
+            } catch (e) {
+                log("WASM Load Error: " + e);
+            }
+        }
+
+        async function setupAudioProcessing() {
+            if (!wasmExports) return;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                source = audioCtx.createMediaStreamSource(stream);
+                scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+
+                scriptNode.onaudioprocess = function(audioProcessingEvent) {
+                    const inputBuffer = audioProcessingEvent.inputBuffer;
+                    const inputData = inputBuffer.getChannelData(0);
+
+                    if (wasmExports.memory) {
+                         const len = inputData.length;
+                         const ptr = wasmExports.alloc(len);
+
+                         const wasmMem = new Float32Array(wasmExports.memory.buffer, ptr, len);
+                         wasmMem.set(inputData);
+
+                         const result = wasmExports.process_audio_chunk(ptr, len);
+                         updateAudioUI(result);
+
+                         wasmExports.dealloc(ptr, len);
+                    }
+                };
+
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.value = 0;
+                source.connect(scriptNode);
+                scriptNode.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                log("Audio preprocessor active.");
+            } catch (e) {
+                log("Audio Init Error: " + e);
+            }
+        }
+
+        function updateAudioUI(status) {
+            const el = document.getElementById('audio-quality');
+            if(!el) return;
+            el.style.display = 'block';
+            if (status === 0) {
+                el.textContent = "AUDIO: SILENCE";
+                el.className = 'audio-silence';
+            } else if (status === 1) {
+                el.textContent = "AUDIO: OPTIMAL";
+                el.className = 'audio-good';
+            } else if (status === 2) {
+                el.textContent = "AUDIO: CLIPPING";
+                el.className = 'audio-clipping';
+            }
         }
 
         navigator.mediaSession.setActionHandler('play', () => {
