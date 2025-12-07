@@ -329,6 +329,10 @@ async def websocket_endpoint(websocket: WebSocket):
         logging.error(f"Error in WebSocket endpoint: {e}")
         manager.disconnect(websocket)
 
+@app.get("/audio_processor.wasm")
+async def read_wasm():
+    return FileResponse('audio_processor.wasm', media_type='application/wasm')
+
 @app.get("/")
 async def read_index(): return FileResponse('index.html')
 
