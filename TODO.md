@@ -2,7 +2,7 @@
 
 ## High Priority
 - [x] **Tests:** Implement unit tests for `mock_redis.py` and `main.py` (specifically `process_command_logic`).
-- [ ] **Error Handling:** Improve error handling in `process_command_logic` to provide more specific feedback to the user.
+- [x] **Error Handling:** Improve error handling in `process_command_logic` to provide more specific feedback to the user.
 - [ ] **Security:** Implement Role-Based Access Control (RBAC) for the `authorize_session` feature (currently any user can authorize).
 
 ## Medium Priority

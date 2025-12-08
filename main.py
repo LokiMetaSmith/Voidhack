@@ -284,12 +284,18 @@ async def process_command_logic(req: CommandRequest):
 
         return data
 
-    except (httpx.RequestError, httpx.HTTPStatusError, json.JSONDecodeError, ValueError) as e:
-        logging.error(f"Error processing LLM command for user {user_id}: {e}")
-        return {"updates": {}, "response": "Subspace interference. Unable to process complex query. Please try simple commands."}
+    except httpx.TimeoutException:
+        logging.warning(f"LLM Timeout for user {user_id}")
+        return {"updates": {}, "response": "Processing delay. The main computer is rerouting power to compensation circuits."}
+    except (httpx.RequestError, httpx.HTTPStatusError) as e:
+        logging.error(f"Network error for user {user_id}: {e}")
+        return {"updates": {}, "response": "Unable to access the knowledge database. Sensor arrays are offline."}
+    except (json.JSONDecodeError, ValueError) as e:
+        logging.error(f"Data format error for user {user_id}: {e}")
+        return {"updates": {}, "response": "Data corruption detected. Unable to parse logic stream."}
     except Exception as e:
         logging.error(f"An unexpected error occurred in process_command_logic: {e}")
-        return {"updates": {}, "response": "A critical error has occurred in the main computer."}
+        return {"updates": {}, "response": "A critical system failure has occurred. Diagnostics initiated."}
 
 # --- WebSocket Endpoint ---
 @app.websocket("/ws")
