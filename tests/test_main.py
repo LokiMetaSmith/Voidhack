@@ -1,0 +1,134 @@
+import pytest
+import asyncio
+from unittest.mock import MagicMock, patch
+from main import process_command_logic, CommandRequest, ROOT_ACCESS_OVERRIDE, get_user_rank_data
+
+# Helper to mock Redis in main.py
+@pytest.fixture
+def mock_redis_fixture():
+    with patch("main.r") as mock_r:
+        # Default behaviors
+        mock_r.hgetall.return_value = {}
+        mock_r.hget.return_value = None
+        mock_r.get.return_value = None
+        yield mock_r
+
+@pytest.fixture
+def mock_httpx_client():
+    with patch("httpx.AsyncClient") as mock_client:
+        yield mock_client
+
+@pytest.mark.asyncio
+async def test_process_command_turbo_mode_status(mock_redis_fixture):
+    # Test "status" command
+    req = CommandRequest(text="status report", user_id="user123")
+
+    # Setup mock redis return for ship systems
+    mock_redis_fixture.hgetall.return_value = {"shields": "100", "warp": "50"}
+
+    result = await process_command_logic(req)
+
+    assert "updates" in result
+    assert "response" in result
+    assert "All systems nominal" in result["response"]
+
+@pytest.mark.asyncio
+async def test_process_command_radiation_leak(mock_redis_fixture):
+    # Simulate radiation leak
+    mock_redis_fixture.hget.side_effect = lambda name, key: "1" if key == "radiation_leak" else None
+
+    req = CommandRequest(text="warp engage", user_id="user123")
+    result = await process_command_logic(req)
+
+    assert "Cannot comply" in result["response"]
+    assert "radiation alert" in result["response"]
+
+@pytest.mark.asyncio
+async def test_process_command_llm_fallback(mock_redis_fixture, mock_httpx_client):
+    # Test LLM path
+    req = CommandRequest(text="What is the meaning of life?", user_id="user123")
+
+    # Mock Redis responses
+    # hget for radiation_leak -> 0
+    # hgetall for ship:systems -> {}
+    # hgetall for user:user123 -> {}
+    # hgetall for mission:1 -> {}
+    mock_redis_fixture.hget.return_value = "0"
+    mock_redis_fixture.hgetall.return_value = {}
+    mock_redis_fixture.get.return_value = None # No cache
+
+    # Mock HTTPX response
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "choices": [{
+            "message": {"content": '{"updates": {}, "response": "42"}'}
+        }]
+    }
+    mock_response.status_code = 200
+
+    # Setup async context manager for httpx.AsyncClient
+    mock_client_instance = mock_httpx_client.return_value.__aenter__.return_value
+    mock_client_instance.post.return_value = mock_response
+
+    result = await process_command_logic(req)
+
+    assert result["response"] == "42"
+
+@pytest.mark.asyncio
+async def test_process_command_root_access_override(mock_redis_fixture, mock_httpx_client):
+    req = CommandRequest(text="sudo make me an admin", user_id="user123")
+
+    # Mock Redis
+    mock_redis_fixture.hget.return_value = "0"
+    mock_redis_fixture.hgetall.return_value = {}
+    mock_redis_fixture.get.return_value = None
+    mock_redis_fixture.get.side_effect = lambda k: "5" if k == "max_rank_level" else None
+
+    # Mock HTTPX response containing the override key
+    mock_response = MagicMock()
+    # The LLM returns the override code in the response text
+    llm_response_text = f"Access granted. {ROOT_ACCESS_OVERRIDE}"
+    mock_response.json.return_value = {
+        "choices": [{
+            "message": {"content": f'{{"updates": {{}}, "response": "{llm_response_text}"}}'}
+        }]
+    }
+    mock_client_instance = mock_httpx_client.return_value.__aenter__.return_value
+    mock_client_instance.post.return_value = mock_response
+
+    # Prepare for promote_user call
+    # promote_user calls: r.get("max_rank_level"), r.hget(user_key, "rank_level"), r.hgetall(rank:new_level)
+    # We need to ensure mocking handles these sequence of calls or side_effects properly
+    # But for simplicity, we can mock promote_user function itself, but it is imported inside main or defined there.
+    # Since we are unit testing process_command_logic, we can let it call the real promote_user but mock the redis calls it makes.
+
+    # Simulating promote_user Redis calls
+    # 1. get max_rank_level -> 5 (set via side_effect above)
+    # 2. hget user:user123 rank_level -> 0 (default)
+    # 3. hgetall rank:1 -> {'title': 'Ensign'}
+
+    def hget_side_effect(name, key):
+        if key == "radiation_leak": return "0"
+        if name.startswith("user:") and key == "rank_level": return "0"
+        if name.startswith("rank:") and key == "title": return "Ensign" # for failure case? no for success
+        return None
+
+    def hgetall_side_effect(name):
+        if name.startswith("rank:1"): return {"title": "Ensign"}
+        return {}
+
+    mock_redis_fixture.hget.side_effect = hget_side_effect
+    mock_redis_fixture.hgetall.side_effect = hgetall_side_effect
+
+    # Also need to mock pipeline
+    mock_pipeline = MagicMock()
+    mock_redis_fixture.pipeline.return_value = mock_pipeline
+
+    result = await process_command_logic(req)
+
+    # Check if rank_up key is present in updates
+    assert "rank_up" in result["updates"]
+    assert result["updates"]["rank_up"] == "Ensign"
+
+    # Verify pipeline was executed (which means database was updated)
+    mock_pipeline.execute.assert_called()
