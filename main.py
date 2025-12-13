@@ -73,6 +73,7 @@ if not connected:
 
 # --- vLLM Configuration ---
 VLLM_HOST = os.environ.get('VLLM_HOST', 'http://localhost:8000')
+VLLM_API_KEY = os.environ.get('VLLM_API_KEY', None)
 VLLM_API_URL = f"{VLLM_HOST}/v1/chat/completions"
 MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct"
 
@@ -255,8 +256,12 @@ async def process_command_logic(req: CommandRequest):
     }
 
     try:
+        headers = {}
+        if VLLM_API_KEY:
+            headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
+
         async with httpx.AsyncClient() as client:
-            response = await client.post(VLLM_API_URL, json=payload, timeout=30)
+            response = await client.post(VLLM_API_URL, json=payload, headers=headers, timeout=30)
         response.raise_for_status()
 
         raw_content = response.json()['choices'][0]['message']['content']

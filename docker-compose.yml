@@ -1,0 +1,37 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - VLLM_HOST=${VLLM_HOST:-http://vllm:8000}
+      - VLLM_API_KEY=${VLLM_API_KEY:-}
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: always
+
+  vllm:
+    profiles: ["gpu"]
+    image: vllm/vllm-openai:latest
+    runtime: nvidia
+    ports:
+      - "8000:8000"
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN:-}
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    command: --model microsoft/Phi-3-mini-4k-instruct
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
