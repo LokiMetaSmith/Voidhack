@@ -285,6 +285,7 @@
         const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
         let socket, recognition, userId, isSystemSpeaking = false, silenceTimer;
         let wasmExports = null, audioCtx, scriptNode, source;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
         const INSTANT_COMMANDS = [
             { regex: /shield(s)?\s+(up|raise|maximum)/i, response: "Shields at maximum.", updates: { shields: 100 } },
@@ -300,7 +301,21 @@
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('loc')) { updateLocation(urlParams.get('loc')); }
             loadWasm();
+            // Pre-load voices
+            window.speechSynthesis.getVoices();
         };
+
+        async function initializeBluetoothAudio() {
+            if (!isIOS) return;
+            try {
+                log("Initializing Bluetooth Audio...");
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop());
+                log("Audio routing primed.");
+            } catch (e) {
+                log("Bluetooth Init Error: " + e);
+            }
+        }
 
         async function initComms() {
             try {
@@ -314,6 +329,7 @@
             } catch (e) {
                 log("Audio playback failed, interactions may be limited.");
             }
+            await initializeBluetoothAudio();
             setupWebSocket();
             setupSpeechRecognition();
             setupAudioProcessing();
@@ -361,10 +377,18 @@
         function setupSpeechRecognition() {
             if (!('webkitSpeechRecognition' in window)) { log("Speech recognition not supported."); return; }
             recognition = new webkitSpeechRecognition();
-            recognition.continuous = true;
+            // IOS Safari: continuous=true is buggy/broken. Use false and restart manually.
+            recognition.continuous = !isIOS;
             recognition.interimResults = true;
             recognition.onstart = () => { log("Mic active."); document.getElementById('listening-indicator').style.display = 'block'; };
-            recognition.onend = () => { if (!isSystemSpeaking) setTimeout(() => recognition.start(), 250); document.getElementById('listening-indicator').style.display = 'none'; };
+            recognition.onend = () => {
+                if (!isSystemSpeaking) {
+                     // On iOS, we restart immediately because continuous=false implies it stops after every phrase.
+                     // On Desktop, we restart if it accidentally crashed.
+                     setTimeout(() => recognition.start(), isIOS ? 50 : 250);
+                }
+                document.getElementById('listening-indicator').style.display = 'none';
+            };
             recognition.onresult = (event) => {
                 clearTimeout(silenceTimer);
                 silenceTimer = setTimeout(() => { recognition.stop(); }, 800);
@@ -404,6 +428,17 @@
             isSystemSpeaking = true;
             recognition.stop();
             const utterance = new SpeechSynthesisUtterance(text);
+
+            // Voice Selection Logic
+            const voices = window.speechSynthesis.getVoices();
+            let selectedVoice = voices.find(v => v.name.includes("Zira")) || // Windows
+                                voices.find(v => v.name.includes("Samantha")) || // macOS/iOS
+                                voices.find(v => v.name.includes("Google UK English Female")) ||
+                                voices.find(v => v.lang === 'en-US' && v.name.includes("Female")) ||
+                                voices[0];
+
+            if (selectedVoice) utterance.voice = selectedVoice;
+
             utterance.rate = 1.1;
             utterance.onend = () => { isSystemSpeaking = false; recognition.start(); };
             window.speechSynthesis.cancel();

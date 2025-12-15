@@ -74,8 +74,21 @@ if not connected:
 # --- vLLM Configuration ---
 VLLM_HOST = os.environ.get('VLLM_HOST', 'http://localhost:8000')
 VLLM_API_KEY = os.environ.get('VLLM_API_KEY', None)
-VLLM_API_URL = f"{VLLM_HOST}/v1/chat/completions"
-MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct"
+# Handle OpenAI-style URLs
+if VLLM_HOST.endswith('/'):
+    VLLM_HOST = VLLM_HOST[:-1]
+
+if VLLM_HOST.endswith('/chat/completions'):
+     VLLM_API_URL = VLLM_HOST
+else:
+     # Heuristic: If it looks like a base URL (e.g. .../v1 or .../openai), just append /chat/completions
+     # If it's a raw domain (localhost:8000), append /v1/chat/completions to be safe for standard vLLM
+     if VLLM_HOST.endswith('/v1') or 'googleapis.com' in VLLM_HOST or 'openai.com' in VLLM_HOST:
+         VLLM_API_URL = f"{VLLM_HOST}/chat/completions"
+     else:
+         VLLM_API_URL = f"{VLLM_HOST}/v1/chat/completions"
+
+MODEL_NAME = os.environ.get('MODEL_NAME', "microsoft/Phi-3-mini-4k-instruct")
 
 # --- Constants ---
 VALID_LOCATIONS = ["Bridge", "Engineering", "Ten Forward", "Sickbay", "Cargo Bay", "Jefferies Tube"]
