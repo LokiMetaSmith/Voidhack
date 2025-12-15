@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import redis
 import httpx
+import requests
 import json
 import os
 import logging
@@ -44,15 +45,83 @@ manager = ConnectionManager()
 # --- Redis Connection ---
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
-# --- vLLM Configuration ---
-VLLM_HOST = os.environ.get("VLLM_HOST", "http://localhost:8000")
-VLLM_API_URL = f"{VLLM_HOST}/v1/chat/completions"
-MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct" # vLLM uses model identifiers
+class MockRedis:
+    def __init__(self, host=None, port=None, db=0, decode_responses=True):
+        self.data = {}
+        print(f"[WARNING] Redis not found. Using in-memory MockRedis.")
 
-# --- Constants ---
-VALID_LOCATIONS = ["Bridge", "Engineering", "Ten Forward", "Sickbay", "Cargo Bay", "Jefferies Tube"]
+    def pipeline(self):
+        return self
+
+    def hmset(self, name, mapping):
+        if name not in self.data:
+            self.data[name] = {}
+        self.data[name].update(mapping)
+        return True
+
+    def hset(self, name, key=None, value=None, mapping=None, nx=False):
+        if name not in self.data:
+            self.data[name] = {}
+        
+        if mapping:
+            if nx:
+                for k, v in mapping.items():
+                    if k not in self.data[name]:
+                        self.data[name][k] = str(v)
+            else:
+                self.data[name].update({k: str(v) for k, v in mapping.items()})
+        else:
+            if nx and key in self.data[name]:
+                return 0
+            self.data[name][key] = str(value)
+        return 1
+
+    def hgetall(self, name):
+        return self.data.get(name, {})
+
+    def hincrby(self, name, key, amount=1):
+        if name not in self.data:
+            self.data[name] = {}
+        current = int(self.data[name].get(key, 0))
+        self.data[name][key] = str(current + amount)
+        return current + amount
+
+    def set(self, name, value):
+        self.data[name] = str(value)
+        return True
+
+    def exists(self, name):
+        return name in self.data
+
+    def execute(self):
+        return True
+
+    def keys(self, pattern):
+        if pattern == "user:*":
+            return [k for k in self.data.keys() if k.startswith("user:")]
+        return list(self.data.keys())
+
+    def hget(self, name, key):
+        return self.data.get(name, {}).get(key)
+
+# Retry logic for Redis connection
+max_retries = 5
+retry_delay = 2
+
+for attempt in range(max_retries):
+    try:
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
+        r.ping() # Test connection
+        print(f"Successfully connected to Redis at {REDIS_HOST}:{REDIS_PORT}")
+        break
+    except (redis.exceptions.ConnectionError, ConnectionRefusedError):
+        if attempt < max_retries - 1:
+            print(f"Redis connection failed. Retrying in {retry_delay} seconds... (Attempt {attempt + 1}/{max_retries})")
+            time.sleep(retry_delay)
+        else:
+            print(f"[WARNING] Could not connect to Redis after {max_retries} attempts. Using in-memory MockRedis.")
+            r = MockRedis()
 
 # --- Database Initialization (Redis) ---
 def init_db():
@@ -94,16 +163,64 @@ if not r.exists("max_rank_level"):
     init_db()
 
 # --- Pydantic Models ---
-# ... (models remain the same)
+class CommandRequest(BaseModel):
+    text: str
+    user_id: str = None
+
+class UserRegister(BaseModel):
+    user_id: str
+    name: str
+
+class LocationUpdate(BaseModel):
+    user_id: str
+    token: str
 
 # --- User & State Management (Redis) ---
-# ... (user and state functions remain the same)
+def register_user(req: UserRegister):
+    user_key = f"user:{req.user_id}"
+    if not r.exists(user_key):
+        # New user
+        user_data = {
+            "user_id": req.user_id,
+            "name": req.name,
+            "rank_level": 0,
+            "mission_stage": 1,
+            "title": "Cadet",
+            "current_location": "Bridge",
+            "xp": 0
+        }
+        r.hmset(user_key, user_data)
+        return "Cadet"
+    else:
+        # Update name
+        r.hset(user_key, "name", req.name)
+        # Return current rank
+        return r.hget(user_key, "title")
+
+def get_leaderboard():
+    # Inefficient but functional for small scale
+    user_keys = r.keys("user:*")
+    users = []
+    for key in user_keys:
+        data = r.hgetall(key)
+        if data:
+            users.append({
+                "name": data.get("name", "Unknown"),
+                "rank": data.get("title", "Cadet"),
+                "xp": int(data.get("xp", 0)),
+                "rank_level": int(data.get("rank_level", 0))
+            })
+    # Sort by rank_level desc, then xp desc
+    users.sort(key=lambda x: (x["rank_level"], x["xp"]), reverse=True)
+    return users[:10]
 
 # --- Main Command Processing ---
 async def process_command_logic(req: CommandRequest):
+    start_time = time.time()
     current_status = get_current_status_dict()
     user_data = get_user_rank_data(req.user_id)
     text_lower = req.text.lower()
+    print(f"[{req.user_id}] Processing command: {req.text}")
 
     # Fast Path & Easter Eggs
     fast_response = None
@@ -148,15 +265,18 @@ async def process_command_logic(req: CommandRequest):
         # Note: In a production system, this blocking call should be made async
         # with a library like `httpx` to avoid blocking the event loop.
         # For this exercise, `requests` is sufficient.
+        llm_start = time.time()
         async with httpx.AsyncClient() as client:
             response = await client.post(VLLM_API_URL, headers=headers, json=payload, timeout=30)
+        llm_end = time.time()
+        print(f"LLM Latency: {llm_end - llm_start:.4f}s")
         response.raise_for_status()
 
         completion = response.json()
         llm_response_str = completion['choices'][0]['message']['content']
         llm_output = json.loads(llm_response_str)
 
-    except (requests.exceptions.RequestException, json.JSONDecodeError) as e:
+    except (httpx.RequestError, httpx.HTTPStatusError, json.JSONDecodeError) as e:
         print(f"vLLM Error: {e}")
         # Fallback to mock logic
         # llm_output = mock_llm_logic(req.text)
@@ -176,6 +296,8 @@ async def process_command_logic(req: CommandRequest):
     if promoted_this_turn:
         result["updates"]["rank_up"] = new_rank_title
 
+    total_time = time.time() - start_time
+    print(f"Total Processing Time: {total_time:.4f}s")
     return result
 
 # --- WebSocket Endpoint & Other Functions ---

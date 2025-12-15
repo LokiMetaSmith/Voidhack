@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -44,7 +45,8 @@
         .lcars-header {
             grid-column: 1 / -1;
             background-color: var(--lcars-purple);
-            border-radius: 0 0 0 50px; /* The curve */
+            border-radius: 0 0 0 50px;
+            /* The curve */
             display: flex;
             align-items: center;
             justify-content: flex-end;
@@ -103,7 +105,8 @@
             grid-column: 2;
             grid-row: 2;
             border: 2px solid var(--lcars-orange);
-            border-radius: 20px; /* Inner screen look */
+            border-radius: 20px;
+            /* Inner screen look */
             padding: 20px;
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -183,7 +186,8 @@
         /* Leaderboard */
         .leaderboard-panel {
             grid-column: 1 / -1;
-            display: none; /* Hidden by default */
+            display: none;
+            /* Hidden by default */
             flex-direction: column;
             width: 100%;
         }
@@ -277,34 +281,53 @@
         }
 
         @keyframes blink {
-            50% { opacity: 0; }
+            50% {
+                opacity: 0;
+            }
         }
 
         @keyframes flash-gold {
-            0% { background-color: var(--lcars-bg); }
-            50% { background-color: #554400; }
-            100% { background-color: var(--lcars-bg); }
+            0% {
+                background-color: var(--lcars-bg);
+            }
+
+            50% {
+                background-color: #554400;
+            }
+
+            100% {
+                background-color: var(--lcars-bg);
+            }
         }
 
         @keyframes pulse-red {
-            0% { box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0); }
-            50% { box-shadow: inset 0 0 50px 20px rgba(255, 0, 0, 0.5); }
-            100% { box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0); }
+            0% {
+                box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0);
+            }
+
+            50% {
+                box-shadow: inset 0 0 50px 20px rgba(255, 0, 0, 0.5);
+            }
+
+            100% {
+                box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0);
+            }
         }
 
         .radiation-active {
             animation: pulse-red 1s infinite;
             border-color: red !important;
         }
-
     </style>
 </head>
+
 <body>
 
     <div class="lcars-container">
         <div class="lcars-header">
             USS ENTERPRISE <span style="margin-left: 20px; font-size: 24px;">NCC-1701-D</span>
-            <span id="location-display" style="margin-left: auto; font-size: 24px; color: var(--lcars-orange);">LOC: BRIDGE</span>
+            <span id="location-display" style="margin-left: auto; font-size: 24px; color: var(--lcars-orange);">LOC:
+                BRIDGE</span>
         </div>
 
         <div class="lcars-sidebar">
@@ -367,25 +390,23 @@
 
     <!-- Silent Audio Loop for Hack -->
     <audio id="silent-audio" loop>
-        <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" type="audio/wav">
+        <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
+            type="audio/wav">
     </audio>
 
     <script>
         const API_URL = window.location.origin;
-        const WS_URL = API_URL.replace(/^http/, 'ws') + '/ws';
-        let socket;
-
         const silentAudio = document.getElementById('silent-audio');
         const logPanel = document.getElementById('log-panel');
         let recognition;
 
         // State Flags
         let isMicActive = false;
-        let isSystemSpeaking = false;
-        let commandWindowEnd = 0;
+        let isSystemSpeaking = false; // Flag to prevent Mic restart during TTS
+        let commandWindowEnd = 0; // Timestamp: ignore speech after this time
         let showSystemLogs = true;
-        let wakeLock = null;
-        let isOnboarding = false;
+        let wakeLock = null; // Added back
+        let isOnboarding = false; // Flag for first-time user setup
         let userId = localStorage.getItem('lcars_user_id');
 
         // Radiation Game State
@@ -398,148 +419,186 @@
             localStorage.setItem('lcars_user_id', userId);
         }
 
+        // INSTANT COMMAND CONFIG (Turbo Mode)
+        const PRE_DEFINED_COMMANDS = [
+            { regex: /shield(s)?\s+(up|raise|maximum)/i, response: "Shields raised.", updates: { shields: 100 } },
+            { regex: /shield(s)?\s+(down|lower|off)/i, response: "Shields lowered.", updates: { shields: 0 } },
+            { regex: /red\s+alert/i, response: "Red Alert! Shields and Phasers at maximum.", updates: { shields: 100, phasers: 100 } },
+            { regex: /warp\s+(engage|go)/i, response: "Warp drive engaged.", updates: { warp: 90 } },
+            { regex: /warp\s+(stop|disengage)/i, response: "Warp drive disengaged.", updates: { warp: 0 } },
+            { regex: /phaser(s)?\s+(arm|lock)/i, response: "Phasers armed.", updates: { phasers: 100 } },
+            { regex: /status(\s+report)?/i, response: "Systems nominal. Displaying current status.", updates: {} }
+        ];
+
+        // Profiling
+        let t_trigger = 0;
+        let lastInterimTime = 0; // Track when we last heard silence
+        let listeningTimeout = null; // Auto-close window if no speech
+
+        // Audio Context for Chirp
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         async function toggleView(viewName) {
-            // ... (this function remains the same)
-        }
+            const statusPanel = document.getElementById('status-panel');
+            const leaderboardPanel = document.getElementById('leaderboard-panel');
+            const comsPanel = document.getElementById('coms-panel');
 
-        function fetchLeaderboard() {
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'leaderboard' }));
-            }
-        }
+            const modeBtn = document.getElementById('mode-btn');
+            const rankBtn = document.getElementById('leaderboard-btn');
+            const comsBtn = document.getElementById('coms-btn');
 
-        function renderLeaderboard(data) {
-            const tbody = document.getElementById('leaderboard-body');
-            tbody.innerHTML = '';
-            data.forEach(user => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${user.rank.toUpperCase()}</td><td>${user.name}</td><td>${user.xp}</td>`;
-                tbody.appendChild(tr);
-            });
-        }
+            // Reset all panels
+            statusPanel.style.display = 'none';
+            leaderboardPanel.style.display = 'none';
+            comsPanel.style.display = 'none';
 
-        function log(msg, type = 'system') {
-            // ... (this function remains the same)
-        }
+            // Reset all buttons
+            modeBtn.classList.remove('active');
+            rankBtn.classList.remove('active');
+            comsBtn.classList.remove('active');
 
-        // --- MAIN INITIALIZATION & WEBSOCKET SETUP ---
-        async function initComms() {
-            try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const locToken = urlParams.get('loc');
-
-                await requestWakeLock();
-                if (audioCtx.state === 'suspended') await audioCtx.resume();
-
-                await silentAudio.play();
-                log("Comms Initialized.", "system");
-
-                const initBtn = document.getElementById('init-btn');
-                initBtn.textContent = "ACTIVE";
-                initBtn.style.backgroundColor = "#9999ff";
-
-                setupWebSocket(locToken); // Pass token to WebSocket setup
-
-                if ('mediaSession' in navigator) {
-                    // ... (media session setup is the same)
-                }
-
-                setupSpeechRecognition();
-                startContinuousMic();
-
-                const savedHandle = localStorage.getItem('lcars_handle');
-                if (!savedHandle) {
-                    // ... (onboarding logic is the same)
-                } else {
-                    log(`Identity confirmed: ${savedHandle}`, "system");
-                }
-
-            } catch (err) {
-                log("Error initializing comms: " + err, "error");
-            }
-        }
-
-        function setupWebSocket() {
-            socket = new WebSocket(WS_URL);
-
-            socket.onopen = () => {
-                log("Real-time data link established.", "system");
-                if (locToken) {
-                    socket.send(JSON.stringify({
-                        type: 'location_update',
-                        user_id: userId,
-                        token: locToken
-                    }));
-                    window.history.replaceState({}, document.title, "/");
-                }
-            };
-
-            socket.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-
-                switch (data.type) {
-                    case 'state_update':
-                        renderSystems(data.systems);
-                        break;
-                    case 'command_response':
-                        handleCommandResponse(data.payload);
-                        break;
-                    case 'error':
-                        log(`Server Error: ${data.message}`, "error");
-                        break;
-                    case 'leaderboard_response':
-                        renderLeaderboard(data.leaderboard);
-                        break;
-                    case 'radiation_leak_start':
-                        triggerRadiationLeak();
-                        break;
-                }
-            };
-
-            socket.onclose = () => {
-                log("Data link severed. Attempting to reconnect...", "error");
-                setTimeout(setupWebSocket, 3000); // Reconnect after 3 seconds
-            };
-
-            socket.onerror = (err) => {
-                console.error("WebSocket Error:", err);
-                socket.close(); // This will trigger the onclose handler
-            };
-        }
-
-        // --- BACKEND COMMUNICATION (Now via WebSocket) ---
-        function sendCommand(text) {
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                const payload = {
-                    type: 'command',
-                    text: text,
-                    user_id: userId
-                };
-                socket.send(JSON.stringify(payload));
-
-                // Pause Mic while we wait for the response
-                isSystemSpeaking = true;
-                if(recognition) recognition.stop();
+            if (viewName === 'leaderboard') {
+                leaderboardPanel.style.display = 'flex';
+                rankBtn.classList.add('active');
+                await fetchLeaderboard();
+            } else if (viewName === 'coms') {
+                comsPanel.style.display = 'flex';
+                comsBtn.classList.add('active');
+                document.getElementById('terminal-input').focus();
             } else {
-                log("Cannot send command: Data link is not open.", "error");
+                return;
             }
+
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;  // Keep listening
+            recognition.interimResults = true; // Get data faster
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isMicActive = true;
+                log("Microphone Hot. Background monitoring active.", "system");
+                // Try to keep the button alive
+                if (silentAudio.paused) silentAudio.play().catch(e => { });
+            };
+
+            recognition.onend = () => {
+                isMicActive = false;
+                // AUTO-RESTART: Keep the mic hot!
+                // Only if the system ISN'T speaking (prevent echo)
+                setTimeout(() => {
+                    if (document.visibilityState === 'visible' && !isSystemSpeaking) {
+                        startContinuousMic();
+                        // Ensure button stays alive
+                        if (silentAudio.paused) silentAudio.play().catch(e => { });
+                    }
+                }, 100);
+            };
+
+            recognition.onresult = (event) => {
+                let finalTranscript = '';
+                let interimTranscript = '';
+                let isFinal = false;
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                        isFinal = true;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                // CHECK INTERIM RESULTS FOR "TURBO" COMMANDS
+                if (Date.now() < commandWindowEnd && interimTranscript.length > 0) {
+                    lastInterimTime = Date.now();
+
+                    // Attempt to match interim transcript against known commands
+                    for (const cmd of PRE_DEFINED_COMMANDS) {
+                        if (cmd.regex.test(interimTranscript)) {
+                            log(`Fast - Match: "${interimTranscript}"`, "chat");
+                            handleInstantCommand(interimTranscript, cmd);
+                            return; // Stop processing
+                        }
+                    }
+
+                    // SILENCE KILLER: If we have interim results but user stopped speaking
+                    // Check again in 800ms. If no update, stop mic.
+                    setTimeout(() => {
+                        if (isMicActive && Date.now() - lastInterimTime > 800 && Date.now() < commandWindowEnd) {
+                            // User likely finished speaking short command
+                            if (recognition) recognition.stop(); // Force Finalization
+                        }
+                    }, 850);
+                }
+
+                // FILTER: Only process if the "Button Gate" is open
+                if (isFinal && finalTranscript.trim().length > 0) {
+                    if (Date.now() < commandWindowEnd) {
+                        // Check exact match on final (if interim missed it or wasn't used)
+                        for (const cmd of PRE_DEFINED_COMMANDS) {
+                            if (cmd.regex.test(finalTranscript)) {
+                                log(`Fast - Match(Final): "${finalTranscript}"`, "chat");
+                                handleInstantCommand(finalTranscript, cmd);
+                                return;
+                            }
+                        }
+
+                        // Valid Command
+                        const sttTime = Date.now();
+                        log(`[PROFILE] STT Finalized at ${sttTime} `, "system");
+                        log(`Heard: "${finalTranscript}"`, "chat");
+                        document.getElementById('last-command').textContent = finalTranscript;
+
+                        // Close the gate immediately after hearing a command
+                        commandWindowEnd = 0;
+                        document.getElementById('listening-indicator').style.display = 'none';
+
+                        if (isOnboarding) {
+                            // Handle Onboarding Response
+                            localStorage.setItem('lcars_handle', finalTranscript);
+                            isOnboarding = false;
+
+                            // Register User with Backend
+                            fetch(API_URL + '/user', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ user_id: userId, name: finalTranscript })
+                            }).then(res => res.json()).then(data => {
+                                speak(`Identity confirmed, ${data.rank} ${finalTranscript}. Systems online.`);
+                                log(`User registered: ${data.rank} ${finalTranscript} `, "system");
+                            }).catch(err => {
+                                console.error("Registration failed", err);
+                                speak(`Identity confirmed, ${finalTranscript}.Warning: Database connection failed.`);
+                            });
+
+                        } else {
+                            // Normal Command
+                            // Play "Processing" sound to fill the gap
+                            playChirp('processing');
+                            sendCommand(finalTranscript);
+                        }
+                    } else {
+                        // Ignored (Background noise / Hot Mic buffer)
+                        // log(`(Ignored): "${finalTranscript}"`, "system");
+                    }
+                }
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error !== 'no-speech') {
+                    log("Speech Error: " + event.error, "error");
+                }
+            };
         }
 
-        function handleCommandResponse(data) {
-            // This function is called when a personal response comes back from the server
-            if (data.updates && data.updates.rank_up) {
-                // ... (rank up animation logic is the same)
+        function startContinuousMic() {
+            if (recognition && !isMicActive) {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    // Ignore "already started" errors
+                }
             }
-
-            log("Computer: " + data.response, "chat");
-            speak(data.response);
-
-            // Note: We don't call updateStatusUI here because the server will
-            // broadcast the new state to all clients (including us) after an update,
-            // which will be handled by the 'state_update' case in onmessage.
-            // If there were no updates, no broadcast is sent, so we are still in sync.
         }
 
         // --- RADIATION MINI-GAME ---
@@ -552,15 +611,19 @@
             document.body.classList.add('radiation-active');
             speak("Warning. Radiation leak detected. Tap interaction button to calibrate shields.");
 
+            // Start Audio Loop
             geigerInterval = setInterval(() => {
-                // playChirp('geiger');
-            }, 200);
+                playChirp('geiger');
+            }, 200); // Initial speed
         }
 
         function repairRadiation() {
             repairProgress += 10;
-            log(`Calibrating Shields... ${repairProgress}%`, "system");
-            // playChirp('processing');
+
+            // Visual Feedback
+            log(`Calibrating Shields...${repairProgress} % `, "system");
+            playChirp('processing');
+
             if (repairProgress >= 100) {
                 clearRadiationLeak();
             }
@@ -573,106 +636,177 @@
             log("Radiation leak contained. Systems normalizing.", "system");
             speak("Shield calibration complete. Radiation levels normal.");
 
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'radiation_cleared', user_id: userId }));
-            }
+            // Award XP
+            fetch(API_URL + '/event/radiation_cleared', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+            }).catch(e => console.error("XP Error", e));
         }
 
-        // --- SPEECH RECOGNITION & OTHER UI LOGIC ---
-        function handleHeadsetTrigger() {
-            if (isRadiationActive) {
-                repairRadiation();
-                return;
-            }
-            // ... (rest of the function is the same)
+        // --- INSTANT COMMAND HANDLER ---
+        function handleInstantCommand(text, cmdData) {
+            // Close gate
+            commandWindowEnd = 0;
+            if (listeningTimeout) clearTimeout(listeningTimeout); // Stop timeout
+            document.getElementById('listening-indicator').style.display = 'none';
+            document.getElementById('last-command').textContent = text;
+
+            // 1. Optimistic UI Update (0ms)
+            updateStatusUI(cmdData.updates);
+
+            // 2. Instant TTS (0ms)
+            // We set isSystemSpeaking to true immediately so the mic restart logic works correctly
+            isSystemSpeaking = true;
+            if (recognition) recognition.abort(); // Hard stop to reset
+
+            log("Computer (Fast): " + cmdData.response, "chat");
+            speak(cmdData.response);
+
+            // 3. Sync Backend (Fire & Forget)
+            sendCommand(text, true);
         }
 
-        // --- REMOVE POLLING ---
-        // The pollStatus() function is no longer needed and can be removed entirely.
+        // --- LOCATION UPDATE ---
+        async function updateLocation(token) {
+            try {
+                const res = await fetch(API_URL + '/location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, token: token })
+                });
+                const data = await res.json();
 
-        // Initial load (no longer calls pollStatus)
-        // document.addEventListener('DOMContentLoaded', () => { /* initial setup if any */ });
+                if (data.status === 'success') {
+                    // Update UI
+                    document.getElementById('location-display').textContent = `LOC: ${data.location.toUpperCase()}`;
+                    log(`Transport Complete: ${data.location}`, "system");
 
-        // Stubs for brevity, these functions are unchanged
-        function setupSpeechRecognition() {
-            if (!('webkitSpeechRecognition' in window)) {
-                log("Web Speech API not supported.");
-                return;
-            }
-
-            recognition = new webkitSpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
-
-            recognition.onstart = () => {
-                isMicActive = true;
-                log("Microphone Hot.", "system");
-            };
-
-            recognition.onend = () => {
-                isMicActive = false;
-                setTimeout(() => {
-                    if (document.visibilityState === 'visible' && !isSystemSpeaking) {
-                        startContinuousMic();
-                    }
-                }, 100);
-            };
-
-            recognition.onresult = (event) => {
-                let finalTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    }
+                    // Show Overlay
+                    showOverlay(`LOCATION: ${data.location.toUpperCase()}`, "#9999ff");
+                    playChirp('start'); // reusing chirp
+                    if (recognition) recognition.stop();
                 }
 
-                if (finalTranscript.trim().length > 0 && Date.now() < commandWindowEnd) {
-                    log(`Heard: "${finalTranscript}"`, "chat");
-                    document.getElementById('last-command').textContent = finalTranscript;
-                    commandWindowEnd = 0;
-                    document.getElementById('listening-indicator').style.display = 'none';
+                try {
+                    const sendTime = Date.now();
+                    log(`[PROFILE] Sending command at ${sendTime}`, "system");
+                    const res = await fetch(API_URL + '/command', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: text, user_id: userId })
+                    });
+                    const data = await res.json();
+                    const receiveTime = Date.now();
+                    log(`[PROFILE] Response received at ${receiveTime}(Latency: ${receiveTime - sendTime}ms)`, "system");
 
-                    if (isOnboarding) {
-                        localStorage.setItem('lcars_handle', finalTranscript);
-                        isOnboarding = false;
-                        if (socket && socket.readyState === WebSocket.OPEN) {
-                            socket.send(JSON.stringify({
-                                type: 'register',
-                                user_id: userId,
-                                name: finalTranscript
-                            }));
-                            speak(`Identity confirmed, ${finalTranscript}. Systems online.`);
-                            log(`User registered: ${finalTranscript}`, "system");
-                        } else {
-                            speak(`Identity confirmed, ${finalTranscript}. Warning: Database connection failed.`);
-                        }
+                    // Check for Rank Up (Game Feature)
+                    if (data.updates && data.updates.rank_up) {
+                        playRankUpSound();
+                        triggerRankAnimation(data.updates.rank_up);
+                    }
+
+                    if (!skipTTS) {
+                        log("Computer: " + data.response, "chat");
+                        speak(data.response);
+                        updateStatusUI(data.updates);
                     } else {
-                        sendCommand(finalTranscript);
+                        log(`Sync Complete: ${text} `, "system");
+                        // Ensure backend state is consistent, but we trust our optimistic update.
+                        // If backend returned different updates, we *could* apply them here.
+                        updateStatusUI(data.updates);
+                    }
+                } catch (err) {
+                    log("Backend Error: " + err, "error");
+                    if (!skipTTS) speak("Communication Link Severed.");
+                }
+            }
+
+            function playRankUpSound() {
+                // The TNG "Boatswain Whistle"
+                new Audio('https://www.trekcore.com/audio/communications/boatswainwhistle.mp3').play().catch(e => console.log("Audio play error", e));
+            }
+
+            function triggerRankAnimation(newRank) {
+                // Flash the screen Gold/Yellow
+                document.body.style.animation = "flash-gold 1s";
+
+                // Show overlay message
+                const overlay = document.createElement('div');
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0';
+                overlay.style.left = '0';
+                overlay.style.width = '100%';
+                overlay.style.height = '100%';
+                overlay.style.display = 'flex';
+                overlay.style.flexDirection = 'column';
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'center';
+                overlay.style.zIndex = '1000';
+                overlay.style.pointerEvents = 'none'; // Click through
+                overlay.innerHTML = `
+                <span style="color: #FFD700; font-size: 3em; font-weight: bold; text-shadow: 0 0 20px gold; text-align: center;">
+                    PROMOTION AUTHORIZED<br>
+                    RANK: ${newRank.toUpperCase()}
+                </span>
+            `;
+                document.body.appendChild(overlay);
+                setTimeout(() => overlay.remove(), 4000);
+            }
+
+            function renderSystems(systems) {
+                const panel = document.getElementById('status-panel');
+                // Only clear if empty to avoid flickering, or use diffing.
+                // For simplicity, we'll just update values if elements exist.
+
+                if (panel.children.length === 0) {
+                    // Initial render
+                    for (const [name, level] of Object.entries(systems)) {
+                        const div = document.createElement('div');
+                        div.className = 'system-display';
+                        div.id = `sys-${name}`;
+                        div.innerHTML = `
+                        <div class="bar-container">
+                            <div class="bar-fill" style="height: ${level}%"></div>
+                        </div>
+                        <div class="system-name">${name}</div>
+                        <div class="system-value">${level}%</div>
+                    `;
+                        panel.appendChild(div);
+                    }
+                } else {
+                    // Update
+                    for (const [name, level] of Object.entries(systems)) {
+                        const el = document.getElementById(`sys-${name}`);
+                        if (el) {
+                            el.querySelector('.bar-fill').style.height = `${level}%`;
+                            el.querySelector('.system-value').textContent = `${level}%`;
+                        }
                     }
                 }
-            };
+            }
 
-            recognition.onerror = (event) => {
-                if (event.error !== 'no-speech') {
-                    log("Speech Error: " + event.error, "error");
+            // Terminal Input Handler
+            document.getElementById('terminal-input').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    const text = this.value.trim();
+                    if (text) {
+                        // Log the command immediately to terminal
+                        // log("USER: " + text, "chat"); // sendCommand will log it or we rely on 'Heard' logic?
+                        // Wait, sendCommand logs response.
+                        // Let's manually log the input here as if it was heard.
+                        log(`Typed: "${text}"`, "chat");
+
+                        sendCommand(text, false); // false = don't skip TTS, keeps it consistent
+                        this.value = '';
+                    }
                 }
-            };
-        }
-        function startContinuousMic() { /* ... */ }
-        function speak(text) {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 1.1;
-            utterance.onend = () => {
-                isSystemSpeaking = false;
-                startContinuousMic();
-                if (silentAudio.paused) silentAudio.play().catch(e => {});
-            };
-            window.speechSynthesis.speak(utterance);
-        }
-        function renderSystems(systems) { /* ... */ }
+            });
+
+            // Initial load
+            pollStatus();
 
     </script>
 </body>
+
 </html>
