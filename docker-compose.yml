@@ -8,6 +8,7 @@ services:
       - REDIS_PORT=6379
       - VLLM_HOST=${VLLM_HOST:-http://vllm:8000}
       - VLLM_API_KEY=${VLLM_API_KEY:-}
+      - MODEL_NAME=${MODEL_NAME:-microsoft/Phi-3-mini-4k-instruct}
     depends_on:
       - redis
 

@@ -96,6 +96,15 @@ This branch runs a high-performance, event-driven architecture designed to suppo
     *   `REDIS_HOST`: Defaults to `localhost`.
     *   `REDIS_PORT`: Defaults to `6379`.
     *   `VLLM_HOST`: Set this to the URL of your vLLM server (e.g., `http://192.168.1.100:8000`).
+    *   `VLLM_API_KEY`: Required if using external providers like OpenAI or Gemini.
+    *   `MODEL_NAME`: Defaults to `microsoft/Phi-3-mini-4k-instruct`. Set this if using a specific external model (e.g., `gemini-2.0-flash`).
+
+    **Using Google Gemini (Example):**
+    ```bash
+    export VLLM_HOST="https://generativelanguage.googleapis.com/v1beta/openai/"
+    export VLLM_API_KEY="[YOUR_GEMINI_API_KEY]"
+    export MODEL_NAME="gemini-2.0-flash"
+    ```
 
 6.  **Start the Application Server:**
     ```bash
