@@ -50,7 +50,13 @@ RETRY_DELAY = 2
 r = None
 for attempt in range(MAX_RETRIES):
     try:
-        r = redis.Redis(host=os.environ.get("REDIS_HOST", "localhost"), port=int(os.environ.get("REDIS_PORT", 6379)), db=0, decode_responses=True)
+        r = redis.Redis(
+            host=os.environ.get("REDIS_HOST", "localhost"),
+            port=int(os.environ.get("REDIS_PORT", 6379)),
+            password=os.environ.get("REDIS_PASSWORD", None),
+            db=0,
+            decode_responses=True
+        )
         r.ping() # Force connection check
         logging.info("Connected to Redis.")
         break

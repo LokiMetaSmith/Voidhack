@@ -577,15 +577,29 @@
             }
         }
 
-        navigator.mediaSession.setActionHandler('play', () => {
-             if (document.getElementById('radiation-alert-overlay').style.display === 'block') {
+        function handleHeadsetTrigger() {
+            // Ensure silent audio keeps playing to maintain Media Session
+            const silentAudio = document.getElementById('silent-audio');
+            if (silentAudio && silentAudio.paused) {
+                silentAudio.play().catch(e => console.log("Silent audio resume failed"));
+            }
+
+            if (document.getElementById('radiation-alert-overlay').style.display === 'block') {
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({ type: 'radiation_cleared', user_id: userId }));
                 }
                 log("Radiation leak sealed.");
                 speak("Leak sealed. Engineering teams are restoring control.");
-             } else { playSound('chirp-sound'); }
-        });
+            } else {
+                playSound('chirp-sound');
+            }
+        }
+
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', handleHeadsetTrigger);
+            navigator.mediaSession.setActionHandler('pause', handleHeadsetTrigger);
+            navigator.mediaSession.setActionHandler('stop', handleHeadsetTrigger);
+        }
 
     </script>
 </body>
