@@ -284,6 +284,7 @@
     <script>
         const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
         let socket, recognition, userId, isSystemSpeaking = false, silenceTimer;
+        let isChannelOpen = false; // Push-to-Talk state
         let wasmExports = null, audioCtx, scriptNode, source;
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
@@ -361,7 +362,9 @@
 
         function handleStateUpdate(systems) {
             renderSystems(systems);
-            const radiationLeak = systems.radiation_leak > 0;
+            // Explicitly cast to Number to ensure correct comparison, defaulting to 0 if undefined
+            const leakValue = Number(systems.radiation_leak || 0);
+            const radiationLeak = leakValue > 0;
             document.getElementById('radiation-alert-overlay').style.display = radiationLeak ? 'block' : 'none';
             const geiger = document.getElementById('geiger-sound');
             if (radiationLeak && geiger.paused) geiger.play();
@@ -400,8 +403,13 @@
                     if (event.results[i].isFinal) final_transcript += event.results[i][0].transcript;
                     else interim_transcript += event.results[i][0].transcript;
                 }
-                document.getElementById('last-command').textContent = interim_transcript;
-                if (final_transcript) handleSpeech(final_transcript.trim());
+
+                if (isChannelOpen) {
+                    document.getElementById('last-command').textContent = interim_transcript;
+                    if (final_transcript) handleSpeech(final_transcript.trim());
+                } else {
+                     document.getElementById('last-command').textContent = "Channel Closed (Tap Button to Talk)";
+                }
             };
             recognition.start();
         }
@@ -492,10 +500,18 @@
         function log(message) {
             const logPanel = document.getElementById('log-panel');
             const terminalOutput = document.getElementById('terminal-output');
-            const formattedMessage = `<div>&gt; ${new Date().toLocaleTimeString()}: ${message}</div>`;
-            logPanel.innerHTML += formattedMessage;
-            terminalOutput.innerHTML += formattedMessage;
+
+            const div = document.createElement('div');
+            div.innerHTML = `&gt; ${new Date().toLocaleTimeString()}: ${message}`;
+
+            // Append to log panel
+            logPanel.appendChild(div.cloneNode(true));
+            if (logPanel.children.length > 50) logPanel.removeChild(logPanel.children[0]);
             logPanel.scrollTop = logPanel.scrollHeight;
+
+            // Append to terminal output
+            terminalOutput.appendChild(div.cloneNode(true));
+            if (terminalOutput.children.length > 50) terminalOutput.removeChild(terminalOutput.children[0]);
             terminalOutput.scrollTop = terminalOutput.scrollHeight;
         }
 
@@ -591,6 +607,11 @@
                 log("Radiation leak sealed.");
                 speak("Leak sealed. Engineering teams are restoring control.");
             } else {
+                isChannelOpen = !isChannelOpen;
+                const status = isChannelOpen ? "OPEN" : "CLOSED";
+                log(`COMMS CHANNEL: ${status}`);
+                document.getElementById('last-command').textContent = `CHANNEL ${status}`;
+                document.getElementById('listening-indicator').innerText = isChannelOpen ? "LISTENING..." : "CHANNEL CLOSED";
                 playSound('chirp-sound');
             }
         }
