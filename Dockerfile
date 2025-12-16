@@ -4,6 +4,9 @@ FROM python:3.9-slim
 # Set working directory
 WORKDIR /app
 
+# Install system dependencies (including openssl just in case, though usually present)
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 # We copy requirements.txt first to leverage Docker cache
 COPY requirements.txt .
@@ -16,10 +19,10 @@ COPY profiling_utils.py .
 COPY index.html .
 COPY audio_processor.wasm .
 COPY audio_processor.b64 .
+COPY entrypoint.sh .
 
 # Expose the application port
 EXPOSE 8000
 
 # Command to run the application
-# We use 0.0.0.0 to bind to all interfaces inside the container
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./entrypoint.sh"]
