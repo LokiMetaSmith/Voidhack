@@ -51,7 +51,7 @@ services:
 
   llama-cpp:
     profiles: ["cpu"]
-    image: ghcr.io/ggerganov/llama.cpp:server
+    image: ghcr.io/ggml-org/llama.cpp:server
     hostname: llm-service
     ports:
       - "8000:8000"
