@@ -6,11 +6,18 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - VLLM_HOST=${VLLM_HOST:-http://vllm:8000}
+      # VLLM_HOST now points to the generic service alias 'llm-service'
+      # which will resolve to either the vllm container or the llama-cpp container
+      # depending on which one is running (controlled by profiles).
+      - VLLM_HOST=${VLLM_HOST:-http://llm-service:8000}
       - VLLM_API_KEY=${VLLM_API_KEY:-}
       - MODEL_NAME=${MODEL_NAME:-microsoft/Phi-3-mini-4k-instruct}
     depends_on:
       - redis
+      # We cannot strictly depend on vllm OR llama-cpp because one will be down.
+      # Docker compose usually warns about missing dependencies if they are not running,
+      # but with profiles, we can't easily set a conditional dependency.
+      # The app retry logic for connection will handle the startup delay.
 
   redis:
     image: redis:7-alpine
@@ -19,9 +26,10 @@ services:
     restart: always
 
   vllm:
-    profiles: ["gpu"]
+    profiles: ["nvidia"]
     image: vllm/vllm-openai:latest
     runtime: nvidia
+    hostname: llm-service
     ports:
       - "8000:8000"
     environment:
@@ -29,6 +37,10 @@ services:
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
     command: --model microsoft/Phi-3-mini-4k-instruct
+    networks:
+      default:
+        aliases:
+           - llm-service
     deploy:
       resources:
         reservations:
@@ -36,3 +48,21 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+
+  llama-cpp:
+    profiles: ["cpu"]
+    image: ghcr.io/ggerganov/llama.cpp:server
+    hostname: llm-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/models
+    # Command arguments:
+    # -m: path to model
+    # --host 0.0.0.0 --port 8000: bind to all interfaces
+    # -c 4096: context size (matching Phi-3-mini-4k)
+    command: -m /models/Phi-3-mini-4k-instruct-q4.gguf --host 0.0.0.0 --port 8000 -c 4096
+    networks:
+      default:
+        aliases:
+           - llm-service
