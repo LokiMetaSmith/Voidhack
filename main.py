@@ -232,6 +232,11 @@ async def process_command_logic(req: CommandRequest):
             update_leaderboard(user_id, 10)
         return turbo_response
 
+    # Safety: Truncate oversized inputs
+    if len(text) > 1000:
+        logging.warning(f"Truncating oversized input from user {user_id}: {len(text)} chars")
+        text = text[:1000]
+
     # 3. Get User Context
     user_data = get_user_rank_data(user_id)
 
@@ -263,10 +268,12 @@ async def process_command_logic(req: CommandRequest):
         "model": MODEL_NAME,
         "messages": [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": req.text}
+            {"role": "user", "content": text}
         ],
         "temperature": 0.1,
     }
+
+    logging.info(f"LLM Request - User: {user_id}, PromptLen: {len(system_prompt)}, InputLen: {len(text)}")
 
     try:
         headers = {}

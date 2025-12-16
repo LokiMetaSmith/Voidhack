@@ -385,7 +385,9 @@
                 if (!isSystemSpeaking) {
                      // On iOS, we restart immediately because continuous=false implies it stops after every phrase.
                      // On Desktop, we restart if it accidentally crashed.
-                     setTimeout(() => recognition.start(), isIOS ? 50 : 250);
+                     setTimeout(() => {
+                        try { recognition.start(); } catch(e) { console.log("Recognition restart ignored: " + e.message); }
+                     }, isIOS ? 50 : 250);
                 }
                 document.getElementById('listening-indicator').style.display = 'none';
             };
@@ -440,7 +442,10 @@
             if (selectedVoice) utterance.voice = selectedVoice;
 
             utterance.rate = 1.1;
-            utterance.onend = () => { isSystemSpeaking = false; recognition.start(); };
+            utterance.onend = () => {
+                isSystemSpeaking = false;
+                try { recognition.start(); } catch(e) { console.log("Recognition start after TTS ignored: " + e.message); }
+            };
             window.speechSynthesis.cancel();
             window.speechSynthesis.speak(utterance);
         }
@@ -496,7 +501,14 @@
 
         function playSound(id) {
             const sound = document.getElementById(id);
-            if (sound) sound.play().catch(e => console.log("Audio play failed"));
+            if (sound) {
+                // Check if the source is supported/valid
+                if (sound.error) {
+                    console.log(`Audio error for ${id}: ${sound.error.message}`);
+                    return;
+                }
+                sound.play().catch(e => console.log(`Audio play failed for ${id}: ${e.message}`));
+            }
         }
 
         async function loadWasm() {
