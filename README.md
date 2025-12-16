@@ -112,6 +112,16 @@ This branch runs a high-performance, event-driven architecture designed to suppo
     python3 -m uvicorn main:app --host 0.0.0.0 --port 8001
     ```
 
+### Database Access & Debugging
+If you need to connect to the Redis database to inspect data, users, or the leaderboard:
+
+*   **Hostname:** `localhost` (if running locally)
+*   **Port:** `6379`
+*   **Password:** `lcars_override_739`
+*   **Connection URL:** `redis://:lcars_override_739@localhost:6379`
+
+**Note:** The hostname `loki-llm` (or `loki-llm.local`) appears in the SSL certificate for the application container but **cannot** be used to connect to Redis from your host machine. Always use `localhost`.
+
 ### Generating QR Codes
 Create QR codes that point to your deployment URL with a Base64 encoded location.
 
