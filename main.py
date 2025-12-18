@@ -20,6 +20,12 @@ class NoStatusFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         return '/ws' not in record.getMessage()
 logging.getLogger("uvicorn.access").addFilter(NoStatusFilter())
+
+class UvicornErrorFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "Invalid HTTP request received" not in record.getMessage()
+logging.getLogger("uvicorn.error").addFilter(UvicornErrorFilter())
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Basic Setup & Configuration ---
