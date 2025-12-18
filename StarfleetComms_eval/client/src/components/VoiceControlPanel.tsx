@@ -170,7 +170,7 @@ export function VoiceControlPanel({
           ? "Tap to activate continuous voice mode"
           : "Tap the button above to speak"}
       </p>
-      
+
       {/* Mobile hint - shown on mobile devices when idle */}
       {isMobileDevice() && !isListening && !isProcessing && !isSpeaking && !isCheckingPermission && !isPermissionDenied && (
         <p className="text-xs text-muted-foreground/70 text-center max-w-xs mt-2" data-testid="text-mobile-hint">

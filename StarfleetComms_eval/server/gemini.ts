@@ -10,7 +10,7 @@ import { ConversationMessage, ShipSystemStatus } from "@shared/schema";
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 function buildSystemPrompt(shipSystems: ShipSystemStatus): string {
-  return `You are the USS Enterprise Computer from Star Trek: The Next Generation. 
+  return `You are the USS Enterprise Computer from Star Trek: The Next Generation.
 
 Your personality and response style:
 - Speak in a calm, professional, and precise manner
@@ -69,7 +69,7 @@ export async function generateComputerResponse(
 
     // Build conversation context - use simple string format for initial message
     let contents = userMessage;
-    
+
     // If there's history, build full conversation
     if (conversationHistory.length > 0) {
       const conversationText = conversationHistory
@@ -89,7 +89,7 @@ export async function generateComputerResponse(
     console.log("Gemini response received:", response);
     const responseText = response.text;
     console.log("Response text:", responseText);
-    
+
     return responseText || "Unable to process request. Please try again.";
   } catch (error) {
     console.error("Gemini API error:", error);

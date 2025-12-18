@@ -18,14 +18,14 @@ import { apiRequest } from "@/lib/queryClient";
 const isContinuousModeAvailable = (): boolean => {
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const isProduction = import.meta.env.PROD;
-  
+
   // Disable continuous mode on mobile devices in production
   // Manual mic mode works reliably on all platforms
   if (isMobile && isProduction) {
     console.log("[Communicator] Continuous mode disabled on mobile production");
     return false;
   }
-  
+
   return true;
 };
 
@@ -85,18 +85,18 @@ export default function Communicator() {
   const { transcript, isListening, error: speechError, startListening, stopListening, resetTranscript } = useSpeechRecognition();
   const { speak, isSpeaking, cancel: cancelSpeech, warmUp: warmUpSpeech } = useSpeechSynthesis();
   const { playSound } = useTrekSounds(soundSettings);
-  
+
   // Centralized VAD restart timer ref to prevent multiple concurrent restart attempts
   const vadRestartTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // iOS fix: Track if we're currently processing a transcript to prevent duplicate sends
   const isProcessingTranscriptRef = useRef(false);
-  
+
   // Voice Activity Detection for hands-free mode with enhanced error handling
-  const { 
-    isVoiceDetected, 
-    audioLevel: vadAudioLevel, 
-    startDetection, 
+  const {
+    isVoiceDetected,
+    audioLevel: vadAudioLevel,
+    startDetection,
     stopDetection,
     permissionState,
     error: vadError
@@ -111,12 +111,12 @@ export default function Communicator() {
       });
       if (isHandsFreeMode && !isListening && (voiceState === "idle" || voiceState === "processing")) {
         stopDetection(); // Critical: Stop VAD first to release microphone
-        
+
         // Android needs longer delay in production to ensure microphone fully releases
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const isProduction = import.meta.env.PROD;
         const handoffDelay = isMobile && isProduction ? 600 : 300;
-        
+
         console.log(`[HandsFree] Waiting ${handoffDelay}ms before starting Speech Recognition`);
         setTimeout(() => {
           console.log("[HandsFree] Microphone released, starting Speech Recognition");
@@ -134,11 +134,11 @@ export default function Communicator() {
     (error) => {
       // On VAD error - show user-visible error
       console.error("[HandsFree] VAD error:", error);
-      
+
       // Increment error counter
       vadErrorCountRef.current += 1;
       setVadErrorCount(vadErrorCountRef.current);
-      
+
       // Show error with retry suggestion on repeated failures
       if (vadErrorCountRef.current >= 2) {
         toast({
@@ -146,7 +146,7 @@ export default function Communicator() {
           description: "Having trouble with continuous mode? Try using manual mic mode instead (single tap on microphone button).",
           variant: "destructive",
         });
-        
+
         // Disable hands-free mode after repeated failures
         console.log("[HandsFree] Multiple VAD errors, disabling hands-free mode");
         setIsHandsFreeMode(false);
@@ -159,7 +159,7 @@ export default function Communicator() {
           variant: "destructive",
         });
       }
-      
+
       // Disable hands-free mode if permission denied
       if (permissionState === 'denied') {
         console.log("[HandsFree] Permission denied, disabling hands-free mode");
@@ -178,7 +178,7 @@ export default function Communicator() {
   const playSoundRef = useRef(playSound);
   const mediaSessionActiveRef = useRef(false);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
-  
+
   // Keep refs updated
   useEffect(() => {
     isListeningRef.current = isListening;
@@ -226,7 +226,7 @@ export default function Communicator() {
       audio.play().then(() => {
         console.log("[MediaSession] Silent audio playing, session activated");
         mediaSessionActiveRef.current = true;
-        
+
         // Set initial playback state
         navigator.mediaSession.playbackState = 'paused';
       }).catch((err) => {
@@ -251,19 +251,19 @@ export default function Communicator() {
     // Handle play action (single tap on AirPods activates mic)
     const handlePlay = () => {
       console.log("[MediaSession] Play action received (AirPod tap detected)");
-      
+
       // If already listening, ignore
       if (isListeningRef.current) {
         console.log("[MediaSession] Already listening, ignoring play action");
         return;
       }
-      
+
       // If currently speaking, stop speech first
       if (voiceStateRef.current === 'speaking') {
         console.log("[MediaSession] Canceling speech before starting mic");
         cancelSpeechRef.current();
       }
-      
+
       // Activate microphone
       console.log("[MediaSession] Activating microphone via AirPod tap");
       isProcessingTranscriptRef.current = false;
@@ -275,7 +275,7 @@ export default function Communicator() {
     // Handle pause action (tap while listening stops mic)
     const handlePause = () => {
       console.log("[MediaSession] Pause action received (AirPod tap detected)");
-      
+
       if (isListeningRef.current) {
         console.log("[MediaSession] Stopping microphone via AirPod tap");
         stopListeningRef.current();
@@ -294,7 +294,7 @@ export default function Communicator() {
       navigator.mediaSession.setActionHandler('play', handlePlay);
       navigator.mediaSession.setActionHandler('pause', handlePause);
       navigator.mediaSession.setActionHandler('stop', handleStop);
-      
+
       console.log("[MediaSession] Handlers registered successfully");
     } catch (error) {
       console.error("[MediaSession] Error setting up handlers:", error);
@@ -306,14 +306,14 @@ export default function Communicator() {
         navigator.mediaSession.setActionHandler('play', null);
         navigator.mediaSession.setActionHandler('pause', null);
         navigator.mediaSession.setActionHandler('stop', null);
-        
+
         // Stop and cleanup silent audio
         if (silentAudioRef.current) {
           silentAudioRef.current.pause();
           silentAudioRef.current = null;
         }
         mediaSessionActiveRef.current = false;
-        
+
         console.log("[MediaSession] Handlers cleaned up");
       } catch (error) {
         console.error("[MediaSession] Error cleaning up handlers:", error);
@@ -325,7 +325,7 @@ export default function Communicator() {
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
     if (!mediaSessionActiveRef.current) return;
-    
+
     // When listening, set to 'playing' so next tap triggers 'pause'
     // When idle/processing/speaking, set to 'paused' so tap triggers 'play'
     if (isListening) {
@@ -388,7 +388,7 @@ export default function Communicator() {
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, computerMessage]);
-      
+
       // Speak the response
       console.log("[Communicator] Calling speak() with message:", data.message.substring(0, 50));
       speak(data.message, voiceSettings);
@@ -401,7 +401,7 @@ export default function Communicator() {
         variant: "destructive",
       });
       setVoiceState("idle");
-      
+
       // Restart VAD if in hands-free mode (even on error)
       if (isHandsFreeMode) {
         setTimeout(() => {
@@ -427,19 +427,19 @@ export default function Communicator() {
 
   // Handle speech synthesis
   useEffect(() => {
-    console.log("[HandsFree] Speech synthesis state:", { 
-      isSpeaking, 
-      voiceState, 
-      isHandsFreeMode 
+    console.log("[HandsFree] Speech synthesis state:", {
+      isSpeaking,
+      voiceState,
+      isHandsFreeMode
     });
-    
+
     if (isSpeaking) {
       setVoiceState("speaking");
     } else if (voiceState === "speaking") {
       console.log("[HandsFree] Speech completed, preparing to restart VAD");
       playSound("complete");
       setVoiceState("idle");
-      
+
       // Restart VAD after speaking completes in hands-free mode
       if (isHandsFreeMode) {
         // Cancel any pending restart timer
@@ -447,10 +447,10 @@ export default function Communicator() {
           clearTimeout(vadRestartTimerRef.current);
           vadRestartTimerRef.current = null;
         }
-        
+
         // Ensure VAD is fully stopped before restarting
         stopDetection();
-        
+
         vadRestartTimerRef.current = setTimeout(() => {
           console.log("[HandsFree] Restarting VAD for next detection cycle");
           startDetection();
@@ -459,19 +459,19 @@ export default function Communicator() {
       }
     }
   }, [isSpeaking, voiceState, playSound, isHandsFreeMode, startDetection, stopDetection]);
-  
+
   // Failsafe: If speech synthesis doesn't start within 3s of processing, reset to idle
   useEffect(() => {
     if (voiceState !== "processing") {
       return;
     }
-    
+
     const speechStartTimeout = setTimeout(() => {
       if (voiceState === "processing" && !isSpeaking) {
         console.warn("[HandsFree] Speech synthesis timeout - resetting to idle");
         playSound("complete");
         setVoiceState("idle");
-        
+
         // Restart VAD if in hands-free mode
         if (isHandsFreeMode) {
           setTimeout(() => {
@@ -481,7 +481,7 @@ export default function Communicator() {
         }
       }
     }, 3000); // 3 second timeout
-    
+
     return () => clearTimeout(speechStartTimeout);
   }, [voiceState, isSpeaking, isHandsFreeMode, playSound, startDetection]);
 
@@ -516,14 +516,14 @@ export default function Communicator() {
       setIsHandsFreeMode(false);
       return;
     }
-    
+
     if (isHandsFreeMode) {
       // Cancel any pending restart timer
       if (vadRestartTimerRef.current) {
         clearTimeout(vadRestartTimerRef.current);
         vadRestartTimerRef.current = null;
       }
-      
+
       // Stop any active speech recognition before starting VAD
       if (isListening) {
         stopListening();
@@ -549,7 +549,7 @@ export default function Communicator() {
   // The key conditions are: we have a transcript AND we're no longer listening.
   useEffect(() => {
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    
+
     console.log("[Communicator] Transcript effect triggered", {
       transcript: transcript ? transcript.substring(0, 30) + "..." : "(empty)",
       isListening,
@@ -557,7 +557,7 @@ export default function Communicator() {
       isProcessing: isProcessingTranscriptRef.current,
       isIOS
     });
-    
+
     // Process transcript when: we have text, stopped listening, and not already processing
     if (transcript && !isListening && !isProcessingTranscriptRef.current) {
       console.log("[Communicator] Processing transcript:", transcript);
@@ -574,21 +574,21 @@ export default function Communicator() {
   useEffect(() => {
     if (speechError) {
       console.error("[Communicator] Speech error detected:", speechError);
-      
+
       // CRITICAL: Force reset voice state to idle to sync UI with actual state
       setVoiceState("idle");
-      
+
       // Stop any active listening to ensure clean state
       if (isListening) {
         console.log("[Communicator] Forcing stop listening due to error");
         stopListening();
       }
-      
+
       // ONLY manage VAD if in hands-free mode to avoid unnecessary mic toggling
       if (isHandsFreeMode) {
         // Stop VAD to release microphone
         stopDetection();
-        
+
         // Schedule VAD restart after error recovery delay
         console.log("[Communicator] Scheduling VAD restart after error (hands-free mode)");
         setTimeout(() => {
@@ -596,7 +596,7 @@ export default function Communicator() {
           startDetection();
         }, 1500); // Give extra time for mobile to fully release resources
       }
-      
+
       toast({
         title: "Voice Input Error",
         description: speechError,
@@ -608,18 +608,18 @@ export default function Communicator() {
   // Android/Mobile safeguard: Timeout to reset stuck listening state
   useEffect(() => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
+
     if (isHandsFreeMode && voiceState === 'listening' && isMobile) {
       console.log("[HandsFree] Mobile browser detected, starting stuck state timeout");
-      
+
       // If listening state persists for too long, force reset (Android issue workaround)
       const stuckTimeout = setTimeout(() => {
         console.error("[HandsFree] Listening state stuck for 15s, forcing reset (Android issue)");
-        
+
         // Force stop speech recognition
         stopListening();
         setVoiceState('idle');
-        
+
         // Restart VAD for next detection cycle
         if (isHandsFreeMode) {
           setTimeout(() => {
@@ -627,14 +627,14 @@ export default function Communicator() {
             startDetection();
           }, 500);
         }
-        
+
         toast({
           title: "Voice Input Reset",
           description: "Restarted voice detection due to timeout",
           variant: "default",
         });
       }, 15000); // 15 second timeout
-      
+
       return () => clearTimeout(stuckTimeout);
     }
   }, [isHandsFreeMode, voiceState, stopListening, startDetection, toast]);
@@ -650,7 +650,7 @@ export default function Communicator() {
       });
       return;
     }
-    
+
     if (isHandsFreeMode) {
       console.log("[Communicator] Continuous mode button clicked - deactivating");
       setIsHandsFreeMode(false);
@@ -706,7 +706,7 @@ export default function Communicator() {
     setMessages((prev) => [...prev, userMessage]);
     setVoiceState("processing");
     playSound("processing");
-    
+
     chatMutation.mutate({
       message: trimmedText,
       conversationId: conversationId || undefined,
@@ -725,7 +725,7 @@ export default function Communicator() {
         console.error("Failed to delete conversation:", error);
       }
     }
-    
+
     setMessages([]);
     setConversationId(null);
     setVoiceState("idle");
@@ -751,12 +751,12 @@ export default function Communicator() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <LCARSHeader 
+      <LCARSHeader
         onClearConversation={messages.length > 0 ? handleClearConversation : undefined}
         isHandsFreeMode={isHandsFreeMode}
         onHandsFreeModeChange={continuousModeAvailable ? handleHandsFreeModeChange : undefined}
         voiceSettingsButton={
-          <VoiceSettingsPanel 
+          <VoiceSettingsPanel
             onSettingsChange={setVoiceSettings}
             onSoundSettingsChange={setSoundSettings}
           />
@@ -768,11 +768,11 @@ export default function Communicator() {
           <div className="w-full">
             <StatusIndicator state={voiceState} />
           </div>
-          
+
           <div className="w-full">
             <ShipSystemsPanel systems={shipSystems} />
           </div>
-          
+
           <div className="w-full flex justify-center">
             <VoiceControlPanel
               voiceState={voiceState}

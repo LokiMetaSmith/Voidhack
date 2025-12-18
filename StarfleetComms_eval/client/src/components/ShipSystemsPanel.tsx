@@ -31,8 +31,8 @@ export function ShipSystemsPanel({ systems }: ShipSystemsPanelProps) {
               <span className="text-xs text-muted-foreground">{systems.warpCore.efficiency}%</span>
             </div>
             <div className="h-1 bg-muted rounded-full overflow-hidden mt-1">
-              <div 
-                className="h-full bg-chart-4 transition-all duration-300" 
+              <div
+                className="h-full bg-chart-4 transition-all duration-300"
                 style={{ width: `${systems.warpCore.efficiency}%` }}
               />
             </div>
@@ -48,8 +48,8 @@ export function ShipSystemsPanel({ systems }: ShipSystemsPanelProps) {
               <span className="text-xs text-muted-foreground">{systems.shields.strength}%</span>
             </div>
             <div className="h-1 bg-muted rounded-full overflow-hidden mt-1">
-              <div 
-                className="h-full bg-chart-2 transition-all duration-300" 
+              <div
+                className="h-full bg-chart-2 transition-all duration-300"
                 style={{ width: `${systems.shields.strength}%` }}
               />
             </div>
@@ -102,8 +102,8 @@ export function ShipSystemsPanel({ systems }: ShipSystemsPanelProps) {
               <span className="text-xs text-muted-foreground">{systems.impulse.power}%</span>
             </div>
             <div className="h-1 bg-muted rounded-full overflow-hidden mt-1">
-              <div 
-                className="h-full bg-chart-3 transition-all duration-300" 
+              <div
+                className="h-full bg-chart-3 transition-all duration-300"
                 style={{ width: `${systems.impulse.power}%` }}
               />
             </div>

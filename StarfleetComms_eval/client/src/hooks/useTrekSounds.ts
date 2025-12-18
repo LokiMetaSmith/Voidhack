@@ -35,11 +35,11 @@ export function useTrekSounds(config: TrekSoundsConfig = { enabled: true, volume
     try {
       const response = await fetch(SOUND_FILES[effect]);
       if (!response.ok) return null;
-      
+
       const arrayBuffer = await response.arrayBuffer();
       const audioContext = getAudioContext();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      
+
       audioBuffersRef.current.set(effect, audioBuffer);
       return audioBuffer;
     } catch (error) {

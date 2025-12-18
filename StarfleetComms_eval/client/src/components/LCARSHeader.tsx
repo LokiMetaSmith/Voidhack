@@ -23,7 +23,7 @@ export function LCARSHeader({ onClearConversation, isHandsFreeMode = false, onHa
     <header className="relative border-b border-border bg-card">
       {/* LCARS decorative bars */}
       <div className="absolute top-0 left-0 right-0 h-2 bg-primary" />
-      
+
       <div className="flex items-center justify-between p-4">
         {/* Left section with title */}
         <div className="flex items-center gap-4">
@@ -84,7 +84,7 @@ export function LCARSHeader({ onClearConversation, isHandsFreeMode = false, onHa
                   <div className="space-y-2">
                     <h4 className="font-semibold text-foreground">Mobile Devices:</h4>
                     <p className="text-sm">
-                      On iPhone and Android, tap the on-screen microphone button each time you want to speak. 
+                      On iPhone and Android, tap the on-screen microphone button each time you want to speak.
                       Bluetooth headset buttons (like AirPods) cannot control this web app due to browser limitations.
                     </p>
                   </div>

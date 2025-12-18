@@ -19,7 +19,7 @@ const checkMicrophonePermission = async (): Promise<'granted' | 'denied' | 'prom
       console.log("[VAD] Permissions API not supported");
       return 'unsupported';
     }
-    
+
     const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
     console.log("[VAD] Permission status:", result.state);
     return result.state as 'granted' | 'denied' | 'prompt';
@@ -42,7 +42,7 @@ export function useVoiceActivityDetection(
   const [error, setError] = useState<string | null>(null);
   const isStoppingRef = useRef(false);
   const isStartingRef = useRef(false); // Prevents concurrent start attempts
-  
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const microphoneRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -68,12 +68,12 @@ export function useVoiceActivityDetection(
         setIsVoiceDetected(true);
         onVoiceStart?.();
       }
-      
+
       // Reset voice end timeout
       if (voiceTimeoutRef.current) {
         clearTimeout(voiceTimeoutRef.current);
       }
-      
+
       // Set timeout to detect when voice stops
       voiceTimeoutRef.current = setTimeout(() => {
         console.log("[VAD] Voice ended (1500ms silence)");
@@ -88,18 +88,18 @@ export function useVoiceActivityDetection(
   const startDetection = useCallback(async () => {
     const isMobile = isMobileDevice();
     const isProduction = import.meta.env.PROD;
-    
-    console.log("[VAD] startDetection called", { 
-      isDetecting, 
+
+    console.log("[VAD] startDetection called", {
+      isDetecting,
       isStarting: isStartingRef.current,
       isStopping: isStoppingRef.current,
       hasStream: !!streamRef.current,
       currentPermissionState: permissionState,
       isMobile,
       isProduction,
-      userAgent: navigator.userAgent 
+      userAgent: navigator.userAgent
     });
-    
+
     // CRITICAL FIX: Wait for any ongoing stop to complete before starting
     if (isStoppingRef.current) {
       console.log("[VAD] Stop in progress, waiting for completion before starting");
@@ -117,30 +117,30 @@ export function useVoiceActivityDetection(
         }, 2000);
       });
     }
-    
+
     // Guard: Prevent concurrent start attempts
     if (isDetecting || isStartingRef.current) {
       console.log("[VAD] Already detecting or starting, skipping start");
       return;
     }
-    
+
     // Set starting flag immediately to prevent concurrent calls
     isStartingRef.current = true;
     setError(null);
-    
+
     // Only set to 'checking' if we don't already have permission granted
     if (permissionState !== 'granted') {
       setPermissionState('checking');
     }
-    
+
     try {
       // Check permission status only if not already granted
       if (permissionState !== 'granted') {
         const permissionStatus = await checkMicrophonePermission();
         console.log("[VAD] Permission check result:", permissionStatus);
-        
+
         if (permissionStatus === 'denied') {
-          const errorMsg = isMobile 
+          const errorMsg = isMobile
             ? "Microphone access denied. Please enable microphone in browser settings."
             : "Microphone access denied. Please allow microphone access to use voice features.";
           console.error("[VAD] Permission denied before getUserMedia");
@@ -150,25 +150,25 @@ export function useVoiceActivityDetection(
           return;
         }
       }
-      
+
       // Guard: If stream exists, clean it up first (simplified cleanup)
       if (streamRef.current) {
         console.log("[VAD] Stream already exists, cleaning up before restart");
         const tracks = streamRef.current.getTracks();
         tracks.forEach(track => track.stop());
         streamRef.current = null;
-        
+
         // Android needs more time to fully release microphone resources in production
         const cleanupDelay = isMobile && isProduction ? 300 : 100;
         console.log(`[VAD] Waiting ${cleanupDelay}ms for cleanup to complete`);
         await new Promise(resolve => setTimeout(resolve, cleanupDelay));
       }
-      
+
       console.log("[VAD] Requesting microphone access...");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log("[VAD] Microphone access granted", { 
+      console.log("[VAD] Microphone access granted", {
         streamId: stream.id,
-        audioTracks: stream.getAudioTracks().length 
+        audioTracks: stream.getAudioTracks().length
       });
       streamRef.current = stream;
       setPermissionState('granted');
@@ -191,7 +191,7 @@ export function useVoiceActivityDetection(
     } catch (error: any) {
       const errorName = error?.name || 'Unknown';
       const errorMessage = error?.message || 'Unknown error';
-      
+
       console.error("[VAD] Error starting voice detection:", {
         error,
         errorName,
@@ -199,9 +199,9 @@ export function useVoiceActivityDetection(
         isMobile,
         isProduction
       });
-      
+
       let userFriendlyError = "Failed to access microphone.";
-      
+
       if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
         userFriendlyError = isMobile
           ? "Microphone access denied. Tap your browser's settings icon and enable microphone permissions for this site."
@@ -219,7 +219,7 @@ export function useVoiceActivityDetection(
         userFriendlyError = `Microphone error: ${errorMessage}`;
         setPermissionState('error');
       }
-      
+
       setError(userFriendlyError);
       onError?.(userFriendlyError);
     } finally {
@@ -229,18 +229,18 @@ export function useVoiceActivityDetection(
   }, [detectVoice, isDetecting, permissionState, onError]);
 
   const stopDetection = useCallback(async () => {
-    console.log("[VAD] stopDetection called", { 
-      isDetecting, 
-      isStopping: isStoppingRef.current 
+    console.log("[VAD] stopDetection called", {
+      isDetecting,
+      isStopping: isStoppingRef.current
     });
-    
+
     // Guard: prevent multiple stops
     if (!isDetecting || isStoppingRef.current) {
       console.log("[VAD] Skipping stop - already stopped or stopping");
       return;
     }
     isStoppingRef.current = true;
-    
+
     // Cancel animation frame
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);

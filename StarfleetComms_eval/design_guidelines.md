@@ -90,7 +90,7 @@
 
 ## Mobile-First Responsive Strategy
 
-**Mobile (base)**: 
+**Mobile (base)**:
 - Single-column stacked layout
 - Full-width voice control panel at bottom (sticky)
 - Conversation scrolls in middle

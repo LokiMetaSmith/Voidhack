@@ -62,13 +62,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Chat error:", error);
-      
+
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid request data" });
       }
 
-      res.status(500).json({ 
-        error: error instanceof Error ? error.message : "Internal server error" 
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Internal server error"
       });
     }
   });
@@ -78,7 +78,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const conversationId = req.params.id;
       const messages = await storage.getConversationMessages(conversationId);
-      
+
       res.json({
         messages: messages.map(msg => ({
           id: msg.id,
@@ -89,8 +89,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Get messages error:", error);
-      res.status(500).json({ 
-        error: error instanceof Error ? error.message : "Internal server error" 
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Internal server error"
       });
     }
   });
@@ -103,8 +103,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       console.error("Delete conversation error:", error);
-      res.status(500).json({ 
-        error: error instanceof Error ? error.message : "Internal server error" 
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Internal server error"
       });
     }
   });
