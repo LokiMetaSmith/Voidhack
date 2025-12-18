@@ -284,7 +284,9 @@
     <script>
         const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
         let socket, recognition, userId, isSystemSpeaking = false, silenceTimer;
+        let isChannelOpen = false; // Push-to-Talk state
         let wasmExports = null, audioCtx, scriptNode, source;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
         const INSTANT_COMMANDS = [
             { regex: /shield(s)?\s+(up|raise|maximum)/i, response: "Shields at maximum.", updates: { shields: 100 } },
@@ -300,7 +302,21 @@
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('loc')) { updateLocation(urlParams.get('loc')); }
             loadWasm();
+            // Pre-load voices
+            window.speechSynthesis.getVoices();
         };
+
+        async function initializeBluetoothAudio() {
+            if (!isIOS) return;
+            try {
+                log("Initializing Bluetooth Audio...");
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop());
+                log("Audio routing primed.");
+            } catch (e) {
+                log("Bluetooth Init Error: " + e);
+            }
+        }
 
         async function initComms() {
             try {
@@ -314,6 +330,7 @@
             } catch (e) {
                 log("Audio playback failed, interactions may be limited.");
             }
+            await initializeBluetoothAudio();
             setupWebSocket();
             setupSpeechRecognition();
             setupAudioProcessing();
@@ -345,7 +362,9 @@
 
         function handleStateUpdate(systems) {
             renderSystems(systems);
-            const radiationLeak = systems.radiation_leak > 0;
+            // Explicitly cast to Number to ensure correct comparison, defaulting to 0 if undefined
+            const leakValue = Number(systems.radiation_leak || 0);
+            const radiationLeak = leakValue > 0;
             document.getElementById('radiation-alert-overlay').style.display = radiationLeak ? 'block' : 'none';
             const geiger = document.getElementById('geiger-sound');
             if (radiationLeak && geiger.paused) geiger.play();
@@ -361,10 +380,20 @@
         function setupSpeechRecognition() {
             if (!('webkitSpeechRecognition' in window)) { log("Speech recognition not supported."); return; }
             recognition = new webkitSpeechRecognition();
-            recognition.continuous = true;
+            // IOS Safari: continuous=true is buggy/broken. Use false and restart manually.
+            recognition.continuous = !isIOS;
             recognition.interimResults = true;
             recognition.onstart = () => { log("Mic active."); document.getElementById('listening-indicator').style.display = 'block'; };
-            recognition.onend = () => { if (!isSystemSpeaking) setTimeout(() => recognition.start(), 250); document.getElementById('listening-indicator').style.display = 'none'; };
+            recognition.onend = () => {
+                if (!isSystemSpeaking) {
+                     // On iOS, we restart immediately because continuous=false implies it stops after every phrase.
+                     // On Desktop, we restart if it accidentally crashed.
+                     setTimeout(() => {
+                        try { recognition.start(); } catch(e) { console.log("Recognition restart ignored: " + e.message); }
+                     }, isIOS ? 50 : 250);
+                }
+                document.getElementById('listening-indicator').style.display = 'none';
+            };
             recognition.onresult = (event) => {
                 clearTimeout(silenceTimer);
                 silenceTimer = setTimeout(() => { recognition.stop(); }, 800);
@@ -374,8 +403,13 @@
                     if (event.results[i].isFinal) final_transcript += event.results[i][0].transcript;
                     else interim_transcript += event.results[i][0].transcript;
                 }
-                document.getElementById('last-command').textContent = interim_transcript;
-                if (final_transcript) handleSpeech(final_transcript.trim());
+
+                if (isChannelOpen) {
+                    document.getElementById('last-command').textContent = interim_transcript;
+                    if (final_transcript) handleSpeech(final_transcript.trim());
+                } else {
+                     document.getElementById('last-command').textContent = "Channel Closed (Tap Button to Talk)";
+                }
             };
             recognition.start();
         }
@@ -404,8 +438,22 @@
             isSystemSpeaking = true;
             recognition.stop();
             const utterance = new SpeechSynthesisUtterance(text);
+
+            // Voice Selection Logic
+            const voices = window.speechSynthesis.getVoices();
+            let selectedVoice = voices.find(v => v.name.includes("Zira")) || // Windows
+                                voices.find(v => v.name.includes("Samantha")) || // macOS/iOS
+                                voices.find(v => v.name.includes("Google UK English Female")) ||
+                                voices.find(v => v.lang === 'en-US' && v.name.includes("Female")) ||
+                                voices[0];
+
+            if (selectedVoice) utterance.voice = selectedVoice;
+
             utterance.rate = 1.1;
-            utterance.onend = () => { isSystemSpeaking = false; recognition.start(); };
+            utterance.onend = () => {
+                isSystemSpeaking = false;
+                try { recognition.start(); } catch(e) { console.log("Recognition start after TTS ignored: " + e.message); }
+            };
             window.speechSynthesis.cancel();
             window.speechSynthesis.speak(utterance);
         }
@@ -452,16 +500,31 @@
         function log(message) {
             const logPanel = document.getElementById('log-panel');
             const terminalOutput = document.getElementById('terminal-output');
-            const formattedMessage = `<div>&gt; ${new Date().toLocaleTimeString()}: ${message}</div>`;
-            logPanel.innerHTML += formattedMessage;
-            terminalOutput.innerHTML += formattedMessage;
+
+            const div = document.createElement('div');
+            div.innerHTML = `&gt; ${new Date().toLocaleTimeString()}: ${message}`;
+
+            // Append to log panel
+            logPanel.appendChild(div.cloneNode(true));
+            if (logPanel.children.length > 50) logPanel.removeChild(logPanel.children[0]);
             logPanel.scrollTop = logPanel.scrollHeight;
+
+            // Append to terminal output
+            terminalOutput.appendChild(div.cloneNode(true));
+            if (terminalOutput.children.length > 50) terminalOutput.removeChild(terminalOutput.children[0]);
             terminalOutput.scrollTop = terminalOutput.scrollHeight;
         }
 
         function playSound(id) {
             const sound = document.getElementById(id);
-            if (sound) sound.play().catch(e => console.log("Audio play failed"));
+            if (sound) {
+                // Check if the source is supported/valid
+                if (sound.error) {
+                    console.log(`Audio error for ${id}: ${sound.error.message}`);
+                    return;
+                }
+                sound.play().catch(e => console.log(`Audio play failed for ${id}: ${e.message}`));
+            }
         }
 
         async function loadWasm() {
@@ -530,15 +593,34 @@
             }
         }
 
-        navigator.mediaSession.setActionHandler('play', () => {
-             if (document.getElementById('radiation-alert-overlay').style.display === 'block') {
+        function handleHeadsetTrigger() {
+            // Ensure silent audio keeps playing to maintain Media Session
+            const silentAudio = document.getElementById('silent-audio');
+            if (silentAudio && silentAudio.paused) {
+                silentAudio.play().catch(e => console.log("Silent audio resume failed"));
+            }
+
+            if (document.getElementById('radiation-alert-overlay').style.display === 'block') {
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({ type: 'radiation_cleared', user_id: userId }));
                 }
                 log("Radiation leak sealed.");
                 speak("Leak sealed. Engineering teams are restoring control.");
-             } else { playSound('chirp-sound'); }
-        });
+            } else {
+                isChannelOpen = !isChannelOpen;
+                const status = isChannelOpen ? "OPEN" : "CLOSED";
+                log(`COMMS CHANNEL: ${status}`);
+                document.getElementById('last-command').textContent = `CHANNEL ${status}`;
+                document.getElementById('listening-indicator').innerText = isChannelOpen ? "LISTENING..." : "CHANNEL CLOSED";
+                playSound('chirp-sound');
+            }
+        }
+
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', handleHeadsetTrigger);
+            navigator.mediaSession.setActionHandler('pause', handleHeadsetTrigger);
+            navigator.mediaSession.setActionHandler('stop', handleHeadsetTrigger);
+        }
 
     </script>
 </body>

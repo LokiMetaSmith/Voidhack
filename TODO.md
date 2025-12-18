@@ -7,9 +7,9 @@
 
 ## Medium Priority
 - [ ] **Refactoring:** Split `main.py` into smaller modules (e.g., `routes.py`, `services.py`, `models.py`).
-- [ ] **MockRedis:** Improve `MockRedis` to better simulate Redis behavior (e.g., raise errors on type mismatches).
+- [x] **MockRedis:** Improve `MockRedis` to better simulate Redis behavior (e.g., raise errors on type mismatches).
 - [ ] **Logging:** Implement structured logging for better observability.
-- [ ] **Environment Variables:** Use `python-dotenv` for better environment variable management.
+- [x] **Environment Variables:** Use `python-dotenv` for better environment variable management (Handled via Docker Compose).
 
 ## Low Priority
 - [ ] **WASM:** Add more sophisticated audio analysis features to the WASM module.

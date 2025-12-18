@@ -69,39 +69,64 @@ This branch runs a high-performance, event-driven architecture designed to suppo
 *   `redis-server` installed and running (optional for local dev, required for production).
 *   An OpenAI-compatible API server (like vLLM) running.
 
-### Installation & Running
+### Installation & Running (Docker Compose - Recommended)
+
+The easiest way to run Protocol: Omega is using the provided `start.sh` script, which handles hardware detection and Docker orchestration.
+
 1.  **Clone the Repository**
 
-2.  **Install Dependencies:**
+2.  **Run the Start Script:**
+    ```bash
+    chmod +x start.sh
+    ./start.sh
+    ```
+    This script will:
+    *   Download the required GGUF model (for CPU mode).
+    *   Check for an NVIDIA GPU.
+    *   Launch the appropriate Docker Compose profile:
+        *   **NVIDIA Mode:** Uses `vLLM` for high-performance inference (Requires `nvidia-container-toolkit`).
+        *   **CPU Mode:** Uses `llama.cpp` as a fallback.
+
+3.  **Access the Game:**
+    Open `http://localhost:8080` in your browser.
+
+### Manual Installation (Local Dev)
+
+If you prefer running without Docker:
+
+1.  **Install Dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
 
-3.  **Setup Redis:**
-    The application uses Redis for state management.
-    *   **Production/Full Features:** You need a running Redis server.
-        *   **Ubuntu/Debian:** `sudo apt-get update && sudo apt-get install -y redis-server`
-        *   **Start Server:** `redis-server --daemonize yes`
-    *   **Local Development (Fallback):** If no Redis server is found, the app will automatically fall back to an in-memory **MockRedis**. This allows you to run the app without installing Redis, but state (users, rankings) will be lost on restart.
+2.  **Setup Redis:**
+    *   **Production:** `sudo apt-get install redis-server && redis-server --daemonize yes`
+    *   **Development:** The app will fall back to an in-memory **MockRedis** if a real server is unavailable.
 
-4.  **Start the vLLM Server:**
-    *(Run this on your GPU-enabled machine)*
+3.  **Start the LLM Backend:**
+    You need an OpenAI-compatible server running on port 8000.
+    *   *Option A (vLLM - GPU):*
+        ```bash
+        python -m vllm.entrypoints.openai.api_server --model microsoft/Phi-3-mini-4k-instruct --port 8000
+        ```
+    *   *Option B (External API):*
+        Set `VLLM_HOST` and `VLLM_API_KEY` environment variables.
+
+4.  **Start the App:**
     ```bash
-    # Make sure you have vLLM installed: pip install vllm
-    python -m vllm.entrypoints.openai.api_server --model microsoft/Phi-3-mini-4k-instruct
+    export VLLM_HOST="http://localhost:8000" # or your external API
+    python3 -m uvicorn main:app --host 0.0.0.0 --port 8080
     ```
-    *Note: The vLLM server defaults to port `8000`. You will need to run the FastAPI app on a different port or machine.*
 
-5.  **Configure Environment Variables (Optional):**
-    *   `REDIS_HOST`: Defaults to `localhost`.
-    *   `REDIS_PORT`: Defaults to `6379`.
-    *   `VLLM_HOST`: Set this to the URL of your vLLM server (e.g., `http://192.168.1.100:8000`).
+### Database Access & Debugging
+If you need to connect to the Redis database to inspect data, users, or the leaderboard:
 
-6.  **Start the Application Server:**
-    ```bash
-    # Run on a different port if vLLM is on the same machine
-    python3 -m uvicorn main:app --host 0.0.0.0 --port 8001
-    ```
+*   **Hostname:** `localhost` (if running locally)
+*   **Port:** `6379`
+*   **Password:** `lcars_override_739`
+*   **Connection URL:** `redis://:lcars_override_739@localhost:6379`
+
+**Note:** The hostname `loki-llm` (or `loki-llm.local`) appears in the SSL certificate for the application container but **cannot** be used to connect to Redis from your host machine. Always use `localhost`.
 
 ### Generating QR Codes
 Create QR codes that point to your deployment URL with a Base64 encoded location.

@@ -17,3 +17,5 @@ dump.rdb
 .DS_Store
 *.log
 ship_state.db
+models/
+

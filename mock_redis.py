@@ -1,5 +1,6 @@
 import logging
 import fnmatch
+import redis
 
 class MockRedis:
     def __init__(self):
@@ -10,23 +11,18 @@ class MockRedis:
         if name not in self.store:
             return True # New key
         if self.store[name][0] != expected_type:
-            # In real Redis, this raises a WrongType error.
-            # For this mock, we'll log a warning and return False (or maybe raise error to be strict?)
-            # Raising error is better to catch bugs.
-            # But let's just return False for now to simulate "operation failed" or similar,
-            # actually Redis raises response error.
-            # To keep it simple and robust for the user app, we'll just overwrite or ignore?
-            # Redis raises WRONGTYPE.
-            # Let's just return False to indicate mismatch for internal logic.
-            return False
+            raise redis.ResponseError(f"WRONGTYPE Operation against a key holding the wrong kind of value")
         return True
 
     def get(self, name):
-        if name in self.store and self.store[name][0] == 'string':
+        if name in self.store:
+            self._check_type(name, 'string')
             return self.store[name][1]
         return None
 
     def set(self, name, value, ex=None):
+        # set overwrites any existing key regardless of type in real Redis?
+        # Actually yes, SET overwrites.
         self.store[name] = ('string', str(value))
         return True
 
@@ -38,8 +34,7 @@ class MockRedis:
         return count
 
     def hset(self, name, key=None, value=None, mapping=None):
-        if name in self.store and self.store[name][0] != 'hash':
-            return 0 # Wrong type
+        self._check_type(name, 'hash')
 
         if name not in self.store:
             self.store[name] = ('hash', {})
@@ -53,18 +48,19 @@ class MockRedis:
         return 1
 
     def hget(self, name, key):
-        if name in self.store and self.store[name][0] == 'hash':
+        if name in self.store:
+            self._check_type(name, 'hash')
             return self.store[name][1].get(key)
         return None
 
     def hgetall(self, name):
-        if name in self.store and self.store[name][0] == 'hash':
+        if name in self.store:
+            self._check_type(name, 'hash')
             return self.store[name][1].copy()
         return {}
 
     def hincrby(self, name, key, amount=1):
-        if name in self.store and self.store[name][0] != 'hash':
-            return 0 # Or raise error
+        self._check_type(name, 'hash')
 
         if name not in self.store:
             self.store[name] = ('hash', {})
@@ -76,8 +72,7 @@ class MockRedis:
         return new_val
 
     def zadd(self, name, mapping):
-        if name in self.store and self.store[name][0] != 'zset':
-            return 0
+        self._check_type(name, 'zset')
 
         if name not in self.store:
             self.store[name] = ('zset', {})
@@ -88,8 +83,10 @@ class MockRedis:
         return len(mapping)
 
     def zrevrange(self, name, start, end, withscores=False):
-        if name not in self.store or self.store[name][0] != 'zset':
+        if name not in self.store:
             return []
+
+        self._check_type(name, 'zset')
 
         zset_data = self.store[name][1]
         # Sort by score descending
@@ -110,11 +107,6 @@ class MockRedis:
             end = len(items) + end
 
         # Python slice needs end + 1
-        # But we need to be careful if end was initially negative and resulted in < start?
-        # Redis logic:
-        # zrevrange key 0 -1 => all items
-        # zrevrange key 0 0 => first item
-
         slice_end = end + 1
 
         sliced = items[start : slice_end]

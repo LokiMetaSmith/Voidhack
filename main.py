@@ -50,7 +50,13 @@ RETRY_DELAY = 2
 r = None
 for attempt in range(MAX_RETRIES):
     try:
-        r = redis.Redis(host=os.environ.get("REDIS_HOST", "localhost"), port=int(os.environ.get("REDIS_PORT", 6379)), db=0, decode_responses=True)
+        r = redis.Redis(
+            host=os.environ.get("REDIS_HOST", "localhost"),
+            port=int(os.environ.get("REDIS_PORT", 6379)),
+            password=os.environ.get("REDIS_PASSWORD", None),
+            db=0,
+            decode_responses=True
+        )
         r.ping() # Force connection check
         logging.info("Connected to Redis.")
         break
@@ -74,8 +80,21 @@ if not connected:
 # --- vLLM Configuration ---
 VLLM_HOST = os.environ.get('VLLM_HOST', 'http://localhost:8000')
 VLLM_API_KEY = os.environ.get('VLLM_API_KEY', None)
-VLLM_API_URL = f"{VLLM_HOST}/v1/chat/completions"
-MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct"
+# Handle OpenAI-style URLs
+if VLLM_HOST.endswith('/'):
+    VLLM_HOST = VLLM_HOST[:-1]
+
+if VLLM_HOST.endswith('/chat/completions'):
+     VLLM_API_URL = VLLM_HOST
+else:
+     # Heuristic: If it looks like a base URL (e.g. .../v1 or .../openai), just append /chat/completions
+     # If it's a raw domain (localhost:8000), append /v1/chat/completions to be safe for standard vLLM
+     if VLLM_HOST.endswith('/v1') or 'googleapis.com' in VLLM_HOST or 'openai.com' in VLLM_HOST:
+         VLLM_API_URL = f"{VLLM_HOST}/chat/completions"
+     else:
+         VLLM_API_URL = f"{VLLM_HOST}/v1/chat/completions"
+
+MODEL_NAME = os.environ.get('MODEL_NAME', "microsoft/Phi-3-mini-4k-instruct")
 
 # --- Constants ---
 VALID_LOCATIONS = ["Bridge", "Engineering", "Ten Forward", "Sickbay", "Cargo Bay", "Jefferies Tube"]
@@ -219,6 +238,11 @@ async def process_command_logic(req: CommandRequest):
             update_leaderboard(user_id, 10)
         return turbo_response
 
+    # Safety: Truncate oversized inputs
+    if len(text) > 1000:
+        logging.warning(f"Truncating oversized input from user {user_id}: {len(text)} chars")
+        text = text[:1000]
+
     # 3. Get User Context
     user_data = get_user_rank_data(user_id)
 
@@ -250,10 +274,12 @@ async def process_command_logic(req: CommandRequest):
         "model": MODEL_NAME,
         "messages": [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": req.text}
+            {"role": "user", "content": text}
         ],
         "temperature": 0.1,
     }
+
+    logging.info(f"LLM Request - User: {user_id}, PromptLen: {len(system_prompt)}, InputLen: {len(text)}")
 
     try:
         headers = {}
