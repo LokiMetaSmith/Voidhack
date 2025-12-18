@@ -297,6 +297,7 @@
         ];
 
         window.onload = () => {
+            checkSecureContext();
             userId = localStorage.getItem('lcars_user_id');
             if (!userId) { userId = 'user_' + Math.random().toString(36).substr(2, 9); localStorage.setItem('lcars_user_id', userId); }
             const urlParams = new URLSearchParams(window.location.search);
@@ -305,6 +306,38 @@
             // Pre-load voices
             window.speechSynthesis.getVoices();
         };
+
+        function checkSecureContext() {
+            if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                const overlay = document.createElement('div');
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0';
+                overlay.style.left = '0';
+                overlay.style.width = '100%';
+                overlay.style.height = '100%';
+                overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+                overlay.style.zIndex = '20000';
+                overlay.style.display = 'flex';
+                overlay.style.flexDirection = 'column';
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'center';
+                overlay.style.color = '#ff9900';
+                overlay.style.fontFamily = 'Antonio, sans-serif';
+                overlay.style.textAlign = 'center';
+
+                const title = document.createElement('h1');
+                title.innerText = 'INSECURE CONNECTION DETECTED';
+                title.style.color = '#cc0000';
+
+                const msg = document.createElement('p');
+                msg.innerText = 'Voice input requires a Secure Context (HTTPS).\nYou are connected via HTTP on a non-local network.\n\nPlease enable SSL in the backend configuration or use localhost.\n(See README for details)';
+                msg.style.fontSize = '24px';
+
+                overlay.appendChild(title);
+                overlay.appendChild(msg);
+                document.body.appendChild(overlay);
+            }
+        }
 
         async function initializeBluetoothAudio() {
             if (!isIOS) return;
