@@ -90,6 +90,24 @@ The easiest way to run Protocol: Omega is using the provided `start.sh` script, 
 3.  **Access the Game:**
     Open `http://localhost:8080` in your browser.
 
+## Running on Replit
+
+This project is configured to run directly on Replit using `replit.nix` for the environment and an external LLM provider.
+
+1.  **Import/Fork**: Import this repository into a new Repl.
+2.  **Configure Secrets**: Open the "Secrets" tool in the Replit sidebar and add the following keys (see `SECRETS_TEMPLATE.md` for details):
+    *   `VLLM_HOST` (e.g., `https://api.openai.com`)
+    *   `VLLM_API_KEY` (your API key)
+    *   `MODEL_NAME` (e.g., `gpt-3.5-turbo`)
+    *   `REDIS_PASSWORD` (Optional, defaults to `lcars_override_739`)
+3.  **Run**: Click the "Run" button.
+    *   This executes `start_replit.sh`.
+    *   It starts a local Redis server instance.
+    *   It installs Python dependencies.
+    *   It launches the FastAPI application on port 8000.
+
+**Note:** The Docker configuration is preserved for local/VPS deployments but is not used in the standard Replit environment.
+
 ### Manual Installation (Local Dev)
 
 If you prefer running without Docker:
