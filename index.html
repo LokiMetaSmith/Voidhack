@@ -306,14 +306,26 @@
             window.speechSynthesis.getVoices();
         };
 
+        function isIOSDevice() {
+            return /iPhone|iPad|iPod/i.test(navigator.userAgent) && !window.MSStream;
+        }
+
         async function initializeBluetoothAudio() {
-            if (!isIOS) return;
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
             try {
-                log("Initializing Bluetooth Audio...");
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                console.log("Initializing Bluetooth Audio...");
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    }
+                });
                 stream.getTracks().forEach(track => track.stop());
+                console.log("Bluetooth Audio Primed.");
                 log("Audio routing primed.");
             } catch (e) {
+                console.warn("Bluetooth Init Error: " + e);
                 log("Bluetooth Init Error: " + e);
             }
         }
@@ -381,7 +393,7 @@
             if (!('webkitSpeechRecognition' in window)) { log("Speech recognition not supported."); return; }
             recognition = new webkitSpeechRecognition();
             // IOS Safari: continuous=true is buggy/broken. Use false and restart manually.
-            recognition.continuous = !isIOS;
+            recognition.continuous = !isIOSDevice();
             recognition.interimResults = true;
             recognition.onstart = () => { log("Mic active."); document.getElementById('listening-indicator').style.display = 'block'; };
             recognition.onend = () => {
@@ -390,7 +402,7 @@
                      // On Desktop, we restart if it accidentally crashed.
                      setTimeout(() => {
                         try { recognition.start(); } catch(e) { console.log("Recognition restart ignored: " + e.message); }
-                     }, isIOS ? 50 : 250);
+                     }, isIOSDevice() ? 50 : 250);
                 }
                 document.getElementById('listening-indicator').style.display = 'none';
             };
@@ -441,11 +453,17 @@
 
             // Voice Selection Logic
             const voices = window.speechSynthesis.getVoices();
-            let selectedVoice = voices.find(v => v.name.includes("Zira")) || // Windows
-                                voices.find(v => v.name.includes("Samantha")) || // macOS/iOS
-                                voices.find(v => v.name.includes("Google UK English Female")) ||
-                                voices.find(v => v.lang === 'en-US' && v.name.includes("Female")) ||
-                                voices[0];
+            const preferredVoices = ['Microsoft Zira', 'Samantha', 'Google UK English Female'];
+            let selectedVoice = null;
+
+            for (const name of preferredVoices) {
+                selectedVoice = voices.find(v => v.name.includes(name));
+                if (selectedVoice) break;
+            }
+
+            if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.name.includes('Female'));
+            }
 
             if (selectedVoice) utterance.voice = selectedVoice;
 
