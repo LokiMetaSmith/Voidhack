@@ -13,7 +13,7 @@ interface SpeechRecognitionResult {
 // This helps ensure the browser uses connected Bluetooth audio devices
 async function initializeBluetoothAudio(): Promise<void> {
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  
+
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     console.log("[SpeechRecognition] MediaDevices API not available");
     return;
@@ -31,9 +31,9 @@ async function initializeBluetoothAudio(): Promise<void> {
     };
 
     console.log("[SpeechRecognition] Initializing audio input for Bluetooth/AirPods...");
-    
+
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    
+
     // Log which audio device was selected
     const audioTracks = stream.getAudioTracks();
     if (audioTracks.length > 0) {
@@ -45,12 +45,12 @@ async function initializeBluetoothAudio(): Promise<void> {
         isMobile
       });
     }
-    
+
     // Stop the stream immediately - we just needed to "prime" the audio routing
     // The SpeechRecognition API will use the same audio route
     stream.getTracks().forEach(track => track.stop());
     console.log("[SpeechRecognition] Audio stream primed and released");
-    
+
   } catch (err) {
     // Don't fail if this doesn't work - speech recognition may still work
     console.warn("[SpeechRecognition] Could not initialize Bluetooth audio:", err);
@@ -59,7 +59,7 @@ async function initializeBluetoothAudio(): Promise<void> {
 
 // Detect iOS devices (iPhone, iPad, iPod)
 const isIOSDevice = (): boolean => {
-  return /iPhone|iPad|iPod/i.test(navigator.userAgent) && 
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent) &&
          !(window as any).MSStream; // Exclude IE11 masquerading as iPad
 };
 
@@ -95,7 +95,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
 
     const recognition = new SpeechRecognition();
     const isIOS = isIOSDevice();
-    
+
     // iOS Safari fix: continuous mode is broken on iOS - it causes isFinal to be unreliable
     // and results to never be properly captured. Use continuous=false with silence detection instead.
     recognition.continuous = isIOS ? false : true;
@@ -112,16 +112,16 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
 
     recognition.onstart = () => {
       console.log("[SpeechRecognition] Started successfully");
-      
+
       // Clear startup timeout - recognition actually started
       if (startupTimeoutRef.current) {
         clearTimeout(startupTimeoutRef.current);
         startupTimeoutRef.current = null;
       }
-      
+
       // Clear starting flag - we've successfully started
       isStartingRef.current = false;
-      
+
       // Update imperative ref for abort guards
       isListeningRef.current = true;
       setIsListening(true);
@@ -148,7 +148,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
         if (iosSilenceTimeoutRef.current) {
           clearTimeout(iosSilenceTimeoutRef.current);
         }
-        
+
         // If we got results, set a silence timeout to process and stop
         iosSilenceTimeoutRef.current = setTimeout(() => {
           console.log("[SpeechRecognition] iOS: Silence detected, stopping recognition");
@@ -167,38 +167,38 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
 
       if (finalTranscript) {
         console.log("[SpeechRecognition] Final transcript received:", finalTranscript);
-        
+
         // Clear any pending interim timeout since we got final results
         if (interimTimeoutRef.current) {
           clearTimeout(interimTimeoutRef.current);
           interimTimeoutRef.current = null;
         }
         lastInterimTranscriptRef.current = "";
-        
+
         setTranscript((prev) => prev + finalTranscript);
-        
+
         // iOS fix: On iOS with continuous=false, recognition stops after final result
         // We don't need to do anything special here - onend will be called
       } else if (interimTranscript) {
         console.log("[SpeechRecognition] Interim transcript:", interimTranscript);
-        
+
         // Mobile fix: Process interim results if final results never arrive
         // This applies to both Android and iOS since both can fail to send isFinal=true
         if (isMobile) {
           lastInterimTranscriptRef.current = interimTranscript;
-          
+
           // Clear any existing timeout
           if (interimTimeoutRef.current) {
             clearTimeout(interimTimeoutRef.current);
           }
-          
+
           // Set timeout to process interim result if no final result arrives
           interimTimeoutRef.current = setTimeout(() => {
             if (lastInterimTranscriptRef.current) {
               console.log("[SpeechRecognition] Mobile: Processing interim transcript as final (timeout):", lastInterimTranscriptRef.current);
               setTranscript((prev) => prev + lastInterimTranscriptRef.current + " ");
               lastInterimTranscriptRef.current = "";
-              
+
               // iOS: Also stop recognition after processing interim results
               if (isIOS && recognitionRef.current && isListeningRef.current) {
                 console.log("[SpeechRecognition] iOS: Stopping recognition after interim timeout");
@@ -221,35 +221,35 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
         isIOS: isIOSDevice(),
         hasPendingInterimResults: !!lastInterimTranscriptRef.current
       });
-      
+
       // Mobile fix: Process any pending interim results before clearing on error
       if (isMobile && lastInterimTranscriptRef.current && event.error !== 'aborted') {
         console.log("[SpeechRecognition] Mobile: Processing interim transcript on error:", lastInterimTranscriptRef.current);
         setTranscript((prev) => prev + lastInterimTranscriptRef.current + " ");
       }
-      
+
       // Clear any pending startup timeout
       if (startupTimeoutRef.current) {
         clearTimeout(startupTimeoutRef.current);
         startupTimeoutRef.current = null;
       }
-      
+
       // Clear any pending interim timeout
       if (interimTimeoutRef.current) {
         clearTimeout(interimTimeoutRef.current);
         interimTimeoutRef.current = null;
       }
-      
+
       // Clear iOS silence timeout
       if (iosSilenceTimeoutRef.current) {
         clearTimeout(iosSilenceTimeoutRef.current);
         iosSilenceTimeoutRef.current = null;
       }
       lastInterimTranscriptRef.current = "";
-      
+
       // Clear starting flag
       isStartingRef.current = false;
-      
+
       // CRITICAL FIX: Always abort on error to ensure clean state and release microphone
       // Errors indicate the recognition is in a bad state and must be cleaned up
       try {
@@ -260,9 +260,9 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
       } catch (abortErr) {
         console.error("[SpeechRecognition] Error aborting after error:", abortErr);
       }
-      
+
       setError(`Speech recognition error: ${event.error}`);
-      
+
       // Update imperative ref and state AFTER abort
       isListeningRef.current = false;
       setIsListening(false);
@@ -276,29 +276,29 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
         isIOS,
         hasInterimResults: !!lastInterimTranscriptRef.current
       });
-      
+
       // Mobile fix: Process any pending interim results immediately on end
       if (isMobile && lastInterimTranscriptRef.current) {
         console.log("[SpeechRecognition] Mobile: Processing interim transcript on end:", lastInterimTranscriptRef.current);
         setTranscript((prev) => prev + lastInterimTranscriptRef.current + " ");
       }
-      
+
       // Clear any pending interim timeout
       if (interimTimeoutRef.current) {
         clearTimeout(interimTimeoutRef.current);
         interimTimeoutRef.current = null;
       }
-      
+
       // Clear iOS silence timeout
       if (iosSilenceTimeoutRef.current) {
         clearTimeout(iosSilenceTimeoutRef.current);
         iosSilenceTimeoutRef.current = null;
       }
       lastInterimTranscriptRef.current = "";
-      
+
       // Clear starting flag when recognition ends
       isStartingRef.current = false;
-      
+
       // Update imperative ref for abort guards
       isListeningRef.current = false;
       setIsListening(false);
@@ -312,19 +312,19 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
         clearTimeout(startupTimeoutRef.current);
         startupTimeoutRef.current = null;
       }
-      
+
       // Clear any pending interim timeout
       if (interimTimeoutRef.current) {
         clearTimeout(interimTimeoutRef.current);
         interimTimeoutRef.current = null;
       }
-      
+
       // Clear iOS silence timeout
       if (iosSilenceTimeoutRef.current) {
         clearTimeout(iosSilenceTimeoutRef.current);
         iosSilenceTimeoutRef.current = null;
       }
-      
+
       if (recognitionRef.current) {
         console.log("[SpeechRecognition] Cleanup: aborting");
         recognitionRef.current.abort();
@@ -335,27 +335,27 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
   const startListening = useCallback(() => {
     const isMobile = isMobileDevice();
     const isIOS = isIOSDevice();
-    
-    console.log("[SpeechRecognition] startListening called", { 
-      isListening, 
+
+    console.log("[SpeechRecognition] startListening called", {
+      isListening,
       isStarting: isStartingRef.current,
       hasRecognition: !!recognitionRef.current,
       isMobile,
       isIOS
     });
-    
+
     // Clear any pending iOS silence timeout from previous session
     if (iosSilenceTimeoutRef.current) {
       clearTimeout(iosSilenceTimeoutRef.current);
       iosSilenceTimeoutRef.current = null;
     }
-    
+
     // Guard: prevent starting if already listening or already starting
     if (isListening || isStartingRef.current) {
       console.warn("[SpeechRecognition] Already listening or starting, skipping start");
       return;
     }
-    
+
     if (!recognitionRef.current) {
       console.error("[SpeechRecognition] Recognition not initialized");
       setError("Speech recognition not initialized");
@@ -383,15 +383,15 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
         setTranscript("");
         setError(null);
         console.log("[SpeechRecognition] Calling recognition.start()");
-        
+
         // Mobile devices need longer timeout due to permission dialogs and slower resource allocation
         // iOS Safari permission prompts can take 4-5 seconds, so use 5s timeout for mobile
         const timeout = isMobile ? 5000 : 2000;
-        
+
         // Set timeout to detect if onstart never fires (microphone conflict)
         startupTimeoutRef.current = setTimeout(() => {
           console.error(`[SpeechRecognition] CRITICAL: onstart never fired after ${timeout}ms (microphone conflict)`);
-          
+
           // CRITICAL FIX: Explicitly abort the recognition instance to release microphone
           // Always abort on timeout since recognition.start() was called but onstart never fired
           // This means the recognition is stuck in starting state and needs cleanup
@@ -403,13 +403,13 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
           } catch (abortErr) {
             console.error("[SpeechRecognition] Error aborting recognition:", abortErr);
           }
-          
+
           setError("Failed to start - microphone may still be in use");
           isListeningRef.current = false; // Update imperative ref
           setIsListening(false);
           isStartingRef.current = false; // Reset starting flag
         }, timeout);
-        
+
         recognitionRef.current.start();
         // Note: setIsListening(true) is ONLY called in onstart event handler
         // This ensures state reflects actual recognition status, not optimistic assumption
@@ -419,9 +419,9 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
           clearTimeout(startupTimeoutRef.current);
           startupTimeoutRef.current = null;
         }
-        
+
         isStartingRef.current = false; // Reset starting flag
-        
+
         // Ignore "already-started" error but set listening state
         if (err.message?.includes('already started')) {
           console.warn("[SpeechRecognition] Already started error caught - setting isListening to true");
@@ -445,30 +445,30 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
   }, [isListening]);
 
   const stopListening = useCallback(() => {
-    console.log("[SpeechRecognition] stopListening called", { 
-      isListening, 
+    console.log("[SpeechRecognition] stopListening called", {
+      isListening,
       hasRecognition: !!recognitionRef.current,
       hasPendingInterimResults: !!lastInterimTranscriptRef.current
     });
-    
+
     // Clear any pending startup timeout
     if (startupTimeoutRef.current) {
       clearTimeout(startupTimeoutRef.current);
       startupTimeoutRef.current = null;
     }
-    
+
     // Clear any pending interim timeout (but don't clear the interim transcript yet - let onend handle it)
     if (interimTimeoutRef.current) {
       clearTimeout(interimTimeoutRef.current);
       interimTimeoutRef.current = null;
     }
-    
+
     // Clear iOS silence timeout
     if (iosSilenceTimeoutRef.current) {
       clearTimeout(iosSilenceTimeoutRef.current);
       iosSilenceTimeoutRef.current = null;
     }
-    
+
     if (recognitionRef.current && isListening) {
       console.log("[SpeechRecognition] Calling recognition.stop()");
       recognitionRef.current.stop();

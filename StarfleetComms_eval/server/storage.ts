@@ -13,7 +13,7 @@ export interface IStorage {
   // Conversation operations
   createConversation(): Promise<schema.Conversation>;
   getConversation(id: string): Promise<schema.Conversation | undefined>;
-  
+
   // Message operations
   createMessage(message: schema.InsertMessage): Promise<schema.Message>;
   getConversationMessages(conversationId: string): Promise<schema.Message[]>;

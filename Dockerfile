@@ -21,6 +21,9 @@ COPY audio_processor.wasm .
 COPY audio_processor.b64 .
 COPY entrypoint.sh .
 
+# Ensure entrypoint is executable
+RUN chmod +x entrypoint.sh
+
 # Expose the application port
 EXPOSE 8000
 

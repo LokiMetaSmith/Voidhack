@@ -3,3 +3,5 @@ uvicorn
 redis
 websockets
 httpx
+pytest
+pytest-asyncio

@@ -61,7 +61,7 @@ export function VoiceSettingsPanel({ onSettingsChange, onSoundSettingsChange }: 
   const [rate, setRate] = useState(0.9);  // Slightly slower for Star Trek computer style
   const [pitch, setPitch] = useState(1.0);  // Natural pitch
   const [volume, setVolume] = useState(1.0);
-  
+
   // Sound effects settings
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [soundVolume, setSoundVolume] = useState(0.4);
@@ -79,7 +79,7 @@ export function VoiceSettingsPanel({ onSettingsChange, onSoundSettingsChange }: 
         console.error("Failed to load voice settings:", e);
       }
     }
-    
+
     const savedSound = localStorage.getItem("soundSettings");
     if (savedSound) {
       try {
@@ -97,23 +97,23 @@ export function VoiceSettingsPanel({ onSettingsChange, onSoundSettingsChange }: 
     const loadVoices = () => {
       const availableVoices = window.speechSynthesis.getVoices();
       setVoices(availableVoices);
-      
+
       // Log all voices for debugging (especially useful on iOS)
       console.log("[VoiceSettings] All voices:", availableVoices.map(v => `${v.name} (${v.lang})`).join(", "));
-      
+
       // Filter to English voices
       const englishVoices = availableVoices.filter(v => v.lang.startsWith("en"));
-      
+
       // Filter OUT male voices
       const femaleEnglishVoices = englishVoices.filter(v => !isMaleVoice(v));
       console.log("[VoiceSettings] Female English voices:", femaleEnglishVoices.map(v => v.name).join(", "));
-      
+
       const voicesToSearch = femaleEnglishVoices.length > 0 ? femaleEnglishVoices : englishVoices;
-      
+
       // Search for preferred voices in priority order (same as useSpeechSynthesis.ts)
       let foundVoice: SpeechSynthesisVoice | null = null;
       let foundIndex = -1;
-      
+
       for (const preferredName of PREFERRED_VOICE_NAMES) {
         const matchedVoice = voicesToSearch.find(
           voice => voice.name.toLowerCase().includes(preferredName)
@@ -125,7 +125,7 @@ export function VoiceSettingsPanel({ onSettingsChange, onSoundSettingsChange }: 
           break;
         }
       }
-      
+
       if (foundVoice && foundIndex !== -1) {
         setSelectedVoiceIndex(foundIndex);
         setSelectedVoiceName(foundVoice.name);
@@ -164,17 +164,17 @@ export function VoiceSettingsPanel({ onSettingsChange, onSoundSettingsChange }: 
     if (!voiceAvailable) {
       return;
     }
-    
+
     const settings = {
       voiceIndex: selectedVoiceIndex,
       rate,
       pitch,
       volume,
     };
-    
+
     // Save to localStorage
     localStorage.setItem("voiceSettings", JSON.stringify(settings));
-    
+
     // Notify parent
     onSettingsChange?.(settings);
   }, [selectedVoiceIndex, rate, pitch, volume, onSettingsChange, voiceAvailable]);
@@ -184,10 +184,10 @@ export function VoiceSettingsPanel({ onSettingsChange, onSoundSettingsChange }: 
       enabled: soundEnabled,
       volume: soundVolume,
     };
-    
+
     // Save to localStorage
     localStorage.setItem("soundSettings", JSON.stringify(settings));
-    
+
     // Notify parent
     onSoundSettingsChange?.(settings);
   }, [soundEnabled, soundVolume, onSoundSettingsChange]);
@@ -197,7 +197,7 @@ export function VoiceSettingsPanel({ onSettingsChange, onSoundSettingsChange }: 
       console.error("Cannot preview: No voice available");
       return;
     }
-    
+
     const utterance = new SpeechSynthesisUtterance(
       "Computer systems are online and operational."
     );
@@ -207,7 +207,7 @@ export function VoiceSettingsPanel({ onSettingsChange, onSoundSettingsChange }: 
     utterance.rate = rate;
     utterance.pitch = pitch;
     utterance.volume = volume;
-    
+
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   };
@@ -235,10 +235,10 @@ export function VoiceSettingsPanel({ onSettingsChange, onSoundSettingsChange }: 
           {/* Voice Display (Read-only) */}
           <div className="space-y-2">
             <Label>Voice</Label>
-            <div 
+            <div
               className={`flex h-9 w-full rounded-md border px-3 py-2 text-sm ${
-                voiceAvailable 
-                  ? "border-input bg-muted" 
+                voiceAvailable
+                  ? "border-input bg-muted"
                   : "border-destructive bg-destructive/10 text-destructive"
               }`}
               data-testid="text-voice-name"
@@ -309,7 +309,7 @@ export function VoiceSettingsPanel({ onSettingsChange, onSoundSettingsChange }: 
           {/* Sound Effects Section */}
           <div className="border-t pt-6 space-y-4">
             <h4 className="text-sm font-semibold">Star Trek Sound Effects</h4>
-            
+
             <div className="flex items-center justify-between">
               <Label htmlFor="sound-effects-toggle" className="flex items-center gap-2 cursor-pointer">
                 <Zap className="h-4 w-4" />
