@@ -1,10 +1,12 @@
 #!/bin/bash
 set -e
 
-# Default to HTTP unless USE_SSL is set to true
+# Default to HTTP unless USE_SSL is set to true (case insensitive)
 USE_SSL=${USE_SSL:-false}
+echo "Detected USE_SSL value: '$USE_SSL'"
 
-if [ "$USE_SSL" = "true" ]; then
+# Check for true (case insensitive)
+if [[ "${USE_SSL,,}" == "true" ]]; then
     # Generate self-signed certificate if not exists
     if [ ! -f cert.pem ]; then
         echo "Generating self-signed certificate..."
