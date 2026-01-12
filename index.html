@@ -524,11 +524,11 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
 
                 // Map 'play' to Open Channel (Start Listening)
                 navigator.mediaSession.setActionHandler('play', () => {
-                     if (!isChannelOpen) handleHeadsetTrigger();
+                     handleHeadsetTrigger();
                 });
                 // Map 'pause' to Close Channel (Stop Listening)
                 navigator.mediaSession.setActionHandler('pause', () => {
-                     if (isChannelOpen) handleHeadsetTrigger();
+                     handleHeadsetTrigger();
                 });
                 navigator.mediaSession.setActionHandler('stop', () => {
                      if (isChannelOpen) handleHeadsetTrigger();
