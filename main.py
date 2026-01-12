@@ -5,6 +5,7 @@ import logging
 import os
 import random
 import re
+import socket
 from typing import Dict, List
 
 import hashlib
@@ -93,6 +94,53 @@ else:
 # --- vLLM Configuration ---
 VLLM_HOST = os.environ.get('VLLM_HOST', 'http://localhost:8000')
 VLLM_API_KEY = os.environ.get('VLLM_API_KEY', None)
+MODEL_NAME = os.environ.get('MODEL_NAME', "microsoft/Phi-3-mini-4k-instruct")
+
+# Ollama Auto-Detection
+def is_port_open(host, port):
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex((host, port))
+        sock.close()
+        return result == 0
+    except Exception:
+        return False
+
+# If VLLM_HOST is default (localhost:8000) but not reachable, check for Ollama (11434)
+if VLLM_HOST == 'http://localhost:8000' and not is_port_open('localhost', 8000):
+    if is_port_open('localhost', 11434):
+        logging.info("Detected Ollama on port 11434. Switching VLLM_HOST to Ollama.")
+        VLLM_HOST = 'http://localhost:11434'
+        # Try to fetch model list
+        try:
+            # We use a short timeout because we are in the startup phase
+            # Note: We can't easily use async httpx here without an event loop, so we use standard library or sync httpx if available?
+            # main.py is imported by uvicorn, so top-level code runs before the loop.
+            import requests
+            resp = requests.get(f"{VLLM_HOST}/api/tags", timeout=1)
+            if resp.status_code == 200:
+                models = resp.json().get('models', [])
+                if models:
+                    found_model = models[0].get('name')
+                    # Prefer qwen if available as per user context, otherwise first found
+                    for m in models:
+                        if 'qwen' in m.get('name', ''):
+                            found_model = m.get('name')
+                            break
+                    logging.info(f"Ollama detected. Setting MODEL_NAME to {found_model}")
+                    MODEL_NAME = found_model
+        except Exception as e:
+            logging.warning(f"Could not fetch Ollama models: {e}. Defaulting to {MODEL_NAME}")
+
+# Auto-detect Mock Mode
+USE_MOCK_LLM = os.environ.get("USE_MOCK_LLM", "").lower() == "true"
+if not USE_MOCK_LLM and os.environ.get("USE_MOCK_REDIS", "false").lower() == "true":
+    # Only fallback to Mock LLM if we didn't just switch to Ollama
+    if "localhost:11434" not in VLLM_HOST:
+        logging.info("USE_MOCK_REDIS is active and no local LLM detected; defaulting to USE_MOCK_LLM=true.")
+        USE_MOCK_LLM = True
+
 # Handle OpenAI-style URLs
 if VLLM_HOST.endswith('/'):
     VLLM_HOST = VLLM_HOST[:-1]
@@ -104,10 +152,41 @@ else:
      # If it's a raw domain (localhost:8000), append /v1/chat/completions to be safe for standard vLLM
      if VLLM_HOST.endswith('/v1') or 'googleapis.com' in VLLM_HOST or 'openai.com' in VLLM_HOST:
          VLLM_API_URL = f"{VLLM_HOST}/chat/completions"
+     elif 'localhost:11434' in VLLM_HOST:
+          VLLM_API_URL = f"{VLLM_HOST}/v1/chat/completions"
      else:
          VLLM_API_URL = f"{VLLM_HOST}/v1/chat/completions"
 
-MODEL_NAME = os.environ.get('MODEL_NAME', "microsoft/Phi-3-mini-4k-instruct")
+# --- Mock LLM Logic ---
+def get_mock_llm_response(text: str) -> dict:
+    """Generates a plausible JSON response when LLM is unavailable."""
+    response_text = "Processing command."
+    updates = {}
+
+    # Simple keyword matching for better "fake" intelligence
+    if "damage" in text or "report" in text:
+        response_text = f"Damage report: Shields at {r.hget('ship:systems', 'shields')}%. Radiation levels nominal."
+    elif "scan" in text:
+        response_text = "Sensors indicate no immediate threats in this sector."
+    elif "beam" in text or "transport" in text:
+        response_text = "Transporter room reports ready for transport."
+    elif "loki" in text:
+        response_text = "Identity confirmed. Accessing restricted files... Access Denied."
+    else:
+        # Generic "Computer" responses
+        responses = [
+            "Processing parameters.",
+            "Working...",
+            "Unable to comply with that specific request.",
+            "Please restate the command.",
+            "Input received."
+        ]
+        response_text = random.choice(responses)
+
+    return {
+        "updates": updates,
+        "response": response_text
+    }
 
 # --- Constants ---
 VALID_LOCATIONS = ["Bridge", "Engineering", "Ten Forward", "Sickbay", "Cargo Bay", "Jefferies Tube"]
@@ -288,28 +367,34 @@ async def process_command_logic(req: CommandRequest):
         f"If the user says '{ROOT_ACCESS_OVERRIDE}', include it in the response to trigger a rank promotion."
     )
 
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": text}
-        ],
-        "temperature": 0.1,
-    }
-
     logging.info(f"LLM Request - User: {user_id}, PromptLen: {len(system_prompt)}, InputLen: {len(text)}")
 
     try:
-        headers = {}
-        if VLLM_API_KEY:
-            headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
+        if USE_MOCK_LLM:
+            logging.info(f"Using Mock LLM for user {user_id}")
+            # Simulate network delay slightly
+            await asyncio.sleep(0.5)
+            data = get_mock_llm_response(text)
+        else:
+            payload = {
+                "model": MODEL_NAME,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text}
+                ],
+                "temperature": 0.1,
+            }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(VLLM_API_URL, json=payload, headers=headers, timeout=30)
-        response.raise_for_status()
+            headers = {}
+            if VLLM_API_KEY:
+                headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
 
-        raw_content = response.json()['choices'][0]['message']['content']
-        data = json.loads(raw_content)
+            async with httpx.AsyncClient() as client:
+                response = await client.post(VLLM_API_URL, json=payload, headers=headers, timeout=30)
+            response.raise_for_status()
+
+            raw_content = response.json()['choices'][0]['message']['content']
+            data = json.loads(raw_content)
 
         if not isinstance(data, dict) or "updates" not in data or "response" not in data:
             raise ValueError("LLM response is not in the correct format.")
