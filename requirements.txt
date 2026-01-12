@@ -5,3 +5,4 @@ websockets
 httpx
 pytest
 pytest-asyncio
+pydantic
