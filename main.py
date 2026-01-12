@@ -194,8 +194,13 @@ def process_turbo_mode(text: str, user_id: str):
 
     def handle_authorize_session(m):
         # This is a simplified 2FA for game purposes.
-        # It assumes any user can authorize another's pending session.
-        session_code = m.group(1)
+        session_code = m.group(2)
+
+        # RBAC Check: Only Commander (Level 3) or higher can authorize sessions
+        auth_rank_level = int(r.hget(f"user:{user_id}", "rank_level") or 0)
+        if auth_rank_level < 3:
+             return {"updates": {}, "response": "Access Denied. Authorization level insufficient. Rank of Commander or higher required."}
+
         auth_keys = r.keys("auth_session:*")
         authorizing_user = r.hget(f'user:{user_id}', 'name')
 
