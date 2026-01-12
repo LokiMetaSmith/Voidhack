@@ -1,2 +1,6 @@
 run = "bash start_replit.sh"
 entrypoint = "main.py"
+modules = ["nodejs-20", "web", "python-3.12", "bash"]
+
+[nix]
+channel = "stable-25_05"
