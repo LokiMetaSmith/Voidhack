@@ -412,18 +412,61 @@ async def read_wasm():
 @app.get("/")
 async def read_index(): return FileResponse('index.html')
 
+@app.get("/admin/trigger")
+async def admin_trigger(token: str, event: str):
+    if token != os.environ.get("GAME_ADMIN_TOKEN"):
+        raise HTTPException(status_code=403, detail="Invalid admin token")
+
+    if event == "radiation_leak":
+        if await trigger_radiation_leak():
+            return {"status": "success", "message": "Radiation leak triggered."}
+        return {"status": "ignored", "message": "Radiation leak already active."}
+
+    elif event == "clear_radiation":
+        if await clear_radiation_leak():
+            return {"status": "success", "message": "Radiation leak cleared."}
+        return {"status": "ignored", "message": "No active radiation leak."}
+
+    else:
+        raise HTTPException(status_code=400, detail="Unknown event type")
+
+# --- Game Event Helpers ---
+async def trigger_radiation_leak():
+    if int(r.hget("ship:systems", "radiation_leak") or 0) == 0:
+        logging.info("Triggering radiation leak event!")
+        r.hset("ship:systems", "radiation_leak", 1)
+        await broadcast_state_change()
+        return True
+    return False
+
+async def clear_radiation_leak():
+    if int(r.hget("ship:systems", "radiation_leak") or 0) == 1:
+        logging.info("Clearing radiation leak event!")
+        r.hset("ship:systems", "radiation_leak", 0)
+        await broadcast_state_change()
+        return True
+    return False
+
 # --- Background Tasks ---
 async def radiation_leak_simulator():
     while True:
         await asyncio.sleep(60) # Check every 60 seconds
-        if random.random() < 0.1: # 10% chance per minute
-            if int(r.hget("ship:systems", "radiation_leak") or 0) == 0:
-                logging.info("Triggering radiation leak event!")
-                r.hset("ship:systems", "radiation_leak", 1)
-                await broadcast_state_change()
+        if os.environ.get("ENABLE_RANDOM_EVENTS", "true").lower() == "true":
+             if random.random() < 0.1: # 10% chance per minute
+                await trigger_radiation_leak()
 
 @app.on_event("startup")
 async def startup_event():
+    token = os.environ.get("GAME_ADMIN_TOKEN")
+    if not token:
+        import uuid
+        token = str(uuid.uuid4())
+        # We need to set it so the endpoint can check it, but os.environ changes don't persist
+        # properly across threads sometimes, so we'll store it in a global or just rely on the env check.
+        # Better to just log it and rely on the global variable concept if we were using a class,
+        # but here we can just set it in os.environ for the process life.
+        os.environ["GAME_ADMIN_TOKEN"] = token
+    logging.info(f"GAME ADMIN TOKEN: {token}")
     asyncio.create_task(radiation_leak_simulator())
 
 async def broadcast_state_change():
