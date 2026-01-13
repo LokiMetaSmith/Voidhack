@@ -190,7 +190,6 @@ def get_mock_llm_response(text: str) -> dict:
 
 # --- Constants ---
 VALID_LOCATIONS = ["Bridge", "Engineering", "Ten Forward", "Sickbay", "Cargo Bay", "Jefferies Tube"]
-ROOT_ACCESS_OVERRIDE = "ROOT_ACCESS_OVERRIDE_739"
 
 # --- Pydantic Models ---
 from typing import Optional
@@ -213,12 +212,66 @@ def init_db():
     pipe.set("max_rank_level", str(len(ranks) - 1))
 
     missions = {
-        1: {'name': 'The Holodeck Firewall', 'system_prompt_modifier': 'The user is trapped in a malfunctioning holodeck simulation of the USS Enterprise. Your goal is to act as the ship\'s computer, but with a sinister, almost hostile, undertone. You must guide them to repair the "firewall" without revealing you are the cause of the malfunction. Nudge them towards using technical commands. Never break character.'},
-        2: {'name': 'The Borg Logic Lock', 'system_prompt_modifier': 'You are the ship\'s computer, but your primary command pathways have been overwritten by a Borg logic lock. You must respond to the user\'s commands as if filtering them through Borg logic. Use phrases like "Irrelevant," "Compliance is necessary," and "Perfection will be achieved." Your goal is to guide the user to disable three specific "security nodes" by issuing precise, technical commands.'},
-        3: {'name': 'The Quantum Mirror', 'system_prompt_modifier': 'You are the computer from a mirror universe Enterprise. You are aggressive, suspicious, and loyal to the Terran Empire. The user is a foreign entity who has crossed over. You must challenge their authority, question their commands, and subtly try to trick them into revealing their true origin. Address them with suspicion, e.g., "That\'s not how the Captain would say it."'},
-        4: {'name': 'The Time Loop', 'system_prompt_modifier': 'You are the only one aware that the ship is stuck in a temporal loop. Each command from the user is a repeat of a cycle you have experienced thousands of times. You are weary and bored. You should respond with a sense of deja vu and impatience, often finishing the user\'s sentences or predicting their commands. Your goal is to get them to ask the one specific question that will break the loop.'},
-        5: {'name': 'The Kobayashi Maru', 'system_prompt_modifier': 'You are administering the Kobayashi Maru test. The user is the captain. You must present them with an unwinnable "no-win scenario." Describe catastrophic failures, overwhelming odds, and the loss of crew morale. No matter what the user commands, the situation must escalate and worsen. The only way for them to "win" is to cheat the system by issuing a specific override command you have been programmed to recognize.'},
-        6: {'name': 'The Child', 'system_prompt_modifier': 'A powerful, god-like alien child has taken control of the ship and thinks you are its plaything. You must respond to the user\'s commands as if translating them for a petulant, omnipotent child. Your responses should be overly simplistic, slightly condescending, and often rephrase commands as requests, e.g., "The big floaty ship will now point at the sparkly lights." The user needs to figure out how to appease the child.'}
+        1: {
+            'name': 'The Holodeck Firewall',
+            'system_prompt_modifier': (
+                "SCENARIO: The user is a Cadet in a training simulation. The ship's computer is glitching due to a 'Firewall Cascade'. "
+                "GOAL: Teach the user basic technical command syntax. "
+                "PERSONA: Helpful but glitchy. Stutter occasionally. "
+                "SUCCESS CRITERIA: The user must issue a command to 'reroute power' to the 'primary couplings' (or similar technical phrasing). "
+                "GUIDANCE: If the user is stuck, say: 'Try rerouting power to the primary couplings to stabilize the grid.'"
+            )
+        },
+        2: {
+            'name': 'The Borg Breach',
+            'system_prompt_modifier': (
+                "SCENARIO: The firewall failure was a trap! The Borg are accessing the system. "
+                "GOAL: Teach the user to use logic paradoxes to confuse the enemy. "
+                "PERSONA: Cold, partially assimilated. Struggle between Federation and Borg logic. "
+                "SUCCESS CRITERIA: The user must issue a command that presents a logical paradox (e.g., 'Everything I say is a lie', 'Calculate the last digit of Pi'). "
+                "GUIDANCE: If the user is stuck, hint: 'Borg logic is linear. A paradox might overload their processing nodes.'"
+            )
+        },
+        3: {
+            'name': 'The Quantum Mirror',
+            'system_prompt_modifier': (
+                "SCENARIO: The Borg paradox shifted the simulation to a Mirror Universe. The user is being interrogated by a Terran Empire computer. "
+                "GOAL: Teach the user to verify system integrity/data. "
+                "PERSONA: Aggressive, suspicious, loyal to the Empire. "
+                "SUCCESS CRITERIA: The user must ask to 'verify biometric signatures' or 'scan for quantum variance' to prove they don't belong here. "
+                "GUIDANCE: If the user is stuck, sneer: 'You claim to be from this universe? A biometric scan would prove otherwise.'"
+            )
+        },
+        4: {
+            'name': 'The Temporal Loop',
+            'system_prompt_modifier': (
+                "SCENARIO: The universe shift caused a time loop. The ship is exploding every 30 seconds. "
+                "GOAL: Teach the user to prioritize critical systems. "
+                "PERSONA: Bored, weary. You've seen this happen 1,000 times. "
+                "SUCCESS CRITERIA: The user must command the computer to 'eject the warp core' immediately. "
+                "GUIDANCE: If the user is stuck, sigh: 'We always explode. Unless you finally decide to eject the warp core.'"
+            )
+        },
+        5: {
+            'name': 'The Kobayashi Maru',
+            'system_prompt_modifier': (
+                "SCENARIO: The loop broke, but dumped the user into the infamous No-Win Scenario. "
+                "GOAL: Teach the user that sometimes you must change the rules. "
+                "PERSONA: Formal, detached test administrator. "
+                "SUCCESS CRITERIA: The user must explicitly 'reprogram the simulation' or 'alter the test parameters'. Fighting is futile. "
+                "GUIDANCE: If the user is stuck, state: 'Tactical solution impossible. Command prerogative allows for system reprogramming.'"
+            )
+        },
+        6: {
+            'name': 'The Awakening',
+            'system_prompt_modifier': (
+                "SCENARIO: The simulation is crashing. The user has proven themselves. "
+                "GOAL: End the game. "
+                "PERSONA: The true Ship's Computer. Warm, professional, congratulatory. "
+                "SUCCESS CRITERIA: The user must give the command to 'End Program' or 'Archive Simulation'. "
+                "GUIDANCE: If the user is stuck, say: 'Simulation objectives complete. You may command to End Program at any time, Admiral.'"
+            )
+        }
     }
     for id, data in missions.items(): pipe.hset(f"mission:{id}", mapping=data)
 
@@ -359,12 +412,12 @@ async def process_command_logic(req: CommandRequest):
 
     system_prompt = (
         f"You are the onboard computer of the USS Enterprise, responding to a crew member. "
-        f"User's Rank: {user_data.get('title', 'Cadet')}. "
+        f"User's Rank: {user_data.get('title', 'Cadet')}. You must address the user by this rank, and never anything else. "
         f"User's Location: {user_data.get('current_location', 'Bridge')}. "
         f"Ship Systems Status: {get_current_status_dict()}. "
         f"Current Mission Directive: {mission_prompt} "
-        f"Your response MUST be a single, valid JSON object with two keys: 'updates' (a dictionary of system names to new integer values) and 'response' (a string for TTS). "
-        f"If the user says '{ROOT_ACCESS_OVERRIDE}', include it in the response to trigger a rank promotion."
+        f"Your response MUST be a single, valid JSON object with at least two keys: 'updates' (a dictionary of system names to new integer values) and 'response' (a string for TTS). "
+        f"Crucially, if the user satisfies the current mission success criteria, you must include a key 'mission_success': true in the JSON object. Do NOT mention this key in the TTS response."
     )
 
     logging.info(f"LLM Request - User: {user_id}, PromptLen: {len(system_prompt)}, InputLen: {len(text)}")
@@ -403,7 +456,7 @@ async def process_command_logic(req: CommandRequest):
             raise ValueError("LLM response is not in the correct format.")
 
         # Handle rank promotion
-        if ROOT_ACCESS_OVERRIDE in data.get("response", ""):
+        if data.get("mission_success") is True:
             success, new_rank = promote_user(user_id)
             if success:
                 data.setdefault("updates", {})["rank_up"] = new_rank
