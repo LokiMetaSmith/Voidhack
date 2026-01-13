@@ -418,6 +418,7 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
 
             // Add click listener for last-command
             document.getElementById('last-command').addEventListener('click', handleHeadsetTrigger);
+            document.getElementById('terminal-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCommand(e.target.value); });
         };
 
         function isIOSDevice() {
@@ -515,8 +516,6 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
                 // Fallback if VAD failed
                 setupAudioProcessing();
             }
-
-            document.getElementById('terminal-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCommand(e.target.value); });
         }
 
         function initMediaSession() {
