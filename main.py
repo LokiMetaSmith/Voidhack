@@ -394,6 +394,9 @@ async def process_command_logic(req: CommandRequest):
             response.raise_for_status()
 
             raw_content = response.json()['choices'][0]['message']['content']
+            # Clean possible markdown formatting from LLM
+            if "```" in raw_content:
+                 raw_content = raw_content.replace("```json", "").replace("```", "").strip()
             data = json.loads(raw_content)
 
         if not isinstance(data, dict) or "updates" not in data or "response" not in data:
