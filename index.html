@@ -392,6 +392,7 @@ class VoiceActivityDetector {
 
 const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
         let socket, recognition, userId, isSystemSpeaking = false, silenceTimer;
+        let reconnectTimer = null;
         let isChannelOpen = false; // Push-to-Talk state
         let wasmExports = null, audioCtx, scriptNode, source;
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -491,6 +492,10 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
             setupWebSocket();
 
             // Initialize VAD and shared audio context
+            if (vad) {
+                vad.stopDetection();
+            }
+
             vad = new VoiceActivityDetector({
                 onVoiceStart: () => {
                     // Optional: Visual indicator or trigger recognition if desired
@@ -542,6 +547,18 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
         }
 
         function setupWebSocket() {
+            if (socket) {
+                socket.onclose = null;
+                socket.onerror = null;
+                socket.onmessage = null;
+                socket.onopen = null;
+                socket.close();
+            }
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
+
             socket = new WebSocket(WS_URL);
             socket.onopen = () => { log("Connection established."); if (!localStorage.getItem('lcars_handle')) speak("Please state your identity."); };
             socket.onmessage = (event) => {
@@ -552,7 +569,10 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
                     case 'leaderboard_response': renderLeaderboard(data.leaderboard); break;
                 }
             };
-            socket.onclose = () => { log("Connection lost. Reconnecting..."); setTimeout(setupWebSocket, 3000); };
+            socket.onclose = () => {
+                log("Connection lost. Reconnecting...");
+                reconnectTimer = setTimeout(setupWebSocket, 3000);
+            };
             socket.onerror = () => { log("WebSocket error."); };
         }
 
@@ -583,6 +603,13 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
 
         function setupSpeechRecognition() {
             if (!('webkitSpeechRecognition' in window)) { log("Speech recognition not supported."); return; }
+
+            if (recognition) {
+                recognition.onend = null;
+                recognition.onresult = null;
+                recognition.stop();
+            }
+
             recognition = new webkitSpeechRecognition();
             // IOS Safari: continuous=true is buggy/broken. Use false and restart manually.
             recognition.continuous = !isIOSDevice();
