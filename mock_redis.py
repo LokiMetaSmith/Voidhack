@@ -145,6 +145,10 @@ class MockPipeline:
         self.commands.append((self.redis.hset, args, kwargs))
         return self
 
+    def hgetall(self, *args, **kwargs):
+        self.commands.append((self.redis.hgetall, args, kwargs))
+        return self
+
     def hincrby(self, *args, **kwargs):
         self.commands.append((self.redis.hincrby, args, kwargs))
         return self
