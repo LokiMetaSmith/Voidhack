@@ -230,7 +230,17 @@ init_db()
 # --- Helper Functions ---
 def get_current_status_dict(): return {k: int(v) for k, v in r.hgetall("ship:systems").items()}
 def update_leaderboard(uuid: str, xp_to_add: int):
-    new_xp = r.hincrby(f"user:{uuid}", "xp", xp_to_add)
+    # Ensure user exists before adding XP, to avoid "null" entries on leaderboard
+    user_key = f"user:{uuid}"
+    if not r.exists(user_key) or not r.hexists(user_key, "name"):
+        r.hset(user_key, mapping={
+            "name": f"Cadet {uuid[:5]}",
+            "rank": "Cadet",
+            "rank_level": 0,
+            "mission_stage": 1,
+            "current_location": "Bridge"
+        })
+    new_xp = r.hincrby(user_key, "xp", xp_to_add)
     r.zadd("leaderboard", {uuid: new_xp})
 
 def get_user_rank_data(uuid):
