@@ -163,6 +163,8 @@
         #last-command {
             text-align: center;
             height: 20px;
+            cursor: pointer;
+            user-select: none;
         }
 
         .radiation-overlay {
@@ -412,6 +414,9 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
             loadWasm();
             // Pre-load voices
             window.speechSynthesis.getVoices();
+
+            // Add click listener for last-command
+            document.getElementById('last-command').addEventListener('click', handleHeadsetTrigger);
         };
 
         function isIOSDevice() {
@@ -471,15 +476,15 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
         }
 
         async function initComms() {
+            // Initialize MediaSession immediately to capture user gesture
+            initMediaSession();
+
             try {
                 await navigator.wakeLock.request('screen');
                 log("Screen wake lock active.");
             } catch (err) {
                 log("Wake Lock API not supported.");
             }
-
-            // Initialize MediaSession (Robust Audio Handling)
-            initMediaSession();
 
             await initializeBluetoothAudio();
             setupSpeechRecognition();
@@ -513,8 +518,9 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
              if ('mediaSession' in navigator) {
                 const audio = document.getElementById('silent-audio');
                 audio.play().then(() => {
+                    log("Media Session active.");
                     navigator.mediaSession.playbackState = 'paused';
-                }).catch(e => console.log("Silent audio play failed", e));
+                }).catch(e => log("Silent audio play failed: " + e.message));
 
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: 'USS Enterprise Computer',
@@ -522,17 +528,16 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
                     album: 'Star Trek',
                 });
 
-                // Map 'play' to Open Channel (Start Listening)
-                navigator.mediaSession.setActionHandler('play', () => {
-                     handleHeadsetTrigger();
-                });
-                // Map 'pause' to Close Channel (Stop Listening)
-                navigator.mediaSession.setActionHandler('pause', () => {
-                     handleHeadsetTrigger();
-                });
+                const triggerHandler = () => handleHeadsetTrigger();
+
+                // Map multiple actions to the trigger for broader headset support
+                navigator.mediaSession.setActionHandler('play', triggerHandler);
+                navigator.mediaSession.setActionHandler('pause', triggerHandler);
                 navigator.mediaSession.setActionHandler('stop', () => {
                      if (isChannelOpen) handleHeadsetTrigger();
                 });
+                navigator.mediaSession.setActionHandler('nexttrack', triggerHandler);
+                navigator.mediaSession.setActionHandler('previoustrack', triggerHandler);
             }
         }
 
@@ -607,7 +612,7 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
                     document.getElementById('last-command').textContent = interim_transcript;
                     if (final_transcript) handleSpeech(final_transcript.trim());
                 } else {
-                     document.getElementById('last-command').textContent = "Channel Closed (Tap Button to Talk)";
+                     document.getElementById('last-command').textContent = "Channel Closed (Tap Button or Click to Talk)";
                 }
             };
             recognition.start();
