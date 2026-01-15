@@ -457,13 +457,32 @@ async def process_command_logic(req: CommandRequest):
             response.raise_for_status()
 
             raw_content = response.json()['choices'][0]['message']['content']
-            # Clean possible markdown formatting from LLM
-            if "```" in raw_content:
-                 raw_content = raw_content.replace("```json", "").replace("```", "").strip()
-            data = json.loads(raw_content)
 
-        if not isinstance(data, dict) or "updates" not in data or "response" not in data:
-            raise ValueError("LLM response is not in the correct format.")
+            # Attempt to find JSON object using regex
+            match = re.search(r'\{.*\}', raw_content, re.DOTALL)
+            data = None
+            if match:
+                try:
+                    data = json.loads(match.group(0))
+                except json.JSONDecodeError:
+                    logging.warning(f"Failed to parse extracted JSON from user {user_id}. Content: {match.group(0)}")
+
+            # Fallback if no valid JSON found
+            if data is None:
+                logging.warning(f"LLM returned invalid JSON for user {user_id}. Raw: {raw_content}")
+                # Treat the whole content as the response message
+                clean_text = raw_content.replace("```json", "").replace("```", "").strip()
+                data = {"updates": {}, "response": clean_text}
+
+            # Ensure data is a dictionary (handle case where json.loads returns list/scalar)
+            if not isinstance(data, dict):
+                data = {"updates": {}, "response": str(data)}
+
+            # Ensure required keys exist
+            if "response" not in data:
+                data["response"] = "Processing complete."
+            if "updates" not in data:
+                data["updates"] = {}
 
         # Handle rank promotion
         if data.get("mission_success") is True:
