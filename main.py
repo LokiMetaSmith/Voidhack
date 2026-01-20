@@ -11,10 +11,12 @@ from typing import Dict, List
 import hashlib
 import httpx
 import redis
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+import aiofiles
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+from server.stt import transcribe_audio
 
 # --- Logging Configuration ---
 class NoStatusFilter(logging.Filter):
@@ -382,6 +384,44 @@ def generate_semantic_key(text: str, user_data: dict) -> str:
     return f"sem_cache:{hashlib.sha256(raw_key.encode()).hexdigest()}"
 
 # --- Main Command Processing ---
+# --- New Endpoints for Galaxy Class Stack ---
+@app.post("/api/transcribe")
+async def transcribe_endpoint(file: UploadFile = File(...)):
+    # Save the temporary audio blob
+    temp_filename = f"temp_{file.filename}"
+    async with aiofiles.open(temp_filename, 'wb') as out_file:
+        content = await file.read()
+        await out_file.write(content)
+
+    # Process with Whisper
+    text = await transcribe_audio(temp_filename)
+
+    # Clean up
+    if os.path.exists(temp_filename):
+        os.remove(temp_filename)
+
+    return {"text": text}
+
+@app.post("/api/speak")
+async def speak_endpoint(request: CommandRequest):
+    tts_url = "http://tts-service:5002/api/tts"
+
+    # If using localhost in development (outside docker), you might need localhost:5002
+    # but inside docker-compose network "tts-service" is correct.
+    # Fallback to localhost if tts-service lookup fails? No, standard dns.
+
+    payload = {
+        "text": request.text,
+        "speaker_wav": "/app/tts_models/voices/computer_main.wav", # Path inside container
+        "language_id": "en"
+    }
+
+    async with httpx.AsyncClient() as client:
+        # Stream the response back to the client immediately
+        req = client.build_request("POST", tts_url, json=payload)
+        r = await client.send(req, stream=True)
+        return StreamingResponse(r.aiter_bytes(), media_type="audio/wav")
+
 async def process_command_logic(req: CommandRequest):
     text = req.text.lower()
     user_id = req.user_id

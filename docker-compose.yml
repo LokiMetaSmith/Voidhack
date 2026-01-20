@@ -52,6 +52,28 @@ services:
               count: 1
               capabilities: [gpu]
 
+  tts-service:
+    image: ghcr.io/coqui-ai/tts-server:latest
+    container_name: voidhack-tts
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      - COQUI_TOS_AGREED=1
+    # We mount a volume to store the "Majel" voice sample
+    volumes:
+      - ./voice_samples:/app/tts_models/voices
+    ports:
+      - "5002:5002"
+    command: >
+      python3 -m TTS.server.server
+      --model_name tts_models/multilingual/multi-dataset/xtts_v2
+      --use_cuda true
+
   llama-cpp:
     profiles: ["cpu"]
     image: ghcr.io/ggml-org/llama.cpp:server
