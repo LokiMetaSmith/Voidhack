@@ -390,6 +390,9 @@ class VoiceActivityDetector {
     }
 }
 
+// Configuration
+const USE_SERVER_STT = true; // Set to false to force browser WebSpeech API
+
 // MediaRecorder Wrapper
 let mediaRecorder = null;
 let audioChunks = [];
@@ -559,13 +562,13 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
             vad = new VoiceActivityDetector({
                 onVoiceStart: () => {
                     document.getElementById('listening-indicator').style.display = 'block';
-                    if (isChannelOpen && vad.stream) {
+                    if (USE_SERVER_STT && isChannelOpen && vad.stream) {
                         startRecording(vad.stream);
                     }
                 },
                 onVoiceEnd: () => {
                     document.getElementById('listening-indicator').style.display = 'none';
-                    if (isChannelOpen) {
+                    if (USE_SERVER_STT && isChannelOpen) {
                         stopRecording();
                     }
                 },
@@ -574,6 +577,11 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
 
             // Start VAD which acquires the stream
             await vad.startDetection();
+
+            // If using browser STT, we still run VAD for visualization, but also start recognition
+            if (!USE_SERVER_STT) {
+                setupSpeechRecognition();
+            }
 
             // Use the stream from VAD for audio processing (WASM visualization)
             if (vad.stream && vad.audioContext) {
@@ -667,9 +675,47 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
         }
 
         function setupSpeechRecognition() {
-            // Replaced by VAD + MediaRecorder in this Galaxy Class stack.
-            // Leaving function stub to prevent reference errors if called.
-            log("Enhanced Voice System Active.");
+            if (!('webkitSpeechRecognition' in window)) { log("Speech recognition not supported."); return; }
+
+            if (recognition) {
+                recognition.onend = null;
+                recognition.onresult = null;
+                recognition.stop();
+            }
+
+            recognition = new webkitSpeechRecognition();
+            // IOS Safari: continuous=true is buggy/broken. Use false and restart manually.
+            recognition.continuous = !isIOSDevice();
+            recognition.interimResults = true;
+            recognition.onstart = () => { log("Mic active (Browser STT)."); document.getElementById('listening-indicator').style.display = 'block'; };
+            recognition.onend = () => {
+                if (!isSystemSpeaking) {
+                     // On iOS, we restart immediately because continuous=false implies it stops after every phrase.
+                     // On Desktop, we restart if it accidentally crashed.
+                     setTimeout(() => {
+                        try { recognition.start(); } catch(e) { if (!e.message.includes('already started')) console.log("Recognition restart ignored: " + e.message); }
+                     }, isIOSDevice() ? 50 : 250);
+                }
+                document.getElementById('listening-indicator').style.display = 'none';
+            };
+            recognition.onresult = (event) => {
+                clearTimeout(silenceTimer);
+                silenceTimer = setTimeout(() => { recognition.stop(); }, 800);
+                let final_transcript = '';
+                let interim_transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) final_transcript += event.results[i][0].transcript;
+                    else interim_transcript += event.results[i][0].transcript;
+                }
+
+                if (isChannelOpen) {
+                    document.getElementById('last-command').textContent = interim_transcript;
+                    if (final_transcript) handleSpeech(final_transcript.trim());
+                } else {
+                     document.getElementById('last-command').textContent = "Channel Closed (Tap Button or Click to Talk)";
+                }
+            };
+            try { recognition.start(); } catch(e) { console.warn("Recognition start failed", e); }
         }
 
         function handleSpeech(transcript) {
@@ -694,38 +740,64 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
 
         async function speak(text) {
             isSystemSpeaking = true;
-            // Temporarily pause VAD to avoid hearing itself
             if (vad) vad.stopDetection();
 
             try {
-                const response = await fetch('/api/speak', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: text, user_id: userId })
-                });
+                await speakRemote(text);
+            } catch (e) {
+                console.log("Remote TTS failed, falling back to local: " + e.message);
+                speakLocal(text);
+            }
+        }
 
-                if (!response.ok) throw new Error('TTS Failed');
+        async function speakRemote(text) {
+            const response = await fetch('/api/speak', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, user_id: userId })
+            });
 
-                const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
+            if (!response.ok) throw new Error('TTS Failed');
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+
+            return new Promise((resolve, reject) => {
                 const audio = new Audio(url);
-
                 audio.onended = () => {
                     isSystemSpeaking = false;
-                    // Restart VAD after speech ends
                     if (vad) vad.startDetection();
                     URL.revokeObjectURL(url);
+                    resolve();
                 };
+                audio.onerror = (e) => {
+                    URL.revokeObjectURL(url);
+                    reject(new Error("Audio playback failed"));
+                };
+                audio.play().catch(reject);
+            });
+        }
 
-                audio.play();
-            } catch (e) {
-                console.error("TTS Error:", e);
+        function speakLocal(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoices = ['Microsoft Zira', 'Samantha', 'Google UK English Female'];
+            let selectedVoice = null;
+
+            for (const name of preferredVoices) {
+                selectedVoice = voices.find(v => v.name.includes(name));
+                if (selectedVoice) break;
+            }
+            if (!selectedVoice) selectedVoice = voices.find(v => v.name.includes('Female'));
+            if (selectedVoice) utterance.voice = selectedVoice;
+
+            utterance.rate = 1.1;
+            utterance.onend = () => {
                 isSystemSpeaking = false;
                 if (vad) vad.startDetection();
-                // Fallback to browser TTS if server fails?
-                // For now, just log error.
-                log("TTS Error: " + e.message);
-            }
+            };
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
         }
 
         function renderSystems(systems) {
