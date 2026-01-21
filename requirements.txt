@@ -9,3 +9,4 @@ httpx
 pytest
 pytest-asyncio
 pydantic
+numpy

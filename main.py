@@ -143,6 +143,10 @@ if not USE_MOCK_LLM and os.environ.get("USE_MOCK_REDIS", "false").lower() == "tr
         logging.info("USE_MOCK_REDIS is active and no local LLM detected; defaulting to USE_MOCK_LLM=true.")
         USE_MOCK_LLM = True
 
+# TTS Configuration
+TTS_ENGINE = os.environ.get("TTS_ENGINE", "kokoro").lower()
+logging.info(f"TTS Engine configured to: {TTS_ENGINE}")
+
 # Handle OpenAI-style URLs
 if VLLM_HOST.endswith('/'):
     VLLM_HOST = VLLM_HOST[:-1]
@@ -404,23 +408,46 @@ async def transcribe_endpoint(file: UploadFile = File(...)):
 
 @app.post("/api/speak")
 async def speak_endpoint(request: CommandRequest):
-    tts_url = "http://tts-service:5002/api/tts"
+    if TTS_ENGINE == "kokoro":
+        # Kokoro OpenAI-compatible endpoint
+        # Uses 'kokoro-service' as defined in docker-compose
+        tts_url = "http://kokoro-service:8880/v1/audio/speech"
 
-    # If using localhost in development (outside docker), you might need localhost:5002
-    # but inside docker-compose network "tts-service" is correct.
-    # Fallback to localhost if tts-service lookup fails? No, standard dns.
+        payload = {
+            "model": "kokoro",
+            "input": request.text,
+            "voice": "af_heart", # Standard high-quality female voice
+            "response_format": "mp3",
+            "speed": 1.1
+        }
+        media_type = "audio/mp3"
 
-    payload = {
-        "text": request.text,
-        "speaker_wav": "/app/tts_models/voices/computer_main.wav", # Path inside container
-        "language_id": "en"
-    }
+    else:
+        # Default to Coqui XTTS
+        tts_url = "http://tts-service:5002/api/tts"
 
-    async with httpx.AsyncClient() as client:
-        # Stream the response back to the client immediately
-        req = client.build_request("POST", tts_url, json=payload)
-        r = await client.send(req, stream=True)
-        return StreamingResponse(r.aiter_bytes(), media_type="audio/wav")
+        payload = {
+            "text": request.text,
+            "speaker_wav": "/app/tts_models/voices/computer_main.wav", # Path inside container
+            "language_id": "en"
+        }
+        media_type = "audio/wav"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # Stream the response back to the client immediately
+            req = client.build_request("POST", tts_url, json=payload, timeout=10.0)
+            r = await client.send(req, stream=True)
+            r.raise_for_status()
+            return StreamingResponse(r.aiter_bytes(), media_type=media_type)
+    except httpx.ConnectError:
+        # If the TTS service is down, this 502 will be caught by the frontend
+        # and trigger the WebSpeech fallback (speakLocal).
+        logging.error(f"Failed to connect to TTS Engine: {TTS_ENGINE} at {tts_url}")
+        raise HTTPException(status_code=502, detail="TTS Service Unavailable")
+    except Exception as e:
+        logging.error(f"TTS Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 async def process_command_logic(req: CommandRequest):
     text = req.text.lower()
