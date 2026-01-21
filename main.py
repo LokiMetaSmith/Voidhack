@@ -11,10 +11,12 @@ from typing import Dict, List
 import hashlib
 import httpx
 import redis
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+import aiofiles
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+from server.stt import transcribe_audio
 
 # --- Logging Configuration ---
 class NoStatusFilter(logging.Filter):
@@ -140,6 +142,10 @@ if not USE_MOCK_LLM and os.environ.get("USE_MOCK_REDIS", "false").lower() == "tr
     if "localhost:11434" not in VLLM_HOST:
         logging.info("USE_MOCK_REDIS is active and no local LLM detected; defaulting to USE_MOCK_LLM=true.")
         USE_MOCK_LLM = True
+
+# TTS Configuration
+TTS_ENGINE = os.environ.get("TTS_ENGINE", "kokoro").lower()
+logging.info(f"TTS Engine configured to: {TTS_ENGINE}")
 
 # Handle OpenAI-style URLs
 if VLLM_HOST.endswith('/'):
@@ -382,6 +388,67 @@ def generate_semantic_key(text: str, user_data: dict) -> str:
     return f"sem_cache:{hashlib.sha256(raw_key.encode()).hexdigest()}"
 
 # --- Main Command Processing ---
+# --- New Endpoints for Galaxy Class Stack ---
+@app.post("/api/transcribe")
+async def transcribe_endpoint(file: UploadFile = File(...)):
+    # Save the temporary audio blob
+    temp_filename = f"temp_{file.filename}"
+    async with aiofiles.open(temp_filename, 'wb') as out_file:
+        content = await file.read()
+        await out_file.write(content)
+
+    # Process with Whisper
+    text = await transcribe_audio(temp_filename)
+
+    # Clean up
+    if os.path.exists(temp_filename):
+        os.remove(temp_filename)
+
+    return {"text": text}
+
+@app.post("/api/speak")
+async def speak_endpoint(request: CommandRequest):
+    if TTS_ENGINE == "kokoro":
+        # Kokoro OpenAI-compatible endpoint
+        # Uses 'kokoro-service' as defined in docker-compose
+        tts_url = "http://kokoro-service:8880/v1/audio/speech"
+
+        payload = {
+            "model": "kokoro",
+            "input": request.text,
+            "voice": "af_heart", # Standard high-quality female voice
+            "response_format": "mp3",
+            "speed": 1.1
+        }
+        media_type = "audio/mp3"
+
+    else:
+        # Default to Coqui XTTS
+        tts_url = "http://tts-service:5002/api/tts"
+
+        payload = {
+            "text": request.text,
+            "speaker_wav": "/app/tts_models/voices/computer_main.wav", # Path inside container
+            "language_id": "en"
+        }
+        media_type = "audio/wav"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # Stream the response back to the client immediately
+            req = client.build_request("POST", tts_url, json=payload, timeout=10.0)
+            r = await client.send(req, stream=True)
+            r.raise_for_status()
+            return StreamingResponse(r.aiter_bytes(), media_type=media_type)
+    except httpx.ConnectError:
+        # If the TTS service is down, this 502 will be caught by the frontend
+        # and trigger the WebSpeech fallback (speakLocal).
+        logging.error(f"Failed to connect to TTS Engine: {TTS_ENGINE} at {tts_url}")
+        raise HTTPException(status_code=502, detail="TTS Service Unavailable")
+    except Exception as e:
+        logging.error(f"TTS Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def process_command_logic(req: CommandRequest):
     text = req.text.lower()
     user_id = req.user_id
