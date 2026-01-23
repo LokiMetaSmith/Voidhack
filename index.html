@@ -33,7 +33,7 @@
         .lcars-container {
             display: grid;
             grid-template-columns: 150px 1fr;
-            grid-template-rows: 100px 1fr 50px;
+            grid-template-rows: 100px 1fr 80px;
             height: 100%;
             gap: 10px;
             padding: 10px;
@@ -251,43 +251,53 @@
             grid-column: 1 / -1;
             grid-row: 3;
             display: flex;
-            align-items: center;
+            align-items: stretch;
             justify-content: center;
             background-color: var(--lcars-bg);
             padding: 0;
+            gap: 10px;
+        }
+
+        .lcars-decoration {
+            background-color: var(--lcars-blue);
+            height: 100%;
         }
 
         #push-to-talk {
-            background-color: var(--lcars-red);
-            color: var(--lcars-text);
-            width: 100%;
+            background-color: var(--lcars-orange);
+            color: black;
+            min-width: 300px;
             height: 100%;
-            border-radius: 15px;
+            border-radius: 40px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 24px;
+            justify-content: flex-end; /* Right align text like authentic buttons */
+            padding-right: 30px;
+            font-size: 32px;
             font-weight: bold;
             cursor: pointer;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
             border: none;
             transition: background-color 0.3s, color 0.3s;
         }
 
         #push-to-talk:hover {
-            background-color: #ff3333;
+            background-color: #ffaa33;
         }
 
         #push-to-talk.active {
-             background-color: var(--lcars-orange);
-             animation: pulse-color 2s infinite;
+             background-color: var(--lcars-red);
+             color: black;
+             animation: pulse-color 1s infinite;
+             justify-content: center; /* Center text when active */
+             padding-right: 0;
         }
 
         @keyframes pulse-color {
-            0% { background-color: var(--lcars-orange); }
-            50% { background-color: #ffcc66; }
-            100% { background-color: var(--lcars-orange); }
+            0% { background-color: var(--lcars-red); }
+            50% { background-color: #ff3333; }
+            100% { background-color: var(--lcars-red); }
         }
     </style>
 </head>
@@ -319,7 +329,9 @@
             </div>
         </div>
         <div class="lcars-footer">
-            <button id="push-to-talk">PUSH TO TALK</button>
+            <div class="lcars-decoration" style="width: 150px; border-radius: 0 0 0 40px;"></div>
+            <button id="push-to-talk">COMMS • PUSH TO TALK</button>
+            <div class="lcars-decoration" style="flex-grow: 1; border-radius: 0 0 40px 0;"></div>
         </div>
     </div>
 
@@ -1000,7 +1012,7 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
                     btn.textContent = "LISTENING...";
                 } else {
                     btn.classList.remove('active');
-                    btn.textContent = "PUSH TO TALK";
+                    btn.textContent = "COMMS • PUSH TO TALK";
                 }
             }
         }
