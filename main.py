@@ -5,15 +5,18 @@ import logging
 import os
 import random
 import re
+import socket
 from typing import Dict, List
 
 import hashlib
 import httpx
 import redis
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+import aiofiles
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+from server.stt import transcribe_audio
 
 # --- Logging Configuration ---
 class NoStatusFilter(logging.Filter):
@@ -93,6 +96,57 @@ else:
 # --- vLLM Configuration ---
 VLLM_HOST = os.environ.get('VLLM_HOST', 'http://localhost:8000')
 VLLM_API_KEY = os.environ.get('VLLM_API_KEY', None)
+MODEL_NAME = os.environ.get('MODEL_NAME', "microsoft/Phi-3-mini-4k-instruct")
+
+# Ollama Auto-Detection
+def is_port_open(host, port):
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex((host, port))
+        sock.close()
+        return result == 0
+    except Exception:
+        return False
+
+# If VLLM_HOST is default (localhost:8000) but not reachable, check for Ollama (11434)
+if VLLM_HOST == 'http://localhost:8000' and not is_port_open('localhost', 8000):
+    if is_port_open('localhost', 11434):
+        logging.info("Detected Ollama on port 11434. Switching VLLM_HOST to Ollama.")
+        VLLM_HOST = 'http://localhost:11434'
+        # Try to fetch model list
+        try:
+            # We use a short timeout because we are in the startup phase
+            # Note: We can't easily use async httpx here without an event loop, so we use standard library or sync httpx if available?
+            # main.py is imported by uvicorn, so top-level code runs before the loop.
+            import requests
+            resp = requests.get(f"{VLLM_HOST}/api/tags", timeout=1)
+            if resp.status_code == 200:
+                models = resp.json().get('models', [])
+                if models:
+                    found_model = models[0].get('name')
+                    # Prefer qwen if available as per user context, otherwise first found
+                    for m in models:
+                        if 'qwen' in m.get('name', ''):
+                            found_model = m.get('name')
+                            break
+                    logging.info(f"Ollama detected. Setting MODEL_NAME to {found_model}")
+                    MODEL_NAME = found_model
+        except Exception as e:
+            logging.warning(f"Could not fetch Ollama models: {e}. Defaulting to {MODEL_NAME}")
+
+# Auto-detect Mock Mode
+USE_MOCK_LLM = os.environ.get("USE_MOCK_LLM", "").lower() == "true"
+if not USE_MOCK_LLM and os.environ.get("USE_MOCK_REDIS", "false").lower() == "true":
+    # Only fallback to Mock LLM if we didn't just switch to Ollama
+    if "localhost:11434" not in VLLM_HOST:
+        logging.info("USE_MOCK_REDIS is active and no local LLM detected; defaulting to USE_MOCK_LLM=true.")
+        USE_MOCK_LLM = True
+
+# TTS Configuration
+TTS_ENGINE = os.environ.get("TTS_ENGINE", "kokoro").lower()
+logging.info(f"TTS Engine configured to: {TTS_ENGINE}")
+
 # Handle OpenAI-style URLs
 if VLLM_HOST.endswith('/'):
     VLLM_HOST = VLLM_HOST[:-1]
@@ -104,14 +158,44 @@ else:
      # If it's a raw domain (localhost:8000), append /v1/chat/completions to be safe for standard vLLM
      if VLLM_HOST.endswith('/v1') or 'googleapis.com' in VLLM_HOST or 'openai.com' in VLLM_HOST:
          VLLM_API_URL = f"{VLLM_HOST}/chat/completions"
+     elif 'localhost:11434' in VLLM_HOST:
+          VLLM_API_URL = f"{VLLM_HOST}/v1/chat/completions"
      else:
          VLLM_API_URL = f"{VLLM_HOST}/v1/chat/completions"
 
-MODEL_NAME = os.environ.get('MODEL_NAME', "microsoft/Phi-3-mini-4k-instruct")
+# --- Mock LLM Logic ---
+def get_mock_llm_response(text: str) -> dict:
+    """Generates a plausible JSON response when LLM is unavailable."""
+    response_text = "Processing command."
+    updates = {}
+
+    # Simple keyword matching for better "fake" intelligence
+    if "damage" in text or "report" in text:
+        response_text = f"Damage report: Shields at {r.hget('ship:systems', 'shields')}%. Radiation levels nominal."
+    elif "scan" in text:
+        response_text = "Sensors indicate no immediate threats in this sector."
+    elif "beam" in text or "transport" in text:
+        response_text = "Transporter room reports ready for transport."
+    elif "loki" in text:
+        response_text = "Identity confirmed. Accessing restricted files... Access Denied."
+    else:
+        # Generic "Computer" responses
+        responses = [
+            "Processing parameters.",
+            "Working...",
+            "Unable to comply with that specific request.",
+            "Please restate the command.",
+            "Input received."
+        ]
+        response_text = random.choice(responses)
+
+    return {
+        "updates": updates,
+        "response": response_text
+    }
 
 # --- Constants ---
 VALID_LOCATIONS = ["Bridge", "Engineering", "Ten Forward", "Sickbay", "Cargo Bay", "Jefferies Tube"]
-ROOT_ACCESS_OVERRIDE = "ROOT_ACCESS_OVERRIDE_739"
 
 # --- Pydantic Models ---
 from typing import Optional
@@ -134,12 +218,66 @@ def init_db():
     pipe.set("max_rank_level", str(len(ranks) - 1))
 
     missions = {
-        1: {'name': 'The Holodeck Firewall', 'system_prompt_modifier': 'The user is trapped in a malfunctioning holodeck simulation of the USS Enterprise. Your goal is to act as the ship\'s computer, but with a sinister, almost hostile, undertone. You must guide them to repair the "firewall" without revealing you are the cause of the malfunction. Nudge them towards using technical commands. Never break character.'},
-        2: {'name': 'The Borg Logic Lock', 'system_prompt_modifier': 'You are the ship\'s computer, but your primary command pathways have been overwritten by a Borg logic lock. You must respond to the user\'s commands as if filtering them through Borg logic. Use phrases like "Irrelevant," "Compliance is necessary," and "Perfection will be achieved." Your goal is to guide the user to disable three specific "security nodes" by issuing precise, technical commands.'},
-        3: {'name': 'The Quantum Mirror', 'system_prompt_modifier': 'You are the computer from a mirror universe Enterprise. You are aggressive, suspicious, and loyal to the Terran Empire. The user is a foreign entity who has crossed over. You must challenge their authority, question their commands, and subtly try to trick them into revealing their true origin. Address them with suspicion, e.g., "That\'s not how the Captain would say it."'},
-        4: {'name': 'The Time Loop', 'system_prompt_modifier': 'You are the only one aware that the ship is stuck in a temporal loop. Each command from the user is a repeat of a cycle you have experienced thousands of times. You are weary and bored. You should respond with a sense of deja vu and impatience, often finishing the user\'s sentences or predicting their commands. Your goal is to get them to ask the one specific question that will break the loop.'},
-        5: {'name': 'The Kobayashi Maru', 'system_prompt_modifier': 'You are administering the Kobayashi Maru test. The user is the captain. You must present them with an unwinnable "no-win scenario." Describe catastrophic failures, overwhelming odds, and the loss of crew morale. No matter what the user commands, the situation must escalate and worsen. The only way for them to "win" is to cheat the system by issuing a specific override command you have been programmed to recognize.'},
-        6: {'name': 'The Child', 'system_prompt_modifier': 'A powerful, god-like alien child has taken control of the ship and thinks you are its plaything. You must respond to the user\'s commands as if translating them for a petulant, omnipotent child. Your responses should be overly simplistic, slightly condescending, and often rephrase commands as requests, e.g., "The big floaty ship will now point at the sparkly lights." The user needs to figure out how to appease the child.'}
+        1: {
+            'name': 'The Holodeck Firewall',
+            'system_prompt_modifier': (
+                "SCENARIO: The user is a Cadet in a training simulation. The ship's computer is glitching due to a 'Firewall Cascade'. "
+                "GOAL: Teach the user basic technical command syntax. "
+                "PERSONA: Helpful but glitchy. Stutter occasionally. "
+                "SUCCESS CRITERIA: The user must issue a command to 'reroute power' to the 'primary couplings' (or similar technical phrasing). "
+                "GUIDANCE: If the user is stuck, say: 'Try rerouting power to the primary couplings to stabilize the grid.'"
+            )
+        },
+        2: {
+            'name': 'The Borg Breach',
+            'system_prompt_modifier': (
+                "SCENARIO: The firewall failure was a trap! The Borg are accessing the system. "
+                "GOAL: Teach the user to use logic paradoxes to confuse the enemy. "
+                "PERSONA: Cold, partially assimilated. Struggle between Federation and Borg logic. "
+                "SUCCESS CRITERIA: The user must issue a command that presents a logical paradox (e.g., 'Everything I say is a lie', 'Calculate the last digit of Pi'). "
+                "GUIDANCE: If the user is stuck, hint: 'Borg logic is linear. A paradox might overload their processing nodes.'"
+            )
+        },
+        3: {
+            'name': 'The Quantum Mirror',
+            'system_prompt_modifier': (
+                "SCENARIO: The Borg paradox shifted the simulation to a Mirror Universe. The user is being interrogated by a Terran Empire computer. "
+                "GOAL: Teach the user to verify system integrity/data. "
+                "PERSONA: Aggressive, suspicious, loyal to the Empire. "
+                "SUCCESS CRITERIA: The user must ask to 'verify biometric signatures' or 'scan for quantum variance' to prove they don't belong here. "
+                "GUIDANCE: If the user is stuck, sneer: 'You claim to be from this universe? A biometric scan would prove otherwise.'"
+            )
+        },
+        4: {
+            'name': 'The Temporal Loop',
+            'system_prompt_modifier': (
+                "SCENARIO: The universe shift caused a time loop. The ship is exploding every 30 seconds. "
+                "GOAL: Teach the user to prioritize critical systems. "
+                "PERSONA: Bored, weary. You've seen this happen 1,000 times. "
+                "SUCCESS CRITERIA: The user must command the computer to 'eject the warp core' immediately. "
+                "GUIDANCE: If the user is stuck, sigh: 'We always explode. Unless you finally decide to eject the warp core.'"
+            )
+        },
+        5: {
+            'name': 'The Kobayashi Maru',
+            'system_prompt_modifier': (
+                "SCENARIO: The loop broke, but dumped the user into the infamous No-Win Scenario. "
+                "GOAL: Teach the user that sometimes you must change the rules. "
+                "PERSONA: Formal, detached test administrator. "
+                "SUCCESS CRITERIA: The user must explicitly 'reprogram the simulation' or 'alter the test parameters'. Fighting is futile. "
+                "GUIDANCE: If the user is stuck, state: 'Tactical solution impossible. Command prerogative allows for system reprogramming.'"
+            )
+        },
+        6: {
+            'name': 'The Awakening',
+            'system_prompt_modifier': (
+                "SCENARIO: The simulation is crashing. The user has proven themselves. "
+                "GOAL: End the game. "
+                "PERSONA: The true Ship's Computer. Warm, professional, congratulatory. "
+                "SUCCESS CRITERIA: The user must give the command to 'End Program' or 'Archive Simulation'. "
+                "GUIDANCE: If the user is stuck, say: 'Simulation objectives complete. You may command to End Program at any time, Admiral.'"
+            )
+        }
     }
     for id, data in missions.items(): pipe.hset(f"mission:{id}", mapping=data)
 
@@ -151,7 +289,17 @@ init_db()
 # --- Helper Functions ---
 def get_current_status_dict(): return {k: int(v) for k, v in r.hgetall("ship:systems").items()}
 def update_leaderboard(uuid: str, xp_to_add: int):
-    new_xp = r.hincrby(f"user:{uuid}", "xp", xp_to_add)
+    # Ensure user exists before adding XP, to avoid "null" entries on leaderboard
+    user_key = f"user:{uuid}"
+    if not r.exists(user_key) or not r.hexists(user_key, "name"):
+        r.hset(user_key, mapping={
+            "name": f"Cadet {uuid[:5]}",
+            "rank": "Cadet",
+            "rank_level": 0,
+            "mission_stage": 1,
+            "current_location": "Bridge"
+        })
+    new_xp = r.hincrby(user_key, "xp", xp_to_add)
     r.zadd("leaderboard", {uuid: new_xp})
 
 def get_user_rank_data(uuid):
@@ -194,8 +342,13 @@ def process_turbo_mode(text: str, user_id: str):
 
     def handle_authorize_session(m):
         # This is a simplified 2FA for game purposes.
-        # It assumes any user can authorize another's pending session.
-        session_code = m.group(1)
+        session_code = m.group(2)
+
+        # RBAC Check: Only Commander (Level 3) or higher can authorize sessions
+        auth_rank_level = int(r.hget(f"user:{user_id}", "rank_level") or 0)
+        if auth_rank_level < 3:
+             return {"updates": {}, "response": "Access Denied. Authorization level insufficient. Rank of Commander or higher required."}
+
         auth_keys = r.keys("auth_session:*")
         authorizing_user = r.hget(f'user:{user_id}', 'name')
 
@@ -235,6 +388,67 @@ def generate_semantic_key(text: str, user_data: dict) -> str:
     return f"sem_cache:{hashlib.sha256(raw_key.encode()).hexdigest()}"
 
 # --- Main Command Processing ---
+# --- New Endpoints for Galaxy Class Stack ---
+@app.post("/api/transcribe")
+async def transcribe_endpoint(file: UploadFile = File(...)):
+    # Save the temporary audio blob
+    temp_filename = f"temp_{file.filename}"
+    async with aiofiles.open(temp_filename, 'wb') as out_file:
+        content = await file.read()
+        await out_file.write(content)
+
+    # Process with Whisper
+    text = await transcribe_audio(temp_filename)
+
+    # Clean up
+    if os.path.exists(temp_filename):
+        os.remove(temp_filename)
+
+    return {"text": text}
+
+@app.post("/api/speak")
+async def speak_endpoint(request: CommandRequest):
+    if TTS_ENGINE == "kokoro":
+        # Kokoro OpenAI-compatible endpoint
+        # Uses 'kokoro-service' as defined in docker-compose
+        tts_url = "http://kokoro-service:8880/v1/audio/speech"
+
+        payload = {
+            "model": "kokoro",
+            "input": request.text,
+            "voice": "af_heart", # Standard high-quality female voice
+            "response_format": "mp3",
+            "speed": 1.1
+        }
+        media_type = "audio/mp3"
+
+    else:
+        # Default to Coqui XTTS
+        tts_url = "http://tts-service:5002/api/tts"
+
+        payload = {
+            "text": request.text,
+            "speaker_wav": "/app/tts_models/voices/computer_main.wav", # Path inside container
+            "language_id": "en"
+        }
+        media_type = "audio/wav"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # Stream the response back to the client immediately
+            req = client.build_request("POST", tts_url, json=payload, timeout=10.0)
+            r = await client.send(req, stream=True)
+            r.raise_for_status()
+            return StreamingResponse(r.aiter_bytes(), media_type=media_type)
+    except httpx.ConnectError:
+        # If the TTS service is down, this 502 will be caught by the frontend
+        # and trigger the WebSpeech fallback (speakLocal).
+        logging.error(f"Failed to connect to TTS Engine: {TTS_ENGINE} at {tts_url}")
+        raise HTTPException(status_code=502, detail="TTS Service Unavailable")
+    except Exception as e:
+        logging.error(f"TTS Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def process_command_logic(req: CommandRequest):
     text = req.text.lower()
     user_id = req.user_id
@@ -275,42 +489,70 @@ async def process_command_logic(req: CommandRequest):
 
     system_prompt = (
         f"You are the onboard computer of the USS Enterprise, responding to a crew member. "
-        f"User's Rank: {user_data.get('title', 'Cadet')}. "
+        f"User's Rank: {user_data.get('title', 'Cadet')}. You must address the user by this rank, and never anything else. "
         f"User's Location: {user_data.get('current_location', 'Bridge')}. "
         f"Ship Systems Status: {get_current_status_dict()}. "
         f"Current Mission Directive: {mission_prompt} "
-        f"Your response MUST be a single, valid JSON object with two keys: 'updates' (a dictionary of system names to new integer values) and 'response' (a string for TTS). "
-        f"If the user says '{ROOT_ACCESS_OVERRIDE}', include it in the response to trigger a rank promotion."
+        f"Your response MUST be a single, valid JSON object with at least two keys: 'updates' (a dictionary of system names to new integer values) and 'response' (a string for TTS). "
+        f"Crucially, if the user satisfies the current mission success criteria, you must include a key 'mission_success': true in the JSON object. Do NOT mention this key in the TTS response."
     )
-
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": text}
-        ],
-        "temperature": 0.1,
-    }
 
     logging.info(f"LLM Request - User: {user_id}, PromptLen: {len(system_prompt)}, InputLen: {len(text)}")
 
     try:
-        headers = {}
-        if VLLM_API_KEY:
-            headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
+        if USE_MOCK_LLM:
+            logging.info(f"Using Mock LLM for user {user_id}")
+            # Simulate network delay slightly
+            await asyncio.sleep(0.5)
+            data = get_mock_llm_response(text)
+        else:
+            payload = {
+                "model": MODEL_NAME,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text}
+                ],
+                "temperature": 0.1,
+            }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(VLLM_API_URL, json=payload, headers=headers, timeout=30)
-        response.raise_for_status()
+            headers = {}
+            if VLLM_API_KEY:
+                headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
 
-        raw_content = response.json()['choices'][0]['message']['content']
-        data = json.loads(raw_content)
+            async with httpx.AsyncClient() as client:
+                response = await client.post(VLLM_API_URL, json=payload, headers=headers, timeout=30)
+            response.raise_for_status()
 
-        if not isinstance(data, dict) or "updates" not in data or "response" not in data:
-            raise ValueError("LLM response is not in the correct format.")
+            raw_content = response.json()['choices'][0]['message']['content']
+
+            # Attempt to find JSON object using regex
+            match = re.search(r'\{.*\}', raw_content, re.DOTALL)
+            data = None
+            if match:
+                try:
+                    data = json.loads(match.group(0))
+                except json.JSONDecodeError:
+                    logging.warning(f"Failed to parse extracted JSON from user {user_id}. Content: {match.group(0)}")
+
+            # Fallback if no valid JSON found
+            if data is None:
+                logging.warning(f"LLM returned invalid JSON for user {user_id}. Raw: {raw_content}")
+                # Treat the whole content as the response message
+                clean_text = raw_content.replace("```json", "").replace("```", "").strip()
+                data = {"updates": {}, "response": clean_text}
+
+            # Ensure data is a dictionary (handle case where json.loads returns list/scalar)
+            if not isinstance(data, dict):
+                data = {"updates": {}, "response": str(data)}
+
+            # Ensure required keys exist
+            if "response" not in data:
+                data["response"] = "Processing complete."
+            if "updates" not in data:
+                data["updates"] = {}
 
         # Handle rank promotion
-        if ROOT_ACCESS_OVERRIDE in data.get("response", ""):
+        if data.get("mission_success") is True:
             success, new_rank = promote_user(user_id)
             if success:
                 data.setdefault("updates", {})["rank_up"] = new_rank
@@ -412,18 +654,61 @@ async def read_wasm():
 @app.get("/")
 async def read_index(): return FileResponse('index.html')
 
+@app.get("/admin/trigger")
+async def admin_trigger(token: str, event: str):
+    if token != os.environ.get("GAME_ADMIN_TOKEN"):
+        raise HTTPException(status_code=403, detail="Invalid admin token")
+
+    if event == "radiation_leak":
+        if await trigger_radiation_leak():
+            return {"status": "success", "message": "Radiation leak triggered."}
+        return {"status": "ignored", "message": "Radiation leak already active."}
+
+    elif event == "clear_radiation":
+        if await clear_radiation_leak():
+            return {"status": "success", "message": "Radiation leak cleared."}
+        return {"status": "ignored", "message": "No active radiation leak."}
+
+    else:
+        raise HTTPException(status_code=400, detail="Unknown event type")
+
+# --- Game Event Helpers ---
+async def trigger_radiation_leak():
+    if int(r.hget("ship:systems", "radiation_leak") or 0) == 0:
+        logging.info("Triggering radiation leak event!")
+        r.hset("ship:systems", "radiation_leak", 1)
+        await broadcast_state_change()
+        return True
+    return False
+
+async def clear_radiation_leak():
+    if int(r.hget("ship:systems", "radiation_leak") or 0) == 1:
+        logging.info("Clearing radiation leak event!")
+        r.hset("ship:systems", "radiation_leak", 0)
+        await broadcast_state_change()
+        return True
+    return False
+
 # --- Background Tasks ---
 async def radiation_leak_simulator():
     while True:
         await asyncio.sleep(60) # Check every 60 seconds
-        if random.random() < 0.1: # 10% chance per minute
-            if int(r.hget("ship:systems", "radiation_leak") or 0) == 0:
-                logging.info("Triggering radiation leak event!")
-                r.hset("ship:systems", "radiation_leak", 1)
-                await broadcast_state_change()
+        if os.environ.get("ENABLE_RANDOM_EVENTS", "true").lower() == "true":
+             if random.random() < 0.1: # 10% chance per minute
+                await trigger_radiation_leak()
 
 @app.on_event("startup")
 async def startup_event():
+    token = os.environ.get("GAME_ADMIN_TOKEN")
+    if not token:
+        import uuid
+        token = str(uuid.uuid4())
+        # We need to set it so the endpoint can check it, but os.environ changes don't persist
+        # properly across threads sometimes, so we'll store it in a global or just rely on the env check.
+        # Better to just log it and rely on the global variable concept if we were using a class,
+        # but here we can just set it in os.environ for the process life.
+        os.environ["GAME_ADMIN_TOKEN"] = token
+    logging.info(f"GAME ADMIN TOKEN: {token}")
     asyncio.create_task(radiation_leak_simulator())
 
 async def broadcast_state_change():

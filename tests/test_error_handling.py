@@ -46,8 +46,8 @@ async def test_process_command_llm_json_error(mock_redis_fixture, mock_httpx_cli
     mock_client_instance.post.return_value = mock_response
 
     result = await process_command_logic(req)
-    # New specific message
-    assert "Data corruption detected" in result["response"]
+    # New specific message: The fallback logic now returns the raw text instead of "Data corruption"
+    assert "Invalid JSON" in result["response"]
 
 @pytest.mark.asyncio
 async def test_process_command_llm_http_error(mock_redis_fixture, mock_httpx_client):

@@ -14,6 +14,7 @@ services:
       - VLLM_HOST=${VLLM_HOST:-http://llm-service:8000}
       - VLLM_API_KEY=${VLLM_API_KEY:-}
       - MODEL_NAME=${MODEL_NAME:-microsoft/Phi-3-mini-4k-instruct}
+      - TTS_ENGINE=${TTS_ENGINE:-kokoro}
     depends_on:
       - redis
       # We cannot strictly depend on vllm OR llama-cpp because one will be down.
@@ -51,6 +52,45 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+
+  tts-service:
+    image: ghcr.io/coqui-ai/tts-server:latest
+    container_name: voidhack-tts
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      - COQUI_TOS_AGREED=1
+    # We mount a volume to store the "Majel" voice sample
+    volumes:
+      - ./voice_samples:/app/tts_models/voices
+    ports:
+      - "5002:5002"
+    command: >
+      python3 -m TTS.server.server
+      --model_name tts_models/multilingual/multi-dataset/xtts_v2
+      --use_cuda true
+
+  kokoro-service:
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+    container_name: voidhack-kokoro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "8880:8880"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - ./kokoro_cache:/app/cache
 
   llama-cpp:
     profiles: ["cpu"]
