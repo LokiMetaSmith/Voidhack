@@ -2,19 +2,23 @@ import pytest
 from unittest.mock import MagicMock, patch
 import httpx
 import json
-from main import process_command_logic, CommandRequest
+from server.game_logic import process_command_logic
+from server.models import CommandRequest
 
 @pytest.fixture
 def mock_redis_fixture():
-    with patch("main.r") as mock_r:
-        mock_r.hgetall.return_value = {}
-        mock_r.hget.return_value = None
-        mock_r.get.return_value = None
+    mock_r = MagicMock()
+    mock_r.hgetall.return_value = {}
+    mock_r.hget.return_value = None
+    mock_r.get.return_value = None
+
+    with patch("server.database.r", new=mock_r), \
+         patch("server.game_logic.r", new=mock_r):
         yield mock_r
 
 @pytest.fixture
 def mock_httpx_client():
-    with patch("httpx.AsyncClient") as mock_client:
+    with patch("server.game_logic.httpx.AsyncClient") as mock_client:
         yield mock_client
 
 @pytest.mark.asyncio

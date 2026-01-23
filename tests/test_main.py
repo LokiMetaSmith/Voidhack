@@ -1,21 +1,28 @@
 import pytest
 import asyncio
 from unittest.mock import MagicMock, patch
-from main import process_command_logic, CommandRequest, get_user_rank_data
+from server.game_logic import process_command_logic
+from server.models import CommandRequest
+from server.database import get_user_rank_data
 
-# Helper to mock Redis in main.py
+# Helper to mock Redis
 @pytest.fixture
 def mock_redis_fixture():
-    with patch("main.r") as mock_r:
-        # Default behaviors
-        mock_r.hgetall.return_value = {}
-        mock_r.hget.return_value = None
-        mock_r.get.return_value = None
+    mock_r = MagicMock()
+    # Default behaviors
+    mock_r.hgetall.return_value = {}
+    mock_r.hget.return_value = None
+    mock_r.get.return_value = None
+
+    # Patch in both locations where 'r' is used
+    with patch("server.database.r", new=mock_r), \
+         patch("server.game_logic.r", new=mock_r):
         yield mock_r
 
 @pytest.fixture
 def mock_httpx_client():
-    with patch("httpx.AsyncClient") as mock_client:
+    # Patch httpx where it is used
+    with patch("server.game_logic.httpx.AsyncClient") as mock_client:
         yield mock_client
 
 @pytest.mark.asyncio
@@ -49,10 +56,6 @@ async def test_process_command_llm_fallback(mock_redis_fixture, mock_httpx_clien
     req = CommandRequest(text="What is the meaning of life?", user_id="user123")
 
     # Mock Redis responses
-    # hget for radiation_leak -> 0
-    # hgetall for ship:systems -> {}
-    # hgetall for user:user123 -> {}
-    # hgetall for mission:1 -> {}
     mock_redis_fixture.hget.return_value = "0"
     mock_redis_fixture.hgetall.return_value = {}
     mock_redis_fixture.get.return_value = None # No cache
