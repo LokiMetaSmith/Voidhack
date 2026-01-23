@@ -33,7 +33,7 @@
         .lcars-container {
             display: grid;
             grid-template-columns: 150px 1fr;
-            grid-template-rows: 100px 1fr 50px;
+            grid-template-rows: 100px 1fr 80px;
             height: 100%;
             gap: 10px;
             padding: 10px;
@@ -246,6 +246,59 @@
         .audio-good { color: var(--lcars-orange); }
         .audio-silence { color: gray; }
         .audio-clipping { color: var(--lcars-red); }
+
+        .lcars-footer {
+            grid-column: 1 / -1;
+            grid-row: 3;
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            background-color: var(--lcars-bg);
+            padding: 0;
+            gap: 10px;
+        }
+
+        .lcars-decoration {
+            background-color: var(--lcars-blue);
+            height: 100%;
+        }
+
+        #push-to-talk {
+            background-color: var(--lcars-orange);
+            color: black;
+            min-width: 300px;
+            height: 100%;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end; /* Right align text like authentic buttons */
+            padding-right: 30px;
+            font-size: 32px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: none;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        #push-to-talk:hover {
+            background-color: #ffaa33;
+        }
+
+        #push-to-talk.active {
+             background-color: var(--lcars-red);
+             color: black;
+             animation: pulse-color 1s infinite;
+             justify-content: center; /* Center text when active */
+             padding-right: 0;
+        }
+
+        @keyframes pulse-color {
+            0% { background-color: var(--lcars-red); }
+            50% { background-color: #ff3333; }
+            100% { background-color: var(--lcars-red); }
+        }
     </style>
 </head>
 <body>
@@ -274,6 +327,11 @@
                 <div id="last-command">Awaiting input...</div>
                 <div id="log-panel" style="height: calc(100% - 40px); overflow-y: auto;">SYSTEM READY.</div>
             </div>
+        </div>
+        <div class="lcars-footer">
+            <div class="lcars-decoration" style="width: 150px; border-radius: 0 0 0 40px;"></div>
+            <button id="push-to-talk">COMMS • PUSH TO TALK</button>
+            <div class="lcars-decoration" style="flex-grow: 1; border-radius: 0 0 40px 0;"></div>
         </div>
     </div>
 
@@ -478,8 +536,8 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
             // Pre-load voices
             window.speechSynthesis.getVoices();
 
-            // Add click listener for last-command
-            document.getElementById('last-command').addEventListener('click', handleHeadsetTrigger);
+            // Add click listener for push-to-talk button
+            document.getElementById('push-to-talk').addEventListener('click', handleHeadsetTrigger);
             document.getElementById('terminal-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCommand(e.target.value); });
         };
 
@@ -712,7 +770,7 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
                     document.getElementById('last-command').textContent = interim_transcript;
                     if (final_transcript) handleSpeech(final_transcript.trim());
                 } else {
-                     document.getElementById('last-command').textContent = "Channel Closed (Tap Button or Click to Talk)";
+                     document.getElementById('last-command').textContent = "Channel Closed";
                 }
             };
             try { recognition.start(); } catch(e) { console.warn("Recognition start failed", e); }
@@ -946,6 +1004,19 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
             }
         }
 
+        function updatePushToTalkButton(isOpen) {
+            const btn = document.getElementById('push-to-talk');
+            if (btn) {
+                if (isOpen) {
+                    btn.classList.add('active');
+                    btn.textContent = "LISTENING...";
+                } else {
+                    btn.classList.remove('active');
+                    btn.textContent = "COMMS • PUSH TO TALK";
+                }
+            }
+        }
+
         function handleHeadsetTrigger() {
             // Ensure silent audio keeps playing to maintain Media Session
             const silentAudio = document.getElementById('silent-audio');
@@ -965,6 +1036,9 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws') + '/ws';
                 log(`COMMS CHANNEL: ${status}`);
                 document.getElementById('last-command').textContent = `CHANNEL ${status}`;
                 document.getElementById('listening-indicator').innerText = isChannelOpen ? "LISTENING..." : "CHANNEL CLOSED";
+
+                updatePushToTalkButton(isChannelOpen);
+
                 playSound('chirp-sound');
 
                 // Update MediaSession State
