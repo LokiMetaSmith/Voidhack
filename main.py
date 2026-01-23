@@ -16,8 +16,11 @@ from server.stt import transcribe_audio
 from server.models import CommandRequest, UserRegister, LocationUpdate, RadiationCleared
 from server.database import r, init_db, get_current_status_dict, update_leaderboard
 from server.game_logic import process_command_logic
+from server.logging_config import setup_logging
 
 # --- Logging Configuration ---
+setup_logging()
+
 class NoStatusFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         return '/ws' not in record.getMessage()
@@ -27,8 +30,6 @@ class UvicornErrorFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         return "Invalid HTTP request received" not in record.getMessage()
 logging.getLogger("uvicorn.error").addFilter(UvicornErrorFilter())
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Basic Setup & Configuration ---
 app = FastAPI()
