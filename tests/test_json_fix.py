@@ -1,26 +1,29 @@
-
 import pytest
 import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
-from main import process_command_logic, CommandRequest
+from server.game_logic import process_command_logic
+from server.models import CommandRequest
 import json
 import httpx
 
 # Mock Redis
 @pytest.fixture
 def mock_redis():
-    with patch('main.r') as mock_r:
-        # Default behavior for redis
-        mock_r.hgetall.return_value = {}
-        mock_r.get.return_value = None
-        mock_r.hget.return_value = "0"
+    mock_r = MagicMock()
+    # Default behavior for redis
+    mock_r.hgetall.return_value = {}
+    mock_r.get.return_value = None
+    mock_r.hget.return_value = "0"
+
+    with patch("server.database.r", new=mock_r), \
+         patch("server.game_logic.r", new=mock_r):
         yield mock_r
 
 # Mock VLLM vars
 @pytest.fixture
 def mock_vllm_config():
-    with patch('main.USE_MOCK_LLM', False), \
-         patch('main.VLLM_API_URL', 'http://test-llm/v1/chat/completions'):
+    with patch('server.game_logic.USE_MOCK_LLM', False), \
+         patch('server.game_logic.VLLM_API_URL', 'http://test-llm/v1/chat/completions'):
         yield
 
 @pytest.mark.asyncio
@@ -33,7 +36,7 @@ async def test_process_command_clean_json(mock_redis, mock_vllm_config):
         'choices': [{'message': {'content': response_content}}]
     }
 
-    with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
+    with patch('server.game_logic.httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
 
         req = CommandRequest(text="raise shields", user_id="test_user")
@@ -52,7 +55,7 @@ async def test_process_command_wrapped_json(mock_redis, mock_vllm_config):
         'choices': [{'message': {'content': response_content}}]
     }
 
-    with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
+    with patch('server.game_logic.httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
 
         req = CommandRequest(text="test", user_id="test_user")
@@ -70,7 +73,7 @@ async def test_process_command_mixed_content(mock_redis, mock_vllm_config):
         'choices': [{'message': {'content': response_content}}]
     }
 
-    with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
+    with patch('server.game_logic.httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
 
         req = CommandRequest(text="test", user_id="test_user")
@@ -88,7 +91,7 @@ async def test_process_command_plain_text(mock_redis, mock_vllm_config):
         'choices': [{'message': {'content': response_content}}]
     }
 
-    with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
+    with patch('server.game_logic.httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
 
         req = CommandRequest(text="test", user_id="test_user")
@@ -108,7 +111,7 @@ async def test_process_command_empty_string(mock_redis, mock_vllm_config):
         'choices': [{'message': {'content': response_content}}]
     }
 
-    with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
+    with patch('server.game_logic.httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
 
         req = CommandRequest(text="test", user_id="test_user")
@@ -129,7 +132,7 @@ async def test_process_command_malformed_json_fallback(mock_redis, mock_vllm_con
         'choices': [{'message': {'content': response_content}}]
     }
 
-    with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
+    with patch('server.game_logic.httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
 
         req = CommandRequest(text="test", user_id="test_user")

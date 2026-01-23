@@ -1,15 +1,19 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from main import process_command_logic, CommandRequest
+from server.game_logic import process_command_logic
+from server.models import CommandRequest
 
 @pytest.fixture
 def mock_redis_fixture():
-    with patch("main.r") as mock_r:
-        # Default behaviors
-        mock_r.hgetall.return_value = {}
-        mock_r.hget.return_value = None
-        mock_r.get.return_value = None
-        mock_r.keys.return_value = []
+    mock_r = MagicMock()
+    # Default behaviors
+    mock_r.hgetall.return_value = {}
+    mock_r.hget.return_value = None
+    mock_r.get.return_value = None
+    mock_r.keys.return_value = []
+
+    with patch("server.database.r", new=mock_r), \
+         patch("server.game_logic.r", new=mock_r):
         yield mock_r
 
 @pytest.mark.asyncio
