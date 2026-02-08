@@ -15,4 +15,4 @@
 
 ## Low Priority
 - [ ] **WASM:** Add more sophisticated audio analysis features to the WASM module.
-- [ ] **Frontend:** Improve accessibility and add more visual feedback (e.g., specific alerts for location denials).
+- [x] **Frontend:** Improve accessibility and add more visual feedback (e.g., specific alerts for location denials).

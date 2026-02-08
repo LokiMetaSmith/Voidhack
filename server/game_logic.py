@@ -185,7 +185,12 @@ async def process_command_logic(req: CommandRequest):
 
     for command, required_loc in RESTRICTED_COMMANDS.items():
         if command in text and current_location != required_loc:
-             return {"updates": {}, "response": f"Access Denied. Command '{command}' requires physical presence in {required_loc}. Current location: {current_location}."}
+             return {
+                 "updates": {},
+                 "response": f"Access Denied. Command '{command}' requires physical presence in {required_loc}. Current location: {current_location}.",
+                 "alert": "location_denied",
+                 "required_location": required_loc
+             }
 
     # 2. Check "Turbo Mode" fast-path commands
     turbo_response = process_turbo_mode(text, user_id)
