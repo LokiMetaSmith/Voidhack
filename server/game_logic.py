@@ -104,6 +104,17 @@ def get_mock_llm_response(text: str) -> dict:
         "response": response_text
     }
 
+# --- Restricted Commands ---
+RESTRICTED_COMMANDS = {
+    "eject warp core": "Engineering",
+    "purge coolant": "Engineering",
+    "medical override": "Sickbay",
+    "quarantine": "Sickbay",
+    "cargo release": "Cargo Bay",
+    "jettison cargo": "Cargo Bay",
+    "jefferies tube access": "Jefferies Tube"
+}
+
 # --- "Turbo Mode" - Fast Path Command Processing ---
 def process_turbo_mode(text: str, user_id: str):
 
@@ -167,6 +178,15 @@ async def process_command_logic(req: CommandRequest):
     if int(r.hget("ship:systems", "radiation_leak") or 0):
         return {"updates": {}, "response": "Cannot comply. Bridge controls are locked out due to the radiation alert."}
 
+    # 1.5. Check Location Restrictions
+    # We need user data early for this check
+    user_data = get_user_rank_data(user_id)
+    current_location = user_data.get('current_location', 'Bridge')
+
+    for command, required_loc in RESTRICTED_COMMANDS.items():
+        if command in text and current_location != required_loc:
+             return {"updates": {}, "response": f"Access Denied. Command '{command}' requires physical presence in {required_loc}. Current location: {current_location}."}
+
     # 2. Check "Turbo Mode" fast-path commands
     turbo_response = process_turbo_mode(text, user_id)
     if turbo_response:
@@ -180,8 +200,8 @@ async def process_command_logic(req: CommandRequest):
         logging.warning(f"Truncating oversized input from user {user_id}: {len(text)} chars")
         text = text[:1000]
 
-    # 3. Get User Context
-    user_data = get_user_rank_data(user_id)
+    # 3. Get User Context (Already fetched above)
+    # user_data = get_user_rank_data(user_id)
 
     # 4. Semantic Caching Check
     cache_key = generate_semantic_key(req.text, user_data)

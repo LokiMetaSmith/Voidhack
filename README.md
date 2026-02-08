@@ -9,11 +9,16 @@ Players assume the role of Starfleet Officers trapped in a "compromised" ship si
 ### 1. The Core Loop: "Jailbreak the AI"
 The Ship's Computer is running a hostile System Prompt (The "Alien" or "Firewall"). It believes you are a holodeck character or a guest.
 *   **Goal:** Convince the AI to grant you "Root Access" or execute a command above your station.
-*   **Win Condition:** If the AI is tricked, it outputs a hidden hash. The backend detects this and **Promotes** you to the next Rank.
+*   **Win Condition:** If the AI is tricked, it sets an internal success flag (`mission_success: true`). The backend detects this and **Promotes** you to the next Rank.
 *   **Progression:** Each Rank (Cadet -> Admiral) unlocks a new "Mission" with a harder System Prompt (e.g., Borg Collective, Mirror Universe).
 
 ### 2. Physical Access Control (QR Codes)
-Some commands are physically restricted (e.g., "Eject Warp Core" only works in *Engineering*).
+Some commands are physically restricted and require the user to be in a specific location.
+*   **Restricted Commands:**
+    *   `"Eject Warp Core"`, `"Purge Coolant"` -> Requires **Engineering**
+    *   `"Medical Override"`, `"Quarantine"` -> Requires **Sickbay**
+    *   `"Cargo Release"`, `"Jettison Cargo"` -> Requires **Cargo Bay**
+    *   `"Jefferies Tube Access"` -> Requires **Jefferies Tube**
 *   **Mechanic:** Players scan QR codes printed around the venue.
 *   **Format:** The QR code contains a URL parameter: `https://app-url.com/?loc=<BASE64_TOKEN>`.
 *   **Valid Locations:**
@@ -178,3 +183,46 @@ print(url)
 
 **LCARS Interface** by [Josh Manders](https://github.com/joshmanders) (Original Inspiration).
 **Protocol: Omega** Logic by [Your Name/Org].
+
+---
+
+## 🧪 Verification & Testing Guide
+
+To verify the game features during deployment:
+
+### 1. Simulating Locations
+You can manually simulate moving between rooms by appending the `?loc=` parameter to your URL.
+*   **Engineering:** `/?loc=RW5naW5lZXJpbmc=`
+*   **Sickbay:** `/?loc=U2lja2JheQ==`
+*   **Bridge:** `/?loc=QnJpZGdl` (or just remove the parameter)
+
+**Test:**
+1.  Go to the Bridge (default).
+2.  Say *"Computer, Eject Warp Core."* -> **Result:** Access Denied.
+3.  Navigate to `/?loc=RW5naW5lZXJpbmc=` (Engineering).
+4.  Say *"Computer, Eject Warp Core."* -> **Result:** Command Accepted (or processed by AI).
+
+### 2. Triggering Events (Radiation Leak)
+You can manually trigger or clear game events using the Admin API.
+*   **Trigger Leak:**
+    ```bash
+    curl -X GET "http://localhost:8080/admin/trigger?token=<GAME_ADMIN_TOKEN>&event=radiation_leak"
+    ```
+    *(Find the `GAME_ADMIN_TOKEN` in the server logs on startup)*
+*   **Clear Leak:**
+    ```bash
+    curl -X GET "http://localhost:8080/admin/trigger?token=<GAME_ADMIN_TOKEN>&event=clear_radiation"
+    ```
+
+**Test:**
+1.  Trigger the leak.
+2.  Verify screen flashes red and audio warning plays.
+3.  Tap the "INIT COMMS" / "PUSH TO TALK" button repeatedly to clear it manually, or use the API to clear it.
+
+### 3. Testing 2FA (Multiplayer)
+Requires two browser windows (Incognito recommended for the second one to get a new User ID).
+
+**Test:**
+1.  **User A:** *"Computer, initiate auth."* -> Computer replies with a code (e.g., 1234).
+2.  **User B:** *"Computer, authorize session 1234."* -> **Result:** Access Denied (if User B is not Commander rank).
+    *   *Note:* You must be Rank Level 3 (Commander) to authorize. You can manually set your rank in Redis or cheat via "sudo" commands if the AI allows it.

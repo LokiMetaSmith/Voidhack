@@ -123,6 +123,10 @@ class MockRedis:
                 count += 1
         return count
 
+    def flushall(self):
+        self.store = {}
+        return True
+
     def keys(self, pattern):
         return [k for k in self.store.keys() if fnmatch.fnmatch(k, pattern)]
 
