@@ -3,21 +3,36 @@
 pub extern "C" fn process_audio_chunk(ptr: *const f32, len: usize) -> i32 {
     let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
     let mut sum_squares = 0.0;
-    for &sample in slice {
+    let mut zero_crossings = 0;
+
+    for i in 0..len {
+        let sample = slice[i];
         sum_squares += sample * sample;
+
+        if i > 0 {
+            let prev = slice[i-1];
+            // Check if sign changed
+            if (sample >= 0.0 && prev < 0.0) || (sample < 0.0 && prev >= 0.0) {
+                zero_crossings += 1;
+            }
+        }
     }
+
     let rms = (sum_squares / len as f32).sqrt();
+    let zcr = zero_crossings as f32 / len as f32;
 
     // Thresholds
     // 0: Silence (too quiet)
     // 1: Good
     // 2: Clipping (too loud/distorted)
-    // 3: Noisy (implied high variance but low speech? - simplified to RMS for now)
+    // 3: Noisy (High ZCR - likely background noise/hiss)
 
     if rms < 0.01 {
         return 0; // Silence
     } else if rms > 0.9 {
         return 2; // Clipping
+    } else if zcr > 0.35 {
+        return 3; // Noisy
     } else {
         return 1; // Good
     }

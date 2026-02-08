@@ -14,5 +14,5 @@
 - [x] **Documentation:** Update `README.md` to reflect the actual "mission_success" JSON logic instead of the "hidden hash" win condition.
 
 ## Low Priority
-- [ ] **WASM:** Add more sophisticated audio analysis features to the WASM module.
+- [x] **WASM:** Add more sophisticated audio analysis features to the WASM module.
 - [x] **Frontend:** Improve accessibility and add more visual feedback (e.g., specific alerts for location denials).
