@@ -13,6 +13,8 @@
             --lcars-purple: #cc99cc;
             --lcars-blue: #9999ff;
             --lcars-red: #cc0000;
+            --lcars-tan: #ffcc99;
+            --lcars-gold: #ffaa00;
             --lcars-bg: #000;
             --lcars-text: #000;
             --lcars-light-text: #ff9900;
@@ -32,26 +34,40 @@
 
         .lcars-container {
             display: grid;
-            grid-template-columns: 150px 1fr;
-            grid-template-rows: 100px 1fr 80px;
+            grid-template-columns: 180px 1fr 100px;
+            grid-template-rows: 80px 1fr 60px;
             height: 100%;
-            gap: 10px;
-            padding: 10px;
+            gap: 8px;
+            padding: 5px;
             box-sizing: border-box;
         }
 
+        /* The Elbow Header */
         .lcars-header {
             grid-column: 1 / -1;
-            background-color: var(--lcars-purple);
-            border-radius: 0 0 0 50px;
+            background-color: var(--lcars-gold);
+            border-radius: 0 0 0 80px; /* Elbow curve */
             display: flex;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: space-between;
             padding-right: 20px;
-            font-size: 48px;
+            padding-left: 200px; /* Offset for the elbow text area */
+            font-size: 36px;
             font-weight: bold;
             color: var(--lcars-text);
             text-transform: uppercase;
+            position: relative;
+        }
+
+        /* Decorative block inside header to simulate segmentation */
+        .lcars-header::after {
+            content: "";
+            position: absolute;
+            right: 150px;
+            top: 0;
+            width: 20px;
+            height: 100%;
+            background-color: var(--lcars-bg);
         }
 
         .lcars-sidebar {
@@ -60,42 +76,77 @@
             display: flex;
             flex-direction: column;
             gap: 5px;
+            padding-top: 5px;
         }
 
         .lcars-button {
-            background-color: var(--lcars-blue);
+            background-color: var(--lcars-tan);
             color: var(--lcars-text);
-            height: 60px;
+            height: 50px;
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            padding-right: 10px;
-            font-size: 20px;
+            padding-right: 15px;
+            font-size: 22px;
             font-weight: bold;
-            border-radius: 30px 0 0 30px;
+            border-radius: 25px 0 0 25px; /* Pill shape on left */
             cursor: pointer;
             transition: background-color 0.2s;
+            text-transform: uppercase;
+            width: 160px; /* Align with elbow width roughly */
+            margin-left: auto; /* Push to right of sidebar column */
         }
 
         .lcars-button:hover {
-            background-color: #ddddff;
+            background-color: #ffeebb;
         }
 
         .lcars-button.active {
-            background-color: var(--lcars-orange);
+            background-color: #ffffff; /* Active state is often white/bright */
         }
+
+        /* Specific colors for sidebar buttons */
+        .lcars-button:nth-child(1) { background-color: var(--lcars-purple); }
+        .lcars-button:nth-child(2) { background-color: var(--lcars-blue); }
+        .lcars-button:nth-child(3) { background-color: var(--lcars-red); }
+        .lcars-button:nth-child(4) { background-color: var(--lcars-tan); }
+
 
         .lcars-main {
             grid-column: 2;
             grid-row: 2;
-            border: 2px solid var(--lcars-orange);
-            border-radius: 20px;
+            border-top: 5px solid var(--lcars-blue);
+            border-bottom: 5px solid var(--lcars-blue);
+            /* border-radius: 20px; LCARS main area is usually open or framed by bars */
             padding: 20px;
             display: grid;
             grid-template-rows: 1fr auto;
             gap: 10px;
             overflow: hidden;
+            background-color: #050505; /* Slight contrast */
         }
+
+        .lcars-right-bar {
+             grid-column: 3;
+             grid-row: 2;
+             background-color: var(--lcars-purple);
+             border-radius: 0 0 0 0;
+             display: flex;
+             flex-direction: column;
+             gap: 5px;
+        }
+
+        .lcars-right-segment {
+             background-color: var(--lcars-purple);
+             flex-grow: 1;
+        }
+
+        .lcars-right-segment:nth-child(2) {
+             background-color: var(--lcars-blue);
+             height: 100px;
+             flex-grow: 0;
+        }
+
 
         .panel-content {
             overflow-y: auto;
@@ -230,11 +281,28 @@
         }
 
         #terminal-input {
-            background: transparent;
-            border: 1px solid var(--lcars-orange);
+            background-color: black;
+            border: none;
+            border-bottom: 2px solid var(--lcars-orange);
+            border-radius: 0 0 15px 0;
             color: var(--lcars-orange);
             width: 100%;
             box-sizing: border-box;
+            font-family: 'Antonio', sans-serif;
+            font-size: 24px;
+            text-transform: uppercase;
+            padding: 10px;
+            outline: none;
+        }
+
+        #terminal-input::placeholder {
+            color: #cc9900;
+            opacity: 0.7;
+        }
+
+        #terminal-input:focus {
+            background-color: #111;
+            border-bottom: 2px solid var(--lcars-blue);
         }
 
         #audio-quality {
@@ -247,6 +315,31 @@
         .audio-silence { color: gray; }
         .audio-clipping { color: var(--lcars-red); }
         .audio-noisy { color: var(--lcars-purple); }
+
+        /* Leaderboard Styling */
+        #leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 24px;
+            text-transform: uppercase;
+        }
+
+        #leaderboard-table th {
+            text-align: left;
+            color: var(--lcars-purple);
+            padding: 10px;
+            border-bottom: 2px solid var(--lcars-orange);
+        }
+
+        #leaderboard-table td {
+            text-align: left;
+            color: var(--lcars-orange);
+            padding: 10px;
+        }
+
+        #leaderboard-table tr:nth-child(even) {
+            background-color: #111;
+        }
 
         .lcars-footer {
             grid-column: 1 / -1;
@@ -366,12 +459,16 @@
         </div>
     </div>
     <div class="lcars-container">
-        <div class="lcars-header">PROTOCOL: OMEGA</div>
+        <div class="lcars-header">
+            <span style="font-size: 20px; color: black; margin-left: 20px;">LCARS 24-7</span>
+            <span>PROTOCOL: OMEGA</span>
+        </div>
         <div class="lcars-sidebar">
-            <div class="lcars-button" id="init-btn" onclick="initComms()">INIT COMMS</div>
+            <div class="lcars-button" id="init-btn" onclick="initComms()">INIT</div>
             <div class="lcars-button active" onclick="toggleView('status')">STATUS</div>
             <div class="lcars-button" onclick="toggleView('leaderboard')">RANK</div>
             <div class="lcars-button" onclick="toggleView('coms')">COMS</div>
+            <div style="flex-grow: 1; background-color: var(--lcars-tan); width: 40px; border-radius: 0 0 0 20px; align-self: flex-end; margin-right: 0;"></div>
         </div>
         <div class="lcars-main">
             <div class="panel-content">
@@ -389,10 +486,15 @@
                 <div id="log-panel" style="height: calc(100% - 40px); overflow-y: auto;">SYSTEM READY.</div>
             </div>
         </div>
+        <div class="lcars-right-bar">
+             <div style="background-color: var(--lcars-tan); height: 100px; border-radius: 0 0 0 40px; margin-bottom: 5px;"></div>
+             <div style="background-color: var(--lcars-red); flex-grow: 1; border-radius: 40px 0 0 0;"></div>
+        </div>
         <div class="lcars-footer">
-            <div class="lcars-decoration" style="width: 150px; border-radius: 0 0 0 40px;"></div>
+            <div class="lcars-decoration" style="width: 180px; border-radius: 0 0 0 40px; background-color: var(--lcars-tan);"></div>
             <button id="push-to-talk">COMMS • PUSH TO TALK</button>
-            <div class="lcars-decoration" style="flex-grow: 1; border-radius: 0 0 40px 0;"></div>
+            <div class="lcars-decoration" style="flex-grow: 1; border-radius: 0 0 40px 0; background-color: var(--lcars-tan);"></div>
+            <div class="lcars-decoration" style="width: 100px; background-color: var(--lcars-red); border-radius: 0 0 40px 0;"></div>
         </div>
     </div>
 

@@ -25,7 +25,13 @@ def verify_access_denied(page):
 
     # 6. Wait for alert overlay
     overlay = page.locator("#access-denied-overlay")
-    expect(overlay).to_be_visible(timeout=5000)
+    try:
+        expect(overlay).to_be_visible(timeout=5000)
+    except Exception as e:
+        # Dump logs
+        log_text = page.locator("#log-panel").inner_text()
+        print(f"--- APP LOGS ---\n{log_text}\n----------------")
+        raise e
 
     # 7. Check text inside overlay
     expect(page.locator("#required-location-text")).to_have_text("ENGINEERING")
