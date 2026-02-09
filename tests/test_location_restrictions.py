@@ -44,6 +44,10 @@ class TestLocationRestrictions(unittest.TestCase):
         self.assertIn("Access Denied", response["response"])
         self.assertIn("Engineering", response["response"])
 
+        # Verify new fields for frontend alerts
+        self.assertEqual(response.get("alert"), "location_denied")
+        self.assertEqual(response.get("required_location"), "Engineering")
+
     def test_restricted_command_correct_location(self):
         # Move user to Engineering
         r.hset(f"user:{self.user_id}", "current_location", "Engineering")
