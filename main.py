@@ -80,9 +80,26 @@ async def transcribe_endpoint(file: UploadFile = File(...)):
 
 @app.post("/api/speak")
 async def speak_endpoint(request: CommandRequest):
+    import hashlib
+    import io
+
+    # Generate cache key
+    key_hash = hashlib.md5(request.text.encode()).hexdigest()
+    cache_key = f"tts_cache:{TTS_ENGINE}:{key_hash}"
+
+    # Check cache
+    try:
+        cached_audio = r.get(cache_key)
+        if cached_audio:
+            logging.info(f"TTS Cache Hit for '{request.text[:20]}...'")
+            audio_bytes = base64.b64decode(cached_audio)
+            media_type = "audio/mp3" if TTS_ENGINE == "kokoro" else "audio/wav"
+            return StreamingResponse(io.BytesIO(audio_bytes), media_type=media_type)
+    except Exception as e:
+        logging.warning(f"Redis cache read failed: {e}")
+
     if TTS_ENGINE == "kokoro":
         # Kokoro OpenAI-compatible endpoint
-        # Uses 'kokoro-service' as defined in docker-compose
         tts_url = "http://kokoro-service:8880/v1/audio/speech"
 
         payload = {
@@ -106,15 +123,34 @@ async def speak_endpoint(request: CommandRequest):
         media_type = "audio/wav"
 
     try:
-        async with httpx.AsyncClient() as client:
-            # Stream the response back to the client immediately
-            req = client.build_request("POST", tts_url, json=payload, timeout=10.0)
-            r_tts = await client.send(req, stream=True)
-            r_tts.raise_for_status()
-            return StreamingResponse(r_tts.aiter_bytes(), media_type=media_type)
+        # Create client without context manager to allow streaming in generator
+        client = httpx.AsyncClient()
+        req = client.build_request("POST", tts_url, json=payload, timeout=10.0)
+        r_tts = await client.send(req, stream=True)
+        r_tts.raise_for_status()
+
+        async def stream_and_cache():
+            audio_data = bytearray()
+            try:
+                async for chunk in r_tts.aiter_bytes():
+                    audio_data.extend(chunk)
+                    yield chunk
+
+                # Cache the complete audio
+                try:
+                    encoded_audio = base64.b64encode(audio_data).decode('utf-8')
+                    r.set(cache_key, encoded_audio, ex=3600) # Cache for 1 hour
+                    logging.info(f"TTS Cache Miss. Cached '{request.text[:20]}...'")
+                except Exception as e:
+                    logging.error(f"Failed to cache TTS audio: {e}")
+
+            finally:
+                await r_tts.aclose()
+                await client.aclose()
+
+        return StreamingResponse(stream_and_cache(), media_type=media_type)
+
     except httpx.ConnectError:
-        # If the TTS service is down, this 502 will be caught by the frontend
-        # and trigger the WebSpeech fallback (speakLocal).
         logging.error(f"Failed to connect to TTS Engine: {TTS_ENGINE} at {tts_url}")
         raise HTTPException(status_code=502, detail="TTS Service Unavailable")
     except Exception as e:

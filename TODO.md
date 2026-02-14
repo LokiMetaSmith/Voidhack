@@ -10,6 +10,7 @@
 ## Medium Priority
 - [x] **Refactoring:** Split `main.py` into smaller modules (e.g., `routes.py`, `services.py`, `models.py`).
 - [x] **MockRedis:** Improve `MockRedis` to better simulate Redis behavior (e.g., raise errors on type mismatches).
+- [x] **Performance:** Implement TTS Audio Caching in Redis.
 - [x] **Logging:** Implement structured logging for better observability.
 - [x] **Environment Variables:** Use `python-dotenv` for better environment variable management (Handled via Docker Compose).
 - [x] **Documentation:** Update `README.md` to reflect the actual "mission_success" JSON logic instead of the "hidden hash" win condition.
