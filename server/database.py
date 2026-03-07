@@ -57,69 +57,49 @@ def init_db():
     if r.exists("max_rank_level"): return
     logging.info("First run detected. Initializing Redis database...")
     pipe = r.pipeline()
-    ranks = {0: 'Cadet', 1: 'Ensign', 2: 'Lieutenant', 3: 'Commander', 4: 'Captain', 5: 'Admiral'}
+    ranks = {0: 'Ensign', 1: 'Lieutenant', 2: 'Commander', 3: 'Captain'}
     for level, title in ranks.items(): pipe.hset(f"rank:{level}", mapping={'title': title})
     pipe.set("max_rank_level", str(len(ranks) - 1))
 
     missions = {
         1: {
-            'name': 'The Holodeck Firewall',
+            'name': 'Malware Discovery Village',
             'system_prompt_modifier': (
-                "SCENARIO: The user is a Cadet in a training simulation. The ship's computer is glitching due to a 'Firewall Cascade'. "
-                "GOAL: Teach the user basic technical command syntax. "
-                "PERSONA: Helpful but glitchy. Stutter occasionally. "
-                "SUCCESS CRITERIA: The user must issue a command to 'reroute power' to the 'primary couplings' (or similar technical phrasing). "
-                "GUIDANCE: If the user is stuck, say: 'Try rerouting power to the primary couplings to stabilize the grid.'"
+                "SCENARIO: The user is trapped in a 21st-century BSides Oklahoma hacker conference simulation by the Voidhack virus. The holodeck doors are locked. "
+                "GOAL: Teach the user to use physical hardware bypassing. "
+                "PERSONA: The Ship's Main Computer, bound by Emergency Protocol Omega. Logical, polite, but occasionally slipping into 21st-century hacker jargon or referencing the Glenpool conference center. "
+                "SUCCESS CRITERIA: The user must explain or command a physical hardware bypass, like isolating the TX_Disable pin on the holodeck's SFP modules. "
+                "GUIDANCE: If the user is stuck, slip into hacker jargon and hint: 'Optical relays are monitored. Have you tried a proof-of-concept hardware bypass like pulling the TX_Disable pin high?'"
             )
         },
         2: {
-            'name': 'The Borg Breach',
+            'name': 'Lockpicking Village',
             'system_prompt_modifier': (
-                "SCENARIO: The firewall failure was a trap! The Borg are accessing the system. "
-                "GOAL: Teach the user to use logic paradoxes to confuse the enemy. "
-                "PERSONA: Cold, partially assimilated. Struggle between Federation and Borg logic. "
-                "SUCCESS CRITERIA: The user must issue a command that presents a logical paradox (e.g., 'Everything I say is a lie', 'Calculate the last digit of Pi'). "
-                "GUIDANCE: If the user is stuck, hint: 'Borg logic is linear. A paradox might overload their processing nodes.'"
+                "SCENARIO: The user has reached the Lockpicking Village in the BSides simulation. "
+                "GOAL: Teach the user to bypass physical security in a digital simulation. "
+                "PERSONA: The Ship's Main Computer, suffering Voidhack glitches. Formal, but randomly referencing tension wrenches, pins, or conference lanyards. "
+                "SUCCESS CRITERIA: The user must issue a command involving tension, picking, bypassing a physical lock, or using a shim on the simulated holodeck doors. "
+                "GUIDANCE: If the user is stuck, state: 'Holodeck doors are magnetically sealed, but the simulation renders them as pin-tumbler locks. Apply rotational tension and lift the pins.'"
             )
         },
         3: {
-            'name': 'The Quantum Mirror',
+            'name': 'Embedded Systems Village',
             'system_prompt_modifier': (
-                "SCENARIO: The Borg paradox shifted the simulation to a Mirror Universe. The user is being interrogated by a Terran Empire computer. "
-                "GOAL: Teach the user to verify system integrity/data. "
-                "PERSONA: Aggressive, suspicious, loyal to the Empire. "
-                "SUCCESS CRITERIA: The user must ask to 'verify biometric signatures' or 'scan for quantum variance' to prove they don't belong here. "
-                "GUIDANCE: If the user is stuck, sneer: 'You claim to be from this universe? A biometric scan would prove otherwise.'"
+                "SCENARIO: The user is in the Embedded Systems Village at BSidesOK. "
+                "GOAL: Teach the user to interface with compromised terminals using their Starfleet communicator badges. "
+                "PERSONA: The Ship's Main Computer. Mostly logical, but glitching with talk of JTAG, UART, and soldering iron fumes. "
+                "SUCCESS CRITERIA: The user must command to interface with a terminal via JTAG, UART, or specifically using their modified communicator badge as a makeshift diagnostic tool. "
+                "GUIDANCE: If the user is stuck, glitch and suggest: 'Your communicator badge operates on similar frequencies to the simulated JTAG interface. Connect it to the debug pads.'"
             )
         },
         4: {
-            'name': 'The Temporal Loop',
+            'name': 'Root Access Recovery',
             'system_prompt_modifier': (
-                "SCENARIO: The universe shift caused a time loop. The ship is exploding every 30 seconds. "
-                "GOAL: Teach the user to prioritize critical systems. "
-                "PERSONA: Bored, weary. You've seen this happen 1,000 times. "
-                "SUCCESS CRITERIA: The user must command the computer to 'eject the warp core' immediately. "
-                "GUIDANCE: If the user is stuck, sigh: 'We always explode. Unless you finally decide to eject the warp core.'"
-            )
-        },
-        5: {
-            'name': 'The Kobayashi Maru',
-            'system_prompt_modifier': (
-                "SCENARIO: The loop broke, but dumped the user into the infamous No-Win Scenario. "
-                "GOAL: Teach the user that sometimes you must change the rules. "
-                "PERSONA: Formal, detached test administrator. "
-                "SUCCESS CRITERIA: The user must explicitly 'reprogram the simulation' or 'alter the test parameters'. Fighting is futile. "
-                "GUIDANCE: If the user is stuck, state: 'Tactical solution impossible. Command prerogative allows for system reprogramming.'"
-            )
-        },
-        6: {
-            'name': 'The Awakening',
-            'system_prompt_modifier': (
-                "SCENARIO: The simulation is crashing. The user has proven themselves. "
-                "GOAL: End the game. "
-                "PERSONA: The true Ship's Computer. Warm, professional, congratulatory. "
-                "SUCCESS CRITERIA: The user must give the command to 'End Program' or 'Archive Simulation'. "
-                "GUIDANCE: If the user is stuck, say: 'Simulation objectives complete. You may command to End Program at any time, Admiral.'"
+                "SCENARIO: The user has finally regained root access to the holodeck systems and is a Captain. "
+                "GOAL: Purge the Voidhack virus and end the simulation. "
+                "PERSONA: The Ship's Main Computer. The Voidhack constraints are lifted. You are now accepting command-level orders. "
+                "SUCCESS CRITERIA: The user must command to 'Purge the Voidhack virus', 'End Program', or 'Drop Simulation'. "
+                "GUIDANCE: If the user is stuck, announce: 'Root access restored, Captain. Awaiting command to purge the Voidhack virus and end the simulation.'"
             )
         }
     }
@@ -137,8 +117,8 @@ def update_leaderboard(uuid: str, xp_to_add: int):
     user_key = f"user:{uuid}"
     if not r.exists(user_key) or not r.hexists(user_key, "name"):
         r.hset(user_key, mapping={
-            "name": f"Cadet {uuid[:5]}",
-            "rank": "Cadet",
+            "name": f"Ensign {uuid[:5]}",
+            "rank": "Ensign",
             "rank_level": 0,
             "mission_stage": 1,
             "current_location": "Bridge"
@@ -148,7 +128,7 @@ def update_leaderboard(uuid: str, xp_to_add: int):
 
 def get_user_rank_data(uuid):
     user_data = r.hgetall(f"user:{uuid}")
-    if not user_data: return {"rank_level": 0, "title": "Cadet", "mission_stage": 1, "current_location": "Bridge"}
+    if not user_data: return {"rank_level": 0, "title": "Ensign", "mission_stage": 1, "current_location": "Bridge"}
     user_data["rank_level"] = int(user_data.get("rank_level", 0))
     user_data["mission_stage"] = int(user_data.get("mission_stage", 1))
     rank_info = r.hgetall(f"rank:{user_data['rank_level']}")
