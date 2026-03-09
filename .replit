@@ -13,10 +13,6 @@ expertMode = true
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 8000
-externalPort = 80
-
 [workflows]
 runButton = "Project"
 
@@ -33,11 +29,11 @@ args = "App Server"
 name = "App Server"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd StarfleetComms_eval && npm run dev"
 waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
