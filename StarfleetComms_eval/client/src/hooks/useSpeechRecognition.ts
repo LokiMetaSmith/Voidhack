@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 interface SpeechRecognitionResult {
   transcript: string;
+  interimTranscript: string;
   isListening: boolean;
   error: string | null;
   startListening: () => void;
@@ -70,6 +71,7 @@ const isMobileDevice = (): boolean => {
 
 export function useSpeechRecognition(): SpeechRecognitionResult {
   const [transcript, setTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -174,6 +176,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
           interimTimeoutRef.current = null;
         }
         lastInterimTranscriptRef.current = "";
+        setInterimTranscript("");
 
         setTranscript((prev) => prev + finalTranscript);
 
@@ -181,6 +184,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
         // We don't need to do anything special here - onend will be called
       } else if (interimTranscript) {
         console.log("[SpeechRecognition] Interim transcript:", interimTranscript);
+        setInterimTranscript(interimTranscript);
 
         // Mobile fix: Process interim results if final results never arrive
         // This applies to both Android and iOS since both can fail to send isFinal=true
@@ -262,6 +266,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
       }
 
       setError(`Speech recognition error: ${event.error}`);
+      setInterimTranscript("");
 
       // Update imperative ref and state AFTER abort
       isListeningRef.current = false;
@@ -295,6 +300,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
         iosSilenceTimeoutRef.current = null;
       }
       lastInterimTranscriptRef.current = "";
+      setInterimTranscript("");
 
       // Clear starting flag when recognition ends
       isStartingRef.current = false;
@@ -381,6 +387,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
     const doStartRecognition = () => {
       try {
         setTranscript("");
+        setInterimTranscript("");
         setError(null);
         console.log("[SpeechRecognition] Calling recognition.start()");
 
@@ -484,6 +491,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
 
   return {
     transcript,
+    interimTranscript,
     isListening,
     error,
     startListening,

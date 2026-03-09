@@ -37,6 +37,8 @@ export default function Communicator() {
   const continuousModeAvailable = isContinuousModeAvailable();
   const [isHandsFreeMode, setIsHandsFreeMode] = useState(false);
   const [vadErrorCount, setVadErrorCount] = useState(0);
+  const [textInput, setTextInput] = useState("");
+  const [uiErrors, setUiErrors] = useState<Array<{ id: string; message: string; timestamp: number }>>([]);
   const vadErrorCountRef = useRef(0);
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(() => {
     // Load from localStorage or use defaults
@@ -82,7 +84,17 @@ export default function Communicator() {
   });
 
   const { toast } = useToast();
-  const { transcript, isListening, error: speechError, startListening, stopListening, resetTranscript } = useSpeechRecognition();
+  const { transcript, interimTranscript, isListening, error: speechError, startListening, stopListening, resetTranscript } = useSpeechRecognition();
+  const lastHandledErrorRef = useRef<string | null>(null);
+
+  const addUiError = useCallback((message: string) => {
+    const err = { id: `err-${Date.now()}`, message, timestamp: Date.now() };
+    setUiErrors((prev) => [...prev.slice(-4), err]);
+  }, []);
+
+  const dismissUiError = useCallback((id: string) => {
+    setUiErrors((prev) => prev.filter((e) => e.id !== id));
+  }, []);
   const { speak, isSpeaking, cancel: cancelSpeech, warmUp: warmUpSpeech } = useSpeechSynthesis();
   const { playSound } = useTrekSounds(soundSettings);
 
@@ -395,9 +407,11 @@ export default function Communicator() {
     },
     onError: (error) => {
       playSound("error");
+      const errMsg = error.message || "Failed to process your request";
+      addUiError(errMsg);
       toast({
         title: "Communication Error",
-        description: error.message || "Failed to process your request",
+        description: errMsg,
         variant: "destructive",
       });
       setVoiceState("idle");
@@ -572,7 +586,8 @@ export default function Communicator() {
 
   // Handle speech errors - CRITICAL FIX for mobile microphone issues
   useEffect(() => {
-    if (speechError) {
+    if (speechError && speechError !== lastHandledErrorRef.current) {
+      lastHandledErrorRef.current = speechError;
       console.error("[Communicator] Speech error detected:", speechError);
 
       // CRITICAL: Force reset voice state to idle to sync UI with actual state
@@ -597,13 +612,14 @@ export default function Communicator() {
         }, 1500); // Give extra time for mobile to fully release resources
       }
 
+      addUiError(speechError);
       toast({
         title: "Voice Input Error",
         description: speechError,
         variant: "destructive",
       });
     }
-  }, [speechError, toast, isHandsFreeMode, isListening, stopListening, stopDetection, startDetection]);
+  }, [speechError, toast, addUiError, isHandsFreeMode, isListening, stopListening, stopDetection, startDetection]);
 
   // Android/Mobile safeguard: Timeout to reset stuck listening state
   useEffect(() => {
@@ -717,6 +733,14 @@ export default function Communicator() {
     resetTranscript();
   };
 
+  const handleTextSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = textInput.trim();
+    if (!trimmed || voiceState === "processing" || voiceState === "speaking" || isListening) return;
+    handleUserMessage(trimmed);
+    setTextInput("");
+  };
+
   const handleClearConversation = async () => {
     if (conversationId) {
       try {
@@ -822,9 +846,59 @@ export default function Communicator() {
               <StatusIndicator state={voiceState} />
             </div>
 
+            {uiErrors.length > 0 && (
+              <div className="w-full max-w-2xl mx-auto mb-2 space-y-1">
+                {uiErrors.map((err) => (
+                  <div
+                    key={err.id}
+                    className="flex items-center justify-between gap-2 px-3 py-2 rounded text-sm font-mono"
+                    style={{
+                      backgroundColor: 'rgba(204, 0, 0, 0.15)',
+                      border: '1px solid var(--lcars-red)',
+                      color: 'var(--lcars-red)',
+                    }}
+                  >
+                    <span className="flex-1 break-words">{err.message}</span>
+                    <button
+                      onClick={() => dismissUiError(err.id)}
+                      className="flex-shrink-0 text-xs uppercase tracking-wider px-2 py-0.5 rounded"
+                      style={{
+                        color: 'var(--lcars-red)',
+                        border: '1px solid var(--lcars-red)',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto mb-4">
               <ConversationDisplay messages={messages} />
             </div>
+
+            {isListening && (transcript || interimTranscript) && (
+              <div
+                className="w-full max-w-2xl mx-auto mb-2 px-4 py-3 rounded-md font-mono text-sm"
+                style={{
+                  backgroundColor: 'rgba(153, 153, 255, 0.1)',
+                  border: '1px solid var(--lcars-blue)',
+                  color: 'var(--lcars-light-blue)',
+                }}
+              >
+                <span className="text-xs font-bold tracking-widest uppercase block mb-1" style={{ color: 'var(--lcars-blue)' }}>
+                  VOICE INPUT
+                </span>
+                {transcript}
+                {interimTranscript && (
+                  <span style={{ opacity: 0.6 }}>{interimTranscript}</span>
+                )}
+                <span className="inline-block w-1.5 h-4 ml-1 animate-pulse" style={{ backgroundColor: 'var(--lcars-blue)' }} />
+              </div>
+            )}
 
             <div className="w-full max-w-2xl mx-auto flex justify-center">
               <VoiceControlPanel
@@ -844,9 +918,37 @@ export default function Communicator() {
             className="flex-shrink-0 px-4 py-2"
             style={{ borderTop: '2px solid var(--lcars-orange)' }}
           >
-            <div className="font-mono text-xs" style={{ color: 'var(--lcars-orange)' }}>
-              SYSTEM READY.
-            </div>
+            <form onSubmit={handleTextSubmit} className="flex items-center gap-2">
+              <span className="font-mono text-xs flex-shrink-0" style={{ color: 'var(--lcars-orange)' }}>
+                CMD&gt;
+              </span>
+              <input
+                type="text"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder="Type a command..."
+                disabled={voiceState === "processing" || voiceState === "speaking" || isListening}
+                className="flex-1 bg-transparent font-mono text-sm outline-none"
+                style={{
+                  color: 'var(--lcars-orange)',
+                  border: 'none',
+                  caretColor: 'var(--lcars-orange)',
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!textInput.trim() || voiceState === "processing" || voiceState === "speaking" || isListening}
+                className="font-mono text-xs uppercase tracking-wider px-3 py-1 rounded transition-opacity"
+                style={{
+                  color: '#000',
+                  backgroundColor: 'var(--lcars-orange)',
+                  opacity: !textInput.trim() || voiceState === "processing" || voiceState === "speaking" || isListening ? 0.4 : 1,
+                  cursor: !textInput.trim() || voiceState === "processing" || voiceState === "speaking" || isListening ? 'not-allowed' : 'pointer',
+                }}
+              >
+                SEND
+              </button>
+            </form>
           </div>
         </div>
       </div>

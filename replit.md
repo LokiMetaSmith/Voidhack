@@ -45,7 +45,9 @@ This is a separate, non-production implementation used for reference:
 - **Frontend**: React + TypeScript + Tailwind CSS + shadcn/ui components
 - **Database**: PostgreSQL via Drizzle ORM (`shared/schema.ts`) with Neon serverless driver. Schema has `conversations` and `messages` tables.
 - **AI**: Google Gemini via `@google/genai` SDK (`server/gemini.ts`)
-- **Voice**: Superior mobile audio handling with Bluetooth/AirPods priming (`useSpeechRecognition.ts`), Voice Activity Detection (`useVoiceActivityDetection.ts`), cross-platform voice selection (`useSpeechSynthesis.ts`), and Trek sound effects (`useTrekSounds.ts`)
+- **Voice**: Superior mobile audio handling with Bluetooth/AirPods priming (`useSpeechRecognition.ts`), Voice Activity Detection (`useVoiceActivityDetection.ts`), cross-platform voice selection (`useSpeechSynthesis.ts`), and Trek sound effects (`useTrekSounds.ts`). The speech recognition hook exposes both `transcript` (final) and `interimTranscript` (live) for real-time display.
+- **Text Input Fallback**: `CMD>` text input bar at bottom of Communicator page allows typed commands when mic access is unavailable (e.g., in iframe/proxy environments)
+- **Error Display**: In-page error panel shows voice/communication errors directly in the UI (in addition to toast notifications), dismissible per-error
 - **Key limitation**: No WebSocket support, no multiplayer sync, no radiation leaks, no rank system — local `useState` only
 
 ### Testing
