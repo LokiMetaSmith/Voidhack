@@ -1,4 +1,4 @@
-import { Info, Mic } from "lucide-react";
+import { Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,8 +8,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 
 interface LCARSHeaderProps {
   onClearConversation?: () => void;
@@ -20,33 +18,25 @@ interface LCARSHeaderProps {
 
 export function LCARSHeader({ onClearConversation, isHandsFreeMode = false, onHandsFreeModeChange, voiceSettingsButton }: LCARSHeaderProps) {
   return (
-    <header className="relative border-b border-border bg-card">
-      {/* LCARS decorative bars */}
-      <div className="absolute top-0 left-0 right-0 h-2 bg-primary" />
+    <header className="relative" style={{ backgroundColor: 'var(--lcars-purple)' }}>
+      <div className="flex items-center justify-between px-6 py-4" style={{ borderRadius: '0 0 0 50px' }}>
+        <div />
 
-      <div className="flex items-center justify-between p-4">
-        {/* Left section with title */}
         <div className="flex items-center gap-4">
-          <div className="hidden sm:block w-2 h-12 bg-primary rounded-r-full" />
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-wider uppercase text-primary">
-              USS ENTERPRISE
-            </h1>
-            <p className="text-xs text-muted-foreground tracking-widest uppercase">
-              Computer Interface
-            </p>
-          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-wider uppercase" style={{ color: '#000' }}>
+            PROTOCOL: OMEGA
+          </h1>
         </div>
 
-        {/* Right section with controls */}
         <div className="flex items-center gap-2">
           {onClearConversation && (
             <Button
               data-testid="button-clear-conversation"
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={onClearConversation}
               className="uppercase tracking-wider text-xs"
+              style={{ color: '#000', fontWeight: 'bold' }}
             >
               Clear
             </Button>
@@ -60,6 +50,7 @@ export function LCARSHeader({ onClearConversation, isHandsFreeMode = false, onHa
                 data-testid="button-info"
                 variant="ghost"
                 size="icon"
+                style={{ color: '#000' }}
               >
                 <Info className="h-5 w-5" />
               </Button>
@@ -91,22 +82,17 @@ export function LCARSHeader({ onClearConversation, isHandsFreeMode = false, onHa
                   <div className="space-y-2">
                     <h4 className="font-semibold text-foreground">Status Indicators:</h4>
                     <ul className="list-disc list-inside space-y-1 text-sm">
-                      <li className="text-chart-4">Green: Listening to your voice</li>
-                      <li className="text-chart-5">Yellow: Processing your request</li>
-                      <li className="text-chart-2">Blue: Computer speaking</li>
+                      <li style={{ color: 'var(--lcars-red)' }}>Red: Listening to your voice</li>
+                      <li style={{ color: 'var(--lcars-purple)' }}>Purple: Processing your request</li>
+                      <li style={{ color: 'var(--lcars-blue)' }}>Blue: Computer speaking</li>
                     </ul>
                   </div>
                 </DialogDescription>
               </DialogHeader>
             </DialogContent>
           </Dialog>
-
-          <div className="hidden sm:block w-2 h-12 bg-chart-2 rounded-l-full" />
         </div>
       </div>
-
-      {/* Bottom decorative bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-chart-2 to-chart-3" />
     </header>
   );
 }

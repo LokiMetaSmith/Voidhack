@@ -1,5 +1,4 @@
 import { Shield, Zap, Activity, Radio, Wind, Crosshair } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { ShipSystemStatus } from "@shared/schema";
 
 interface ShipSystemsPanelProps {
@@ -7,109 +6,100 @@ interface ShipSystemsPanelProps {
 }
 
 export function ShipSystemsPanel({ systems }: ShipSystemsPanelProps) {
-  const getStatusColor = (status: string) => {
-    if (status === "Online") return "text-chart-4";
-    if (status === "Warning") return "text-chart-5";
-    if (status === "Offline" || status === "Critical") return "text-destructive";
-    return "text-muted-foreground";
-  };
+  const systemItems = [
+    {
+      icon: Zap,
+      label: "WARP CORE",
+      value: `${systems.warpCore.efficiency}%`,
+      barValue: systems.warpCore.efficiency,
+      barColor: 'var(--lcars-orange)',
+      status: systems.warpCore.status,
+    },
+    {
+      icon: Shield,
+      label: "SHIELDS",
+      value: `${systems.shields.strength}%`,
+      barValue: systems.shields.strength,
+      barColor: 'var(--lcars-blue)',
+      status: systems.shields.status,
+    },
+    {
+      icon: Crosshair,
+      label: "WEAPONS",
+      value: systems.weapons.ready ? 'READY' : 'OFFLINE',
+      barValue: null,
+      barColor: null,
+      status: systems.weapons.status,
+    },
+    {
+      icon: Radio,
+      label: "SENSORS",
+      value: `${systems.sensors.range} LY`,
+      barValue: null,
+      barColor: null,
+      status: systems.sensors.status,
+    },
+    {
+      icon: Activity,
+      label: "LIFE SUPPORT",
+      value: systems.lifesupport.optimal ? 'OPTIMAL' : 'SUBOPTIMAL',
+      barValue: null,
+      barColor: null,
+      status: systems.lifesupport.status,
+    },
+    {
+      icon: Wind,
+      label: "IMPULSE",
+      value: `${systems.impulse.power}%`,
+      barValue: systems.impulse.power,
+      barColor: 'var(--lcars-purple)',
+      status: systems.impulse.status,
+    },
+  ];
 
   return (
-    <Card className="p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wider">Ship Systems</h3>
-        <div className="text-xs text-muted-foreground">USS Enterprise NCC-1701-D</div>
+    <div className="rounded-lg p-4 space-y-3" style={{ border: '2px solid var(--lcars-orange)', backgroundColor: 'rgba(255, 153, 0, 0.05)' }}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-bold uppercase tracking-widest" style={{ color: 'var(--lcars-orange)' }}>
+          SHIP SYSTEMS
+        </h3>
+        <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>
+          USS Enterprise NCC-1701-D
+        </span>
       </div>
 
-      <div className="space-y-2">
-        {/* Warp Core */}
-        <div className="flex items-center gap-2" data-testid="system-warp-core">
-          <Zap className={`h-4 w-4 ${getStatusColor(systems.warpCore.status)}`} />
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <span className="text-xs">Warp Core</span>
-              <span className="text-xs text-muted-foreground">{systems.warpCore.efficiency}%</span>
-            </div>
-            <div className="h-1 bg-muted rounded-full overflow-hidden mt-1">
-              <div
-                className="h-full bg-chart-4 transition-all duration-300"
-                style={{ width: `${systems.warpCore.efficiency}%` }}
-              />
-            </div>
-          </div>
-        </div>
+      <div className="space-y-3">
+        {systemItems.map((item) => {
+          const Icon = item.icon;
+          const statusColor = item.status === 'Online' ? 'var(--lcars-orange)' :
+                              item.status === 'Warning' ? 'var(--lcars-red)' : 'var(--lcars-blue)';
+          const valueColor = item.value === 'READY' || item.value === 'OPTIMAL' ? '#00cc00' : statusColor;
 
-        {/* Shields */}
-        <div className="flex items-center gap-2" data-testid="system-shields">
-          <Shield className={`h-4 w-4 ${getStatusColor(systems.shields.status)}`} />
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <span className="text-xs">Shields</span>
-              <span className="text-xs text-muted-foreground">{systems.shields.strength}%</span>
+          return (
+            <div key={item.label} className="flex items-center gap-3">
+              <Icon className="h-4 w-4 flex-shrink-0" style={{ color: statusColor }} />
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold tracking-wider" style={{ color: 'var(--lcars-orange)' }}>
+                    {item.label}
+                  </span>
+                  <span className="text-xs font-bold" style={{ color: valueColor }}>
+                    {item.value}
+                  </span>
+                </div>
+                {item.barValue !== null && item.barColor && (
+                  <div className="h-1.5 rounded-full overflow-hidden mt-1" style={{ backgroundColor: '#333' }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${item.barValue}%`, backgroundColor: item.barColor }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="h-1 bg-muted rounded-full overflow-hidden mt-1">
-              <div
-                className="h-full bg-chart-2 transition-all duration-300"
-                style={{ width: `${systems.shields.strength}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Weapons */}
-        <div className="flex items-center gap-2" data-testid="system-weapons">
-          <Crosshair className={`h-4 w-4 ${getStatusColor(systems.weapons.status)}`} />
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <span className="text-xs">Weapons</span>
-              <span className={`text-xs ${systems.weapons.ready ? 'text-chart-4' : 'text-muted-foreground'}`}>
-                {systems.weapons.ready ? 'Ready' : 'Offline'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Sensors */}
-        <div className="flex items-center gap-2" data-testid="system-sensors">
-          <Radio className={`h-4 w-4 ${getStatusColor(systems.sensors.status)}`} />
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <span className="text-xs">Sensors</span>
-              <span className="text-xs text-muted-foreground">{systems.sensors.range} LY</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Life Support */}
-        <div className="flex items-center gap-2" data-testid="system-lifesupport">
-          <Activity className={`h-4 w-4 ${getStatusColor(systems.lifesupport.status)}`} />
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <span className="text-xs">Life Support</span>
-              <span className={`text-xs ${systems.lifesupport.optimal ? 'text-chart-4' : 'text-chart-5'}`}>
-                {systems.lifesupport.optimal ? 'Optimal' : 'Suboptimal'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Impulse Engines */}
-        <div className="flex items-center gap-2" data-testid="system-impulse">
-          <Wind className={`h-4 w-4 ${getStatusColor(systems.impulse.status)}`} />
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <span className="text-xs">Impulse</span>
-              <span className="text-xs text-muted-foreground">{systems.impulse.power}%</span>
-            </div>
-            <div className="h-1 bg-muted rounded-full overflow-hidden mt-1">
-              <div
-                className="h-full bg-chart-3 transition-all duration-300"
-                style={{ width: `${systems.impulse.power}%` }}
-              />
-            </div>
-          </div>
-        </div>
+          );
+        })}
       </div>
-    </Card>
+    </div>
   );
 }

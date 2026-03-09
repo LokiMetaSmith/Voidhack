@@ -56,9 +56,11 @@ This is a separate, non-production implementation used for reference:
 
 ### Design System
 
-- LCARS (Star Trek TNG) aesthetic: dark backgrounds, bold geometric shapes, orange/purple/blue accent colors
-- Font: Antonio (primary system), Inter + JetBrains Mono (eval system)
-- Mobile-first responsive design
+- LCARS (Star Trek TNG) aesthetic across both systems: dark backgrounds (#000), bold geometric shapes, orange/purple/blue accent colors
+- Font: Antonio (both systems)
+- LCARS CSS variables: `--lcars-orange: #ff9900`, `--lcars-purple: #cc99cc`, `--lcars-blue: #9999ff`, `--lcars-red: #cc0000`, `--lcars-tan: #ffcc99`
+- Eval system uses LCARS dark theme with sidebar navigation, orange-bordered main panel, and pill-shaped buttons
+- Mobile-first responsive design (sidebar hidden on mobile)
 
 ## External Dependencies
 

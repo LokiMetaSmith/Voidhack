@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ConversationMessage, VoiceState, ChatRequest, ChatResponse, ShipSystemStatus } from "@shared/schema";
 import { LCARSHeader } from "@/components/LCARSHeader";
 import { VoiceControlPanel } from "@/components/VoiceControlPanel";
+import { ConversationDisplay } from "@/components/ConversationDisplay";
 import { StatusIndicator } from "@/components/StatusIndicator";
 import { VoiceSettingsPanel, type VoiceSettings, type SoundSettings } from "@/components/VoiceSettings";
 import { ShipSystemsPanel } from "@/components/ShipSystemsPanel";
@@ -750,7 +751,7 @@ export default function Communicator() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-screen" style={{ backgroundColor: '#000' }}>
       <LCARSHeader
         onClearConversation={messages.length > 0 ? handleClearConversation : undefined}
         isHandsFreeMode={isHandsFreeMode}
@@ -763,27 +764,104 @@ export default function Communicator() {
         }
       />
 
-      <div className="flex-1 flex items-center justify-center overflow-hidden p-4">
-        <div className="flex flex-col items-center justify-center gap-6 w-full max-w-2xl">
-          <div className="w-full">
-            <StatusIndicator state={voiceState} />
+      <div className="flex-1 flex overflow-hidden" style={{ gap: '10px', padding: '10px' }}>
+        <div className="hidden sm:flex flex-col gap-1.5 flex-shrink-0" style={{ width: '140px' }}>
+          <button
+            className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
+            style={{
+              backgroundColor: 'var(--lcars-blue)',
+              color: '#000',
+              height: '50px',
+              borderRadius: '25px 0 0 25px',
+            }}
+            onClick={handleStartListening}
+          >
+            INIT COMMS
+          </button>
+          <button
+            className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
+            style={{
+              backgroundColor: 'var(--lcars-orange)',
+              color: '#000',
+              height: '50px',
+              borderRadius: '25px 0 0 25px',
+            }}
+          >
+            STATUS
+          </button>
+          <button
+            className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
+            style={{
+              backgroundColor: 'var(--lcars-blue)',
+              color: '#000',
+              height: '50px',
+              borderRadius: '25px 0 0 25px',
+            }}
+          >
+            RANK
+          </button>
+          <button
+            className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
+            style={{
+              backgroundColor: 'var(--lcars-blue)',
+              color: '#000',
+              height: '50px',
+              borderRadius: '25px 0 0 25px',
+            }}
+          >
+            COMS
+          </button>
+          <div className="flex-1" style={{ backgroundColor: 'var(--lcars-purple)', borderRadius: '0 0 0 25px', minHeight: '40px' }} />
+        </div>
+
+        <div
+          className="flex-1 flex flex-col overflow-hidden rounded-2xl"
+          style={{ border: '2px solid var(--lcars-orange)' }}
+        >
+          <div className="flex-1 flex flex-col overflow-y-auto p-4">
+            {messages.length > 0 ? (
+              <div className="flex-1 overflow-y-auto mb-4">
+                <ConversationDisplay messages={messages} />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-6 w-full max-w-2xl mx-auto flex-1">
+                <div className="w-full">
+                  <StatusIndicator state={voiceState} />
+                </div>
+
+                <div className="w-full">
+                  <ShipSystemsPanel systems={shipSystems} />
+                </div>
+              </div>
+            )}
+
+            {messages.length > 0 && (
+              <div className="w-full max-w-2xl mx-auto mb-2">
+                <StatusIndicator state={voiceState} />
+              </div>
+            )}
+
+            <div className="w-full max-w-2xl mx-auto flex justify-center">
+              <VoiceControlPanel
+                  voiceState={voiceState}
+                  onStartListening={handleStartListening}
+                  onStopListening={handleStopListening}
+                  onToggleContinuousMode={handleToggleContinuousMode}
+                  isContinuousModeActive={isHandsFreeMode}
+                  audioLevel={audioLevel}
+                  permissionState={permissionState}
+                  continuousModeAvailable={continuousModeAvailable}
+                />
+            </div>
           </div>
 
-          <div className="w-full">
-            <ShipSystemsPanel systems={shipSystems} />
-          </div>
-
-          <div className="w-full flex justify-center">
-            <VoiceControlPanel
-              voiceState={voiceState}
-              onStartListening={handleStartListening}
-              onStopListening={handleStopListening}
-              onToggleContinuousMode={handleToggleContinuousMode}
-              isContinuousModeActive={isHandsFreeMode}
-              audioLevel={audioLevel}
-              permissionState={permissionState}
-              continuousModeAvailable={continuousModeAvailable}
-            />
+          <div
+            className="flex-shrink-0 px-4 py-2"
+            style={{ borderTop: '2px solid var(--lcars-orange)' }}
+          >
+            <div className="font-mono text-xs" style={{ color: 'var(--lcars-orange)' }}>
+              SYSTEM READY.
+            </div>
           </div>
         </div>
       </div>
