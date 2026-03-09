@@ -808,7 +808,7 @@ export default function Communicator() {
               borderRadius: '25px 0 0 25px',
             }}
           >
-            COMS
+            CTFs
           </button>
           <div className="flex-1" style={{ backgroundColor: 'var(--lcars-purple)', borderRadius: '0 0 0 25px', minHeight: '40px' }} />
         </div>
