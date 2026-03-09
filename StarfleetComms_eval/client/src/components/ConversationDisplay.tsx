@@ -22,22 +22,19 @@ export function ConversationDisplay({ messages }: ConversationDisplayProps) {
 
   if (messages.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <div className="max-w-md space-y-4">
-          <div className="text-4xl font-bold" style={{ color: 'var(--lcars-orange)' }}>USS ENTERPRISE</div>
-          <div className="text-xl" style={{ color: 'var(--lcars-blue)' }}>COMPUTER INTERFACE</div>
-          <div className="h-px w-32 mx-auto" style={{ backgroundColor: 'var(--lcars-orange)', opacity: 0.5 }} />
-          <p className="text-sm" style={{ color: 'var(--lcars-tan)' }}>
-            Voice communication system ready. Activate the communicator to begin
-            your dialogue with the Enterprise Computer.
-          </p>
+      <div className="h-full w-full rounded-md" style={{ backgroundColor: '#0a0a0a', border: '1px solid rgba(255, 153, 0, 0.15)' }}>
+        <div className="flex items-center justify-center h-full">
+          <div
+            className="h-2 w-2 rounded-full lcars-scan"
+            style={{ backgroundColor: 'var(--lcars-orange)', opacity: 0.3 }}
+          />
         </div>
       </div>
     );
   }
 
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="h-full rounded-md" style={{ backgroundColor: '#0a0a0a', border: '1px solid rgba(255, 153, 0, 0.15)' }}>
       <div ref={scrollRef} className="p-4 space-y-4">
         {messages.map((message, index) => (
           <div
