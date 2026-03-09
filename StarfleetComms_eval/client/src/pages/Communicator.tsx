@@ -775,7 +775,7 @@ export default function Communicator() {
             }}
             onClick={handleStartListening}
           >
-            INIT COMMS
+            MAIN
           </button>
           <button
             className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
