@@ -6,7 +6,6 @@ import { VoiceControlPanel } from "@/components/VoiceControlPanel";
 import { ConversationDisplay } from "@/components/ConversationDisplay";
 import { StatusIndicator } from "@/components/StatusIndicator";
 import { VoiceSettingsPanel, type VoiceSettings, type SoundSettings } from "@/components/VoiceSettings";
-import { ShipSystemsPanel } from "@/components/ShipSystemsPanel";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import { useVoiceActivityDetection } from "@/hooks/useVoiceActivityDetection";
@@ -819,27 +818,13 @@ export default function Communicator() {
           style={{ border: '2px solid var(--lcars-orange)' }}
         >
           <div className="flex-1 flex flex-col overflow-y-auto p-4">
-            {messages.length > 0 ? (
-              <div className="flex-1 overflow-y-auto mb-4">
-                <ConversationDisplay messages={messages} />
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-6 w-full max-w-2xl mx-auto flex-1">
-                <div className="w-full">
-                  <StatusIndicator state={voiceState} />
-                </div>
+            <div className="w-full max-w-2xl mx-auto mb-2">
+              <StatusIndicator state={voiceState} />
+            </div>
 
-                <div className="w-full">
-                  <ShipSystemsPanel systems={shipSystems} />
-                </div>
-              </div>
-            )}
-
-            {messages.length > 0 && (
-              <div className="w-full max-w-2xl mx-auto mb-2">
-                <StatusIndicator state={voiceState} />
-              </div>
-            )}
+            <div className="flex-1 overflow-y-auto mb-4">
+              <ConversationDisplay messages={messages} />
+            </div>
 
             <div className="w-full max-w-2xl mx-auto flex justify-center">
               <VoiceControlPanel
