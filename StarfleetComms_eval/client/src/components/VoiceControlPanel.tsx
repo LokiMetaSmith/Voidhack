@@ -12,10 +12,6 @@ interface VoiceControlPanelProps {
   continuousModeAvailable?: boolean;
 }
 
-const isMobileDevice = (): boolean => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-};
-
 export function VoiceControlPanel({
   voiceState,
   onStartListening,
@@ -89,9 +85,7 @@ export function VoiceControlPanel({
             opacity: isProcessing || isSpeaking || isCheckingPermission || isPermissionDenied ? 0.7 : 1,
           }}
           onClick={
-            continuousModeAvailable && onToggleContinuousMode
-              ? onToggleContinuousMode
-              : isListening
+            isListening
               ? onStopListening
               : onStartListening
           }
@@ -171,16 +165,24 @@ export function VoiceControlPanel({
           : isSpeaking
           ? "Computer is responding"
           : isContinuousModeActive
-          ? "Continuous mode active — Tap to stop"
-          : continuousModeAvailable
-          ? "Tap to activate continuous voice mode"
-          : "Tap the button above to speak"}
+          ? "Continuous mode active"
+          : "Tap the button to speak"}
       </p>
 
-      {isMobileDevice() && !isListening && !isProcessing && !isSpeaking && !isCheckingPermission && !isPermissionDenied && (
-        <p className="text-xs text-center max-w-xs mt-2" style={{ color: 'rgba(255, 153, 0, 0.5)' }} data-testid="text-mobile-hint">
-          On mobile devices, use this on-screen button to activate voice input
-        </p>
+      {continuousModeAvailable && onToggleContinuousMode && !isListening && !isProcessing && !isSpeaking && !isCheckingPermission && !isPermissionDenied && (
+        <button
+          className="text-xs text-center mt-2 uppercase tracking-wider"
+          style={{
+            color: isContinuousModeActive ? 'var(--lcars-red)' : 'rgba(255, 153, 0, 0.5)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+          onClick={onToggleContinuousMode}
+          data-testid="button-continuous-mode"
+        >
+          {isContinuousModeActive ? "Disable continuous mode" : "Enable continuous mode"}
+        </button>
       )}
     </div>
   );
