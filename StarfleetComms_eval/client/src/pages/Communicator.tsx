@@ -834,14 +834,14 @@ export default function Communicator() {
               height: '50px',
               borderRadius: '25px 0 0 25px',
             }}
-            onClick={() => setActiveTab(activeTab === 'schedule' ? 'computer' : 'schedule')}
+            onClick={() => setActiveTab('schedule')}
           >
             SCHEDULE
           </button>
           <button
             className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
             style={{
-              backgroundColor: activeTab === 'computer' ? 'var(--lcars-blue)' : 'var(--lcars-orange)',
+              backgroundColor: activeTab === 'computer' ? 'var(--lcars-orange)' : 'var(--lcars-blue)',
               color: '#000',
               height: '50px',
               borderRadius: '25px 0 0 25px',
