@@ -1,0 +1,21 @@
+o	North Room 
+	Time:09:00am - 10:00am; Title:Securing Small & Mid-Sized Enterprises - Defensible Security on a Shoestring; Speaker:Kumuda Sreenivasa,
+	Time:10:00am - 11:00am; Title:Offensive Threat Models Against AI Systems; Speaker:Tony UV,
+	Time:11:00am - 12:00pm; Title:I’m in Danger - From Alert Chaos to CTEM; Speaker:Steven Lykins, Courtney Burr,
+	Time:01:00pm - 02:00pm; Title:Extending Shared Threat Models with the Application Attack Matrix; Speaker:J Fridley,
+	Time:02:00pm - 03:00pm; Title:A Fistful of Headers - Taming the Wild Web at Scale; Speaker:Cary Hooper,
+	Time:03:00pm - 04:00pm; Title:Why Disaster Recovery Is NOT Cyber Recovery; Speaker:Gregg Robbins,
+o	South Room
+	Time:09:00am - 10:00am; Title:Acts of God - How Cybercriminals Leverage AI to Exploit Breaking News; Speaker:Andre Piazza,
+	Time:10:00am - 11:00am; Title:How to Combat Digital Deception - A Guide to Deepfakes; Speaker:Trevor Wiseman,
+	Time:11:00am - 12:00pm; Title:Burned-Out Admins - Your Most Exploitable Vulnerability; Speaker:Stephen Engler,
+	Time:01:00pm - 02:00pm; Title:Hunting Smarter, Not Harder - Building Threat Hunting Pipelines with Python (Featuring ESXi Hunting); Speaker:James Honeycutt,
+	Time:02:00pm - 03:00pm; Title:Beyond the Prompt - The New Threat Surface of Vibe‑Coded Apps; Speaker:Yotam Perkal, Gil Maman
+	Time:03:00pm - 04:00pm; Title:Death By (Python) Pickle - "Betrayal ML"; Speaker:Andy Lewis,
+o	Center Room
+	Time: 09:00am - 10:00am; Title: How to steal a network; Speaker:  Andrew Lemon, 
+	Time: 10:00am - 11:00am; Title: Hardening the OS - Fighting 0-Days with Modern Exploit Defenses; Speaker: Michael Oglesby, 
+	Time: 11:00am - 12:00pm; Title: Operation Moonlander - Dismantling the Anyproxy/5socks Botnet; Speaker: Camron Borders, 
+	Time: 01:00pm - 02:00pm; Title: The Mentor's Roadmap to Your Cyber Career; Speaker:Kris Wall,
+	Time:02:00pm - 03:00pm; Title:Hacking Unpacked - This Year’s Most Interesting Breaches, Mapped to Real Controls; Speaker:Geoff Wilson
+	Time:03:00pm - 04:00pm; Title:The CISO as Diplomat - Surviving the Political Battlefield of IT; Speaker:Jonathan Kimmitt
