@@ -29,7 +29,44 @@ const isContinuousModeAvailable = (): boolean => {
   return true;
 };
 
+const MAIN_SCHEDULE = [
+  {
+    room: "North Room",
+    sessions: [
+      { time: "09:00am - 10:00am", title: "Securing Small & Mid-Sized Enterprises - Defensible Security on a Shoestring", speaker: "Kumuda Sreenivasa" },
+      { time: "10:00am - 11:00am", title: "Offensive Threat Models Against AI Systems", speaker: "Tony UV" },
+      { time: "11:00am - 12:00pm", title: "I'm in Danger - From Alert Chaos to CTEM", speaker: "Steven Lykins, Courtney Burr" },
+      { time: "01:00pm - 02:00pm", title: "Extending Shared Threat Models with the Application Attack Matrix", speaker: "J Fridley" },
+      { time: "02:00pm - 03:00pm", title: "A Fistful of Headers - Taming the Wild Web at Scale", speaker: "Cary Hooper" },
+      { time: "03:00pm - 04:00pm", title: "Why Disaster Recovery Is NOT Cyber Recovery", speaker: "Gregg Robbins" },
+    ],
+  },
+  {
+    room: "South Room",
+    sessions: [
+      { time: "09:00am - 10:00am", title: "Acts of God - How Cybercriminals Leverage AI to Exploit Breaking News", speaker: "Andre Piazza" },
+      { time: "10:00am - 11:00am", title: "How to Combat Digital Deception - A Guide to Deepfakes", speaker: "Trevor Wiseman" },
+      { time: "11:00am - 12:00pm", title: "Burned-Out Admins - Your Most Exploitable Vulnerability", speaker: "Stephen Engler" },
+      { time: "01:00pm - 02:00pm", title: "Hunting Smarter, Not Harder - Building Threat Hunting Pipelines with Python (Featuring ESXi Hunting)", speaker: "James Honeycutt" },
+      { time: "02:00pm - 03:00pm", title: "Beyond the Prompt - The New Threat Surface of Vibe‑Coded Apps", speaker: "Yotam Perkal, Gil Maman" },
+      { time: "03:00pm - 04:00pm", title: "Death By (Python) Pickle - \"Betrayal ML\"", speaker: "Andy Lewis" },
+    ],
+  },
+  {
+    room: "Center Room",
+    sessions: [
+      { time: "09:00am - 10:00am", title: "How to steal a network", speaker: "Andrew Lemon" },
+      { time: "10:00am - 11:00am", title: "Hardening the OS - Fighting 0-Days with Modern Exploit Defenses", speaker: "Michael Oglesby" },
+      { time: "11:00am - 12:00pm", title: "Operation Moonlander - Dismantling the Anyproxy/5socks Botnet", speaker: "Camron Borders" },
+      { time: "01:00pm - 02:00pm", title: "The Mentor's Roadmap to Your Cyber Career", speaker: "Kris Wall" },
+      { time: "02:00pm - 03:00pm", title: "Hacking Unpacked - This Year's Most Interesting Breaches, Mapped to Real Controls", speaker: "Geoff Wilson" },
+      { time: "03:00pm - 04:00pm", title: "The CISO as Diplomat - Surviving the Political Battlefield of IT", speaker: "Jonathan Kimmitt" },
+    ],
+  },
+];
+
 export default function Communicator() {
+  const [activeTab, setActiveTab] = useState<'conversation' | 'main'>("conversation");
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -792,12 +829,12 @@ export default function Communicator() {
           <button
             className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
             style={{
-              backgroundColor: 'var(--lcars-blue)',
+              backgroundColor: activeTab === 'main' ? 'var(--lcars-orange)' : 'var(--lcars-blue)',
               color: '#000',
               height: '50px',
               borderRadius: '25px 0 0 25px',
             }}
-            onClick={handleStartListening}
+            onClick={() => setActiveTab(activeTab === 'main' ? 'conversation' : 'main')}
           >
             MAIN
           </button>
@@ -841,115 +878,173 @@ export default function Communicator() {
           className="flex-1 flex flex-col overflow-hidden rounded-2xl"
           style={{ border: '2px solid var(--lcars-orange)' }}
         >
-          <div className="flex-1 flex flex-col overflow-y-auto p-4">
-            <div className="w-full max-w-2xl mx-auto mb-2">
-              <StatusIndicator state={voiceState} />
-            </div>
-
-            {uiErrors.length > 0 && (
-              <div className="w-full max-w-2xl mx-auto mb-2 space-y-1">
-                {uiErrors.map((err) => (
+          {activeTab === 'main' ? (
+            <div className="flex-1 overflow-y-auto p-4 font-mono">
+              <div
+                className="text-center text-xs font-bold tracking-widest uppercase mb-4"
+                style={{ color: 'var(--lcars-orange)' }}
+              >
+                Session Schedule
+              </div>
+              {MAIN_SCHEDULE.map((room) => (
+                <div key={room.room} className="mb-6">
                   <div
-                    key={err.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2 rounded text-sm font-mono"
+                    className="text-sm font-bold uppercase tracking-widest mb-2 px-2 py-1 rounded"
                     style={{
-                      backgroundColor: 'rgba(204, 0, 0, 0.15)',
-                      border: '1px solid var(--lcars-red)',
-                      color: 'var(--lcars-red)',
+                      backgroundColor: 'var(--lcars-blue)',
+                      color: '#000',
+                      display: 'inline-block',
                     }}
                   >
-                    <span className="flex-1 break-words">{err.message}</span>
-                    <button
-                      onClick={() => dismissUiError(err.id)}
-                      className="flex-shrink-0 text-xs uppercase tracking-wider px-2 py-0.5 rounded"
-                      style={{
-                        color: 'var(--lcars-red)',
-                        border: '1px solid var(--lcars-red)',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ✕
-                    </button>
+                    {room.room}
                   </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto mb-4">
-              <ConversationDisplay messages={messages} />
+                  <div className="space-y-2 mt-2">
+                    {room.sessions.map((session, i) => (
+                      <div
+                        key={i}
+                        className="px-3 py-2 rounded"
+                        style={{
+                          backgroundColor: 'rgba(153, 153, 255, 0.07)',
+                          border: '1px solid var(--lcars-blue)',
+                        }}
+                      >
+                        <div
+                          className="text-xs font-bold tracking-wider mb-0.5"
+                          style={{ color: 'var(--lcars-orange)' }}
+                        >
+                          {session.time}
+                        </div>
+                        <div
+                          className="text-sm font-semibold mb-0.5"
+                          style={{ color: 'var(--lcars-light-blue)' }}
+                        >
+                          {session.title}
+                        </div>
+                        <div
+                          className="text-xs"
+                          style={{ color: 'var(--lcars-blue)' }}
+                        >
+                          {session.speaker}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
+          ) : (
+            <>
+              <div className="flex-1 flex flex-col overflow-y-auto p-4">
+                <div className="w-full max-w-2xl mx-auto mb-2">
+                  <StatusIndicator state={voiceState} />
+                </div>
 
-            {isListening && (transcript || interimTranscript) && (
-              <div
-                className="w-full max-w-2xl mx-auto mb-2 px-4 py-3 rounded-md font-mono text-sm"
-                style={{
-                  backgroundColor: 'rgba(153, 153, 255, 0.1)',
-                  border: '1px solid var(--lcars-blue)',
-                  color: 'var(--lcars-light-blue)',
-                }}
-              >
-                <span className="text-xs font-bold tracking-widest uppercase block mb-1" style={{ color: 'var(--lcars-blue)' }}>
-                  VOICE INPUT
-                </span>
-                {transcript}
-                {interimTranscript && (
-                  <span style={{ opacity: 0.6 }}>{interimTranscript}</span>
+                {uiErrors.length > 0 && (
+                  <div className="w-full max-w-2xl mx-auto mb-2 space-y-1">
+                    {uiErrors.map((err) => (
+                      <div
+                        key={err.id}
+                        className="flex items-center justify-between gap-2 px-3 py-2 rounded text-sm font-mono"
+                        style={{
+                          backgroundColor: 'rgba(204, 0, 0, 0.15)',
+                          border: '1px solid var(--lcars-red)',
+                          color: 'var(--lcars-red)',
+                        }}
+                      >
+                        <span className="flex-1 break-words">{err.message}</span>
+                        <button
+                          onClick={() => dismissUiError(err.id)}
+                          className="flex-shrink-0 text-xs uppercase tracking-wider px-2 py-0.5 rounded"
+                          style={{
+                            color: 'var(--lcars-red)',
+                            border: '1px solid var(--lcars-red)',
+                            background: 'transparent',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
-                <span className="inline-block w-1.5 h-4 ml-1 animate-pulse" style={{ backgroundColor: 'var(--lcars-blue)' }} />
+
+                <div className="flex-1 overflow-y-auto mb-4">
+                  <ConversationDisplay messages={messages} />
+                </div>
+
+                {isListening && (transcript || interimTranscript) && (
+                  <div
+                    className="w-full max-w-2xl mx-auto mb-2 px-4 py-3 rounded-md font-mono text-sm"
+                    style={{
+                      backgroundColor: 'rgba(153, 153, 255, 0.1)',
+                      border: '1px solid var(--lcars-blue)',
+                      color: 'var(--lcars-light-blue)',
+                    }}
+                  >
+                    <span className="text-xs font-bold tracking-widest uppercase block mb-1" style={{ color: 'var(--lcars-blue)' }}>
+                      VOICE INPUT
+                    </span>
+                    {transcript}
+                    {interimTranscript && (
+                      <span style={{ opacity: 0.6 }}>{interimTranscript}</span>
+                    )}
+                    <span className="inline-block w-1.5 h-4 ml-1 animate-pulse" style={{ backgroundColor: 'var(--lcars-blue)' }} />
+                  </div>
+                )}
+
+                <div className="w-full max-w-2xl mx-auto flex justify-center">
+                  <VoiceControlPanel
+                    voiceState={voiceState}
+                    onStartListening={handleStartListening}
+                    onStopListening={handleStopListening}
+                    onToggleContinuousMode={handleToggleContinuousMode}
+                    isContinuousModeActive={isHandsFreeMode}
+                    audioLevel={audioLevel}
+                    permissionState={permissionState}
+                    continuousModeAvailable={continuousModeAvailable}
+                  />
+                </div>
               </div>
-            )}
 
-            <div className="w-full max-w-2xl mx-auto flex justify-center">
-              <VoiceControlPanel
-                  voiceState={voiceState}
-                  onStartListening={handleStartListening}
-                  onStopListening={handleStopListening}
-                  onToggleContinuousMode={handleToggleContinuousMode}
-                  isContinuousModeActive={isHandsFreeMode}
-                  audioLevel={audioLevel}
-                  permissionState={permissionState}
-                  continuousModeAvailable={continuousModeAvailable}
-                />
-            </div>
-          </div>
-
-          <div
-            className="flex-shrink-0 px-4 py-2"
-            style={{ borderTop: '2px solid var(--lcars-orange)' }}
-          >
-            <form onSubmit={handleTextSubmit} className="flex items-center gap-2">
-              <span className="font-mono text-xs flex-shrink-0" style={{ color: 'var(--lcars-orange)' }}>
-                CMD&gt;
-              </span>
-              <input
-                type="text"
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Type a command..."
-                disabled={voiceState === "processing" || voiceState === "speaking" || isListening}
-                className="flex-1 bg-transparent font-mono text-sm outline-none"
-                style={{
-                  color: 'var(--lcars-orange)',
-                  border: 'none',
-                  caretColor: 'var(--lcars-orange)',
-                }}
-              />
-              <button
-                type="submit"
-                disabled={!textInput.trim() || voiceState === "processing" || voiceState === "speaking" || isListening}
-                className="font-mono text-xs uppercase tracking-wider px-3 py-1 rounded transition-opacity"
-                style={{
-                  color: '#000',
-                  backgroundColor: 'var(--lcars-orange)',
-                  opacity: !textInput.trim() || voiceState === "processing" || voiceState === "speaking" || isListening ? 0.4 : 1,
-                  cursor: !textInput.trim() || voiceState === "processing" || voiceState === "speaking" || isListening ? 'not-allowed' : 'pointer',
-                }}
+              <div
+                className="flex-shrink-0 px-4 py-2"
+                style={{ borderTop: '2px solid var(--lcars-orange)' }}
               >
-                SEND
-              </button>
-            </form>
-          </div>
+                <form onSubmit={handleTextSubmit} className="flex items-center gap-2">
+                  <span className="font-mono text-xs flex-shrink-0" style={{ color: 'var(--lcars-orange)' }}>
+                    CMD&gt;
+                  </span>
+                  <input
+                    type="text"
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    placeholder="Type a command..."
+                    disabled={voiceState === "processing" || voiceState === "speaking" || isListening}
+                    className="flex-1 bg-transparent font-mono text-sm outline-none"
+                    style={{
+                      color: 'var(--lcars-orange)',
+                      border: 'none',
+                      caretColor: 'var(--lcars-orange)',
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!textInput.trim() || voiceState === "processing" || voiceState === "speaking" || isListening}
+                    className="font-mono text-xs uppercase tracking-wider px-3 py-1 rounded transition-opacity"
+                    style={{
+                      color: '#000',
+                      backgroundColor: 'var(--lcars-orange)',
+                      opacity: !textInput.trim() || voiceState === "processing" || voiceState === "speaking" || isListening ? 0.4 : 1,
+                      cursor: !textInput.trim() || voiceState === "processing" || voiceState === "speaking" || isListening ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    SEND
+                  </button>
+                </form>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
