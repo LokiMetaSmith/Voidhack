@@ -66,7 +66,7 @@ const MAIN_SCHEDULE = [
 ];
 
 export default function Communicator() {
-  const [activeTab, setActiveTab] = useState<'computer' | 'main'>("computer");
+  const [activeTab, setActiveTab] = useState<'computer' | 'schedule'>("computer");
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -829,14 +829,14 @@ export default function Communicator() {
           <button
             className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
             style={{
-              backgroundColor: activeTab === 'main' ? 'var(--lcars-orange)' : 'var(--lcars-blue)',
+              backgroundColor: activeTab === 'schedule' ? 'var(--lcars-orange)' : 'var(--lcars-blue)',
               color: '#000',
               height: '50px',
               borderRadius: '25px 0 0 25px',
             }}
-            onClick={() => setActiveTab(activeTab === 'main' ? 'computer' : 'main')}
+            onClick={() => setActiveTab(activeTab === 'schedule' ? 'computer' : 'schedule')}
           >
-            MAIN
+            SCHEDULE
           </button>
           <button
             className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
@@ -879,7 +879,7 @@ export default function Communicator() {
           className="flex-1 flex flex-col overflow-hidden rounded-2xl"
           style={{ border: '2px solid var(--lcars-orange)' }}
         >
-          {activeTab === 'main' ? (
+          {activeTab === 'schedule' ? (
             <div className="flex-1 overflow-y-auto p-4 font-mono">
               <div
                 className="text-center text-xs font-bold tracking-widest uppercase mb-4"
