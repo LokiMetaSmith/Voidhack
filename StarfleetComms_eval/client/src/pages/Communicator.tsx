@@ -66,7 +66,7 @@ const MAIN_SCHEDULE = [
 ];
 
 export default function Communicator() {
-  const [activeTab, setActiveTab] = useState<'conversation' | 'main'>("conversation");
+  const [activeTab, setActiveTab] = useState<'computer' | 'main'>("computer");
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -834,20 +834,21 @@ export default function Communicator() {
               height: '50px',
               borderRadius: '25px 0 0 25px',
             }}
-            onClick={() => setActiveTab(activeTab === 'main' ? 'conversation' : 'main')}
+            onClick={() => setActiveTab(activeTab === 'main' ? 'computer' : 'main')}
           >
             MAIN
           </button>
           <button
             className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
             style={{
-              backgroundColor: 'var(--lcars-orange)',
+              backgroundColor: activeTab === 'computer' ? 'var(--lcars-blue)' : 'var(--lcars-orange)',
               color: '#000',
               height: '50px',
               borderRadius: '25px 0 0 25px',
             }}
+            onClick={() => setActiveTab('computer')}
           >
-            STATUS
+            COMPUTER
           </button>
           <button
             className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
