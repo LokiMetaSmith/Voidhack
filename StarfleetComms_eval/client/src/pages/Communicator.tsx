@@ -72,6 +72,8 @@ export default function Communicator() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [userIdTouched, setUserIdTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -854,6 +856,8 @@ export default function Communicator() {
     setLoginPassword("");
     setLoginError("");
     setShowPassword(false);
+    setUserIdTouched(false);
+    setPasswordTouched(false);
   };
 
   return (
@@ -948,7 +952,7 @@ export default function Communicator() {
                   <input
                     type="text"
                     value={loginUserId}
-                    onChange={(e) => setLoginUserId(e.target.value)}
+                    onChange={(e) => { setLoginUserId(e.target.value); setUserIdTouched(true); }}
                     autoComplete="username"
                     maxLength={50}
                     className="bg-transparent border-b px-2 py-1 text-sm outline-none"
@@ -958,11 +962,11 @@ export default function Communicator() {
                       caretColor: 'var(--lcars-orange)',
                     }}
                   />
-                  <ul className="mt-1 space-y-0.5" style={{ color: 'var(--lcars-blue)', fontSize: '10px' }}>
-                    <li>· Must not be empty</li>
-                    <li>· Maximum 50 characters</li>
-                    <li>· Case-sensitive</li>
-                  </ul>
+                  {userIdTouched && loginUserId.trim().length === 0 && (
+                    <ul className="mt-1 space-y-0.5" style={{ color: 'var(--lcars-red)', fontSize: '10px' }}>
+                      <li>· Must not be empty</li>
+                    </ul>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>
@@ -972,7 +976,7 @@ export default function Communicator() {
                     <input
                       type={showPassword ? "text" : "password"}
                       value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
+                      onChange={(e) => { setLoginPassword(e.target.value); setPasswordTouched(true); }}
                       autoComplete="current-password"
                       maxLength={25}
                       className="bg-transparent border-b px-2 py-1 text-sm outline-none flex-1 pr-8"
@@ -991,11 +995,12 @@ export default function Communicator() {
                       {showPassword ? "HIDE" : "SHOW"}
                     </button>
                   </div>
-                  <ul className="mt-1 space-y-0.5" style={{ color: 'var(--lcars-blue)', fontSize: '10px' }}>
-                    <li>· Minimum 8 characters</li>
-                    <li>· Maximum 25 characters</li>
-                    <li>· Case-sensitive</li>
-                  </ul>
+                  {passwordTouched && (loginPassword.length < 8 || loginPassword.length > 25) && (
+                    <ul className="mt-1 space-y-0.5" style={{ color: 'var(--lcars-red)', fontSize: '10px' }}>
+                      {loginPassword.length < 8 && <li>· Minimum 8 characters</li>}
+                      {loginPassword.length > 25 && <li>· Maximum 25 characters</li>}
+                    </ul>
+                  )}
                 </div>
                 {loginError && (
                   <div className="text-xs text-center" style={{ color: 'var(--lcars-red)' }}>
