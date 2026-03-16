@@ -1,7 +1,23 @@
 import { z } from "zod";
-import { pgTable, text, varchar, timestamp, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, bigint, serial } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
+
+// Users table for authentication
+export const appUsers = pgTable("app_users", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 50 }).unique().notNull(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAppUserSchema = createInsertSchema(appUsers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type AppUser = typeof appUsers.$inferSelect;
+export type InsertAppUser = z.infer<typeof insertAppUserSchema>;
 
 // Database tables
 export const conversations = pgTable("conversations", {

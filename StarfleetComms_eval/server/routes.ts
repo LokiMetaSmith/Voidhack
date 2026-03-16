@@ -1,10 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
-import { chatRequestSchema, conversationMessageSchema } from "@shared/schema";
+import { chatRequestSchema, conversationMessageSchema, appUsers } from "@shared/schema";
 import { generateComputerResponse } from "./gemini";
-import { storage } from "./storage";
+import { storage, db } from "./storage";
 import { randomUUID } from "crypto";
+import { eq } from "drizzle-orm";
+import { hashPassword, verifyPassword } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Chat endpoint for Enterprise Computer
@@ -106,6 +108,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         error: error instanceof Error ? error.message : "Internal server error"
       });
+    }
+  });
+
+  // Auth: register a new user
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { userId, password } = req.body;
+      if (!userId || !password) {
+        return res.status(400).json({ error: "User ID and password are required." });
+      }
+      if (password.length < 8 || password.length > 25) {
+        return res.status(400).json({ error: "Password must be 8–25 characters." });
+      }
+      const existing = await db.select().from(appUsers).where(eq(appUsers.userId, userId)).limit(1);
+      if (existing.length > 0) {
+        return res.status(409).json({ error: "User ID already exists." });
+      }
+      const passwordHash = hashPassword(password);
+      const [user] = await db.insert(appUsers).values({ userId, passwordHash }).returning();
+      res.status(201).json({ success: true, userId: user.userId });
+    } catch (error) {
+      console.error("Register error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Auth: login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { userId, password } = req.body;
+      if (!userId || !password) {
+        return res.status(400).json({ error: "User ID and password are required." });
+      }
+      const [user] = await db.select().from(appUsers).where(eq(appUsers.userId, userId)).limit(1);
+      if (!user || !verifyPassword(password, user.passwordHash)) {
+        return res.status(401).json({ error: "Invalid User ID or password." });
+      }
+      res.json({ success: true, userId: user.userId });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Internal server error." });
     }
   });
 

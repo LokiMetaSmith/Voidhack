@@ -815,7 +815,9 @@ export default function Communicator() {
     setIsHandsFreeMode(enabled);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginUserId.trim()) {
       setLoginError("User ID is required.");
@@ -826,7 +828,24 @@ export default function Communicator() {
       return;
     }
     setLoginError("");
-    setIsAuthenticated(true);
+    setIsLoggingIn(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: loginUserId.trim(), password: loginPassword }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setIsAuthenticated(true);
+      } else {
+        setLoginError(data.error || "Authentication failed.");
+      }
+    } catch {
+      setLoginError("Connection error. Please try again.");
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const handleSignOut = () => {
@@ -974,13 +993,16 @@ export default function Communicator() {
                 )}
                 <button
                   type="submit"
-                  className="mt-2 py-2 text-sm font-bold uppercase tracking-widest rounded"
+                  disabled={isLoggingIn}
+                  className="mt-2 py-2 text-sm font-bold uppercase tracking-widest rounded transition-opacity"
                   style={{
                     backgroundColor: 'var(--lcars-orange)',
                     color: '#000',
+                    opacity: isLoggingIn ? 0.6 : 1,
+                    cursor: isLoggingIn ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  ACCESS
+                  {isLoggingIn ? "VERIFYING..." : "ACCESS"}
                 </button>
               </form>
             </div>
