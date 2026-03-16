@@ -821,8 +821,8 @@ export default function Communicator() {
       setLoginError("User ID is required.");
       return;
     }
-    if (loginPassword.length < 8 || loginPassword.length > 30) {
-      setLoginError("Password must be 8–30 characters.");
+    if (loginPassword.length < 8 || loginPassword.length > 25) {
+      setLoginError("Password must be 8–25 characters.");
       return;
     }
     setLoginError("");
@@ -941,7 +941,7 @@ export default function Communicator() {
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>
-                    Password (8–30 characters)
+                    Password (8–25 characters)
                   </label>
                   <div className="relative flex items-center">
                     <input
@@ -949,7 +949,7 @@ export default function Communicator() {
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       autoComplete="current-password"
-                      maxLength={30}
+                      maxLength={25}
                       className="bg-transparent border-b px-2 py-1 text-sm outline-none flex-1 pr-8"
                       style={{
                         borderColor: 'var(--lcars-orange)',
