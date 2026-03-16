@@ -67,6 +67,10 @@ const MAIN_SCHEDULE = [
 
 export default function Communicator() {
   const [activeTab, setActiveTab] = useState<'computer' | 'schedule' | 'rank' | 'ctfs'>("computer");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginUserId, setLoginUserId] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -810,6 +814,20 @@ export default function Communicator() {
     setIsHandsFreeMode(enabled);
   };
 
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginUserId.trim()) {
+      setLoginError("User ID is required.");
+      return;
+    }
+    if (loginPassword.length !== 8) {
+      setLoginError("Password must be exactly 8 characters.");
+      return;
+    }
+    setLoginError("");
+    setIsAuthenticated(true);
+  };
+
   return (
     <div className="flex flex-col h-screen" style={{ backgroundColor: '#000' }}>
       <LCARSHeader
@@ -879,9 +897,73 @@ export default function Communicator() {
 
         <div
           className="flex-1 flex flex-col overflow-hidden rounded-2xl"
-          style={{ border: '2px solid var(--lcars-orange)' }}
+          style={{ border: '2px solid var(--lcars-orange)', backgroundColor: '#000' }}
         >
-          {(activeTab === 'rank' || activeTab === 'ctfs') ? (
+          {!isAuthenticated ? (
+            <div className="flex-1 flex items-center justify-center">
+              <form
+                onSubmit={handleLogin}
+                className="flex flex-col gap-4 w-72 font-mono"
+              >
+                <div
+                  className="text-center text-xs font-bold tracking-widest uppercase mb-2"
+                  style={{ color: 'var(--lcars-orange)' }}
+                >
+                  AUTHORIZATION REQUIRED
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>
+                    User ID
+                  </label>
+                  <input
+                    type="text"
+                    value={loginUserId}
+                    onChange={(e) => setLoginUserId(e.target.value)}
+                    autoComplete="username"
+                    className="bg-transparent border-b px-2 py-1 text-sm outline-none"
+                    style={{
+                      borderColor: 'var(--lcars-orange)',
+                      color: 'var(--lcars-orange)',
+                      caretColor: 'var(--lcars-orange)',
+                    }}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>
+                    Password (8 characters)
+                  </label>
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    autoComplete="current-password"
+                    maxLength={8}
+                    className="bg-transparent border-b px-2 py-1 text-sm outline-none"
+                    style={{
+                      borderColor: 'var(--lcars-orange)',
+                      color: 'var(--lcars-orange)',
+                      caretColor: 'var(--lcars-orange)',
+                    }}
+                  />
+                </div>
+                {loginError && (
+                  <div className="text-xs text-center" style={{ color: 'var(--lcars-red)' }}>
+                    {loginError}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  className="mt-2 py-2 text-sm font-bold uppercase tracking-widest rounded"
+                  style={{
+                    backgroundColor: 'var(--lcars-orange)',
+                    color: '#000',
+                  }}
+                >
+                  ACCESS
+                </button>
+              </form>
+            </div>
+          ) : (activeTab === 'rank' || activeTab === 'ctfs') ? (
             <div className="flex-1 flex items-center justify-center font-mono">
               <span
                 className="text-2xl font-bold tracking-widest uppercase"
