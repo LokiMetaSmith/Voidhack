@@ -950,6 +950,7 @@ export default function Communicator() {
                     value={loginUserId}
                     onChange={(e) => setLoginUserId(e.target.value)}
                     autoComplete="username"
+                    maxLength={50}
                     className="bg-transparent border-b px-2 py-1 text-sm outline-none"
                     style={{
                       borderColor: 'var(--lcars-orange)',
@@ -957,10 +958,15 @@ export default function Communicator() {
                       caretColor: 'var(--lcars-orange)',
                     }}
                   />
+                  <ul className="mt-1 space-y-0.5" style={{ color: 'var(--lcars-blue)', fontSize: '10px' }}>
+                    <li>· Must not be empty</li>
+                    <li>· Maximum 50 characters</li>
+                    <li>· Case-sensitive</li>
+                  </ul>
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>
-                    Password (8–25 characters)
+                    Password
                   </label>
                   <div className="relative flex items-center">
                     <input
@@ -985,6 +991,11 @@ export default function Communicator() {
                       {showPassword ? "HIDE" : "SHOW"}
                     </button>
                   </div>
+                  <ul className="mt-1 space-y-0.5" style={{ color: 'var(--lcars-blue)', fontSize: '10px' }}>
+                    <li>· Minimum 8 characters</li>
+                    <li>· Maximum 25 characters</li>
+                    <li>· Case-sensitive</li>
+                  </ul>
                 </div>
                 {loginError && (
                   <div className="text-xs text-center" style={{ color: 'var(--lcars-red)' }}>
