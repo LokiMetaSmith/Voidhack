@@ -74,6 +74,15 @@ export default function Communicator() {
   const [showPassword, setShowPassword] = useState(false);
   const [userIdTouched, setUserIdTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [regUserId, setRegUserId] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regShowPassword, setRegShowPassword] = useState(false);
+  const [regError, setRegError] = useState("");
+  const [regSuccess, setRegSuccess] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [regUserIdTouched, setRegUserIdTouched] = useState(false);
+  const [regPasswordTouched, setRegPasswordTouched] = useState(false);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -850,6 +859,42 @@ export default function Communicator() {
     }
   };
 
+  const closeRegisterModal = () => {
+    setShowRegisterModal(false);
+    setRegUserId("");
+    setRegPassword("");
+    setRegShowPassword(false);
+    setRegError("");
+    setRegSuccess("");
+    setRegUserIdTouched(false);
+    setRegPasswordTouched(false);
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regUserId.trim()) { setRegError("User ID is required."); return; }
+    if (regPassword.length < 8 || regPassword.length > 25) { setRegError("Password must be 8–25 characters."); return; }
+    setRegError("");
+    setIsRegistering(true);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: regUserId.trim(), password: regPassword }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRegSuccess(`Account created for "${data.userId}". You may now sign in.`);
+      } else {
+        setRegError(data.error || "Registration failed.");
+      }
+    } catch {
+      setRegError("Connection error. Please try again.");
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
   const handleSignOut = () => {
     setIsAuthenticated(false);
     setLoginUserId("");
@@ -1020,6 +1065,16 @@ export default function Communicator() {
                 >
                   {isLoggingIn ? "VERIFYING..." : "ACCESS"}
                 </button>
+                <div className="text-center mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowRegisterModal(true)}
+                    className="text-xs uppercase tracking-wider underline"
+                    style={{ color: 'var(--lcars-blue)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    Create Account
+                  </button>
+                </div>
               </form>
             </div>
           ) : (activeTab === 'rank' || activeTab === 'ctfs') ? (
@@ -1200,6 +1255,138 @@ export default function Communicator() {
           )}
         </div>
       </div>
+
+      {showRegisterModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeRegisterModal(); }}
+        >
+          <div
+            className="relative font-mono flex flex-col gap-4 p-8 rounded"
+            style={{
+              backgroundColor: '#0a0a0a',
+              border: '1px solid var(--lcars-orange)',
+              width: '320px',
+            }}
+          >
+            <div
+              className="text-center text-xs font-bold tracking-widest uppercase mb-2"
+              style={{ color: 'var(--lcars-orange)' }}
+            >
+              NEW USER REGISTRATION
+            </div>
+
+            {regSuccess ? (
+              <>
+                <div className="text-xs text-center py-4" style={{ color: 'var(--lcars-blue)', lineHeight: 1.6 }}>
+                  {regSuccess}
+                </div>
+                <button
+                  onClick={closeRegisterModal}
+                  className="py-2 text-sm font-bold uppercase tracking-widest rounded"
+                  style={{ backgroundColor: 'var(--lcars-orange)', color: '#000', cursor: 'pointer', border: 'none' }}
+                >
+                  CLOSE
+                </button>
+              </>
+            ) : (
+              <form onSubmit={handleRegister} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>
+                    User ID
+                  </label>
+                  <input
+                    type="text"
+                    value={regUserId}
+                    onChange={(e) => { setRegUserId(e.target.value); setRegUserIdTouched(true); }}
+                    autoComplete="username"
+                    maxLength={50}
+                    className="bg-transparent border-b px-2 py-1 text-sm outline-none"
+                    style={{
+                      borderColor: 'var(--lcars-orange)',
+                      color: 'var(--lcars-orange)',
+                      caretColor: 'var(--lcars-orange)',
+                    }}
+                  />
+                  {regUserIdTouched && regUserId.trim().length === 0 && (
+                    <ul className="mt-1 space-y-0.5" style={{ color: 'var(--lcars-red)', fontSize: '10px' }}>
+                      <li>· Must not be empty</li>
+                    </ul>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>
+                    Password
+                  </label>
+                  <div className="relative flex items-center">
+                    <input
+                      type={regShowPassword ? "text" : "password"}
+                      value={regPassword}
+                      onChange={(e) => { setRegPassword(e.target.value); setRegPasswordTouched(true); }}
+                      autoComplete="new-password"
+                      maxLength={25}
+                      className="bg-transparent border-b px-2 py-1 text-sm outline-none flex-1 pr-8"
+                      style={{
+                        borderColor: 'var(--lcars-orange)',
+                        color: 'var(--lcars-orange)',
+                        caretColor: 'var(--lcars-orange)',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setRegShowPassword(!regShowPassword)}
+                      className="absolute right-1 text-xs uppercase tracking-wider"
+                      style={{ color: 'var(--lcars-blue)', background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                      {regShowPassword ? "HIDE" : "SHOW"}
+                    </button>
+                  </div>
+                  {regPasswordTouched && regPassword.length < 8 && (
+                    <ul className="mt-1 space-y-0.5" style={{ color: 'var(--lcars-red)', fontSize: '10px' }}>
+                      <li>· Minimum 8 characters</li>
+                    </ul>
+                  )}
+                </div>
+                {regError && (
+                  <div className="text-xs text-center" style={{ color: 'var(--lcars-red)' }}>
+                    {regError}
+                  </div>
+                )}
+                <div className="flex gap-3 mt-2">
+                  <button
+                    type="button"
+                    onClick={closeRegisterModal}
+                    className="flex-1 py-2 text-sm font-bold uppercase tracking-widest rounded"
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: 'var(--lcars-blue)',
+                      border: '1px solid var(--lcars-blue)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    CANCEL
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isRegistering}
+                    className="flex-1 py-2 text-sm font-bold uppercase tracking-widest rounded"
+                    style={{
+                      backgroundColor: 'var(--lcars-orange)',
+                      color: '#000',
+                      opacity: isRegistering ? 0.6 : 1,
+                      cursor: isRegistering ? 'not-allowed' : 'pointer',
+                      border: 'none',
+                    }}
+                  >
+                    {isRegistering ? "CREATING..." : "CREATE"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
