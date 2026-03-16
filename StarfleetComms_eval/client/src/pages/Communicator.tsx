@@ -71,6 +71,7 @@ export default function Communicator() {
   const [loginUserId, setLoginUserId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -932,19 +933,29 @@ export default function Communicator() {
                   <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>
                     Password (8 characters)
                   </label>
-                  <input
-                    type="password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    autoComplete="current-password"
-                    maxLength={8}
-                    className="bg-transparent border-b px-2 py-1 text-sm outline-none"
-                    style={{
-                      borderColor: 'var(--lcars-orange)',
-                      color: 'var(--lcars-orange)',
-                      caretColor: 'var(--lcars-orange)',
-                    }}
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      autoComplete="current-password"
+                      maxLength={8}
+                      className="bg-transparent border-b px-2 py-1 text-sm outline-none flex-1 pr-8"
+                      style={{
+                        borderColor: 'var(--lcars-orange)',
+                        color: 'var(--lcars-orange)',
+                        caretColor: 'var(--lcars-orange)',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-1 text-xs uppercase tracking-wider"
+                      style={{ color: 'var(--lcars-blue)', background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                      {showPassword ? "HIDE" : "SHOW"}
+                    </button>
+                  </div>
                 </div>
                 {loginError && (
                   <div className="text-xs text-center" style={{ color: 'var(--lcars-red)' }}>
