@@ -829,6 +829,14 @@ export default function Communicator() {
     setIsAuthenticated(true);
   };
 
+  const handleSignOut = () => {
+    setIsAuthenticated(false);
+    setLoginUserId("");
+    setLoginPassword("");
+    setLoginError("");
+    setShowPassword(false);
+  };
+
   return (
     <div className="flex flex-col h-screen" style={{ backgroundColor: '#000' }}>
       <LCARSHeader
@@ -841,6 +849,8 @@ export default function Communicator() {
             onSoundSettingsChange={setSoundSettings}
           />
         }
+        isAuthenticated={isAuthenticated}
+        onSignOut={handleSignOut}
       />
 
       <div className="flex-1 flex overflow-hidden" style={{ gap: '10px', padding: '10px' }}>

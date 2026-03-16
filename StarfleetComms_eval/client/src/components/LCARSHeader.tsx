@@ -14,9 +14,11 @@ interface LCARSHeaderProps {
   isHandsFreeMode?: boolean;
   onHandsFreeModeChange?: (enabled: boolean) => void;
   voiceSettingsButton?: React.ReactNode;
+  isAuthenticated?: boolean;
+  onSignOut?: () => void;
 }
 
-export function LCARSHeader({ onClearConversation, isHandsFreeMode = false, onHandsFreeModeChange, voiceSettingsButton }: LCARSHeaderProps) {
+export function LCARSHeader({ onClearConversation, isHandsFreeMode = false, onHandsFreeModeChange, voiceSettingsButton, isAuthenticated = false, onSignOut }: LCARSHeaderProps) {
   return (
     <header className="relative" style={{ backgroundColor: 'var(--lcars-purple)' }}>
       <div className="flex items-center justify-between px-6 py-4" style={{ borderRadius: '0 0 0 50px' }}>
@@ -29,6 +31,16 @@ export function LCARSHeader({ onClearConversation, isHandsFreeMode = false, onHa
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={isAuthenticated ? onSignOut : undefined}
+            className="uppercase tracking-wider text-xs font-bold"
+            style={{ color: '#000' }}
+          >
+            {isAuthenticated ? "Sign Out" : "Sign In"}
+          </Button>
+
           {onClearConversation && (
             <Button
               data-testid="button-clear-conversation"
