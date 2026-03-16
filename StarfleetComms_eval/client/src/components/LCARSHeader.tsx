@@ -21,10 +21,8 @@ interface LCARSHeaderProps {
 export function LCARSHeader({ onClearConversation, isHandsFreeMode = false, onHandsFreeModeChange, voiceSettingsButton, isAuthenticated = false, onSignOut }: LCARSHeaderProps) {
   return (
     <header className="relative" style={{ backgroundColor: 'var(--lcars-purple)' }}>
-      <div className="flex items-center justify-between px-6 py-4" style={{ borderRadius: '0 0 0 50px' }}>
-        <div />
-
-        <div className="flex items-center gap-4">
+      <div className="relative flex items-center justify-end px-6 py-4" style={{ borderRadius: '0 0 0 50px' }}>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-wider uppercase" style={{ color: '#000' }}>
             United Federation of BSides
           </h1>
