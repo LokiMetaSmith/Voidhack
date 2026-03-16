@@ -906,6 +906,7 @@ export default function Communicator() {
   };
 
   return (
+    <>
     <div className="flex flex-col h-screen" style={{ backgroundColor: '#000' }}>
       <LCARSHeader
         onClearConversation={messages.length > 0 ? handleClearConversation : undefined}
@@ -980,6 +981,12 @@ export default function Communicator() {
         >
           {!isAuthenticated ? (
             <div className="flex-1 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-6">
+                <img
+                  src="/logo.png"
+                  alt="United Federation of BSides"
+                  className="w-40 h-40 object-contain"
+                />
               <form
                 onSubmit={handleLogin}
                 className="flex flex-col gap-4 w-72 font-mono"
@@ -1076,6 +1083,7 @@ export default function Communicator() {
                   </button>
                 </div>
               </form>
+              </div>
             </div>
           ) : (activeTab === 'rank' || activeTab === 'ctfs') ? (
             <div className="flex-1 flex items-center justify-center font-mono">
@@ -1388,5 +1396,6 @@ export default function Communicator() {
         </div>
       )}
     </div>
+    </>
   );
 }
