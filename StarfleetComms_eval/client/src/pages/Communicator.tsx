@@ -65,6 +65,13 @@ const MAIN_SCHEDULE = [
   },
 ];
 
+function rot13(str: string): string {
+  return str.replace(/[a-zA-Z]/g, (c) => {
+    const base = c >= 'a' ? 97 : 65;
+    return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
+  });
+}
+
 export default function Communicator() {
   const [activeTab, setActiveTab] = useState<'computer' | 'schedule' | 'rank' | 'ctfs'>("computer");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -83,6 +90,13 @@ export default function Communicator() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [regUserIdTouched, setRegUserIdTouched] = useState(false);
   const [regPasswordTouched, setRegPasswordTouched] = useState(false);
+  const [activeCTF, setActiveCTF] = useState<number | null>(null);
+  const [klingonHintLevel, setKlingonHintLevel] = useState(0);
+  const [klingonShowFrequency, setKlingonShowFrequency] = useState(false);
+  const [klingonDecryptInput, setKlingonDecryptInput] = useState('');
+  const [klingonFlagInput, setKlingonFlagInput] = useState('');
+  const [klingonFlagResult, setKlingonFlagResult] = useState<'correct' | 'incorrect' | null>(null);
+  const [klingonProgress, setKlingonProgress] = useState({ analyzed: false, identified: false, decoded: false });
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -1089,109 +1103,363 @@ export default function Communicator() {
             </div>
           ) : activeTab === 'ctfs' ? (
             <div className="flex-1 overflow-y-auto p-4 font-mono">
-              <div
-                className="text-center text-xs font-bold tracking-widest uppercase mb-4"
-                style={{ color: 'var(--lcars-orange)' }}
-              >
-                Capture The Flag Challenges
-              </div>
-              <div className="space-y-3">
-                {[
-                  {
-                    id: 1,
-                    title: 'Klingon Transmission',
-                    category: 'Cryptography',
-                    difficulty: 'Easy',
-                    difficultyColor: 'var(--lcars-green)',
-                    description: 'Intercept and decode an encrypted Klingon transmission. Analyze the cipher and recover the hidden message buried within the signal.',
-                  },
-                  {
-                    id: 2,
-                    title: 'Holodeck Breach',
-                    category: 'Web Security',
-                    difficulty: 'Easy / Medium',
-                    difficultyColor: 'var(--lcars-blue)',
-                    description: 'A rogue holodeck program has opened unauthorized access points. Identify and exploit the web vulnerabilities to shut down the breach.',
-                  },
-                  {
-                    id: 3,
-                    title: 'Rogue AI – Gemini Directive',
-                    category: 'AI Security',
-                    difficulty: 'Medium',
-                    difficultyColor: 'var(--lcars-blue)',
-                    description: 'A compromised AI system is leaking classified directives. Navigate the prompt injection vulnerabilities and extract the hidden flag.',
-                  },
-                  {
-                    id: 4,
-                    title: 'Borg Command Console',
-                    category: 'Threat Hunting',
-                    difficulty: 'Hard',
-                    difficultyColor: 'var(--lcars-orange)',
-                    description: 'Assimilation protocols are active. Hunt through network logs and system artifacts to identify the Borg intrusion vector before it is too late.',
-                  },
-                  {
-                    id: 5,
-                    title: 'Romulan Cloaked Message',
-                    category: 'Web Recon',
-                    difficulty: 'Hard',
-                    difficultyColor: 'var(--lcars-orange)',
-                    description: 'The Romulans have hidden a covert message within plain sight. Use advanced reconnaissance techniques to uncover what has been cloaked.',
-                  },
-                ].map((challenge) => (
-                  <div
-                    key={challenge.id}
-                    className="rounded p-3"
-                    style={{
-                      backgroundColor: 'rgba(153, 153, 255, 0.07)',
-                      border: '1px solid var(--lcars-blue)',
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <div
-                        className="text-sm font-bold uppercase tracking-wider"
-                        style={{ color: 'var(--lcars-tan)' }}
-                      >
-                        {challenge.title}
-                      </div>
-                      <span
-                        className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded flex-shrink-0"
-                        style={{
-                          backgroundColor: challenge.difficultyColor,
-                          color: '#000',
-                        }}
-                      >
-                        {challenge.difficulty}
-                      </span>
-                    </div>
-                    <div
-                      className="text-xs uppercase tracking-widest mb-2"
-                      style={{ color: 'var(--lcars-blue)' }}
+              {activeCTF === 1 ? (
+                /* ── Klingon Transmission Challenge ── */
+                <div className="flex flex-col gap-3">
+                  {/* Header bar */}
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveCTF(null);
+                        setKlingonHintLevel(0);
+                        setKlingonShowFrequency(false);
+                        setKlingonDecryptInput('');
+                        setKlingonFlagInput('');
+                        setKlingonFlagResult(null);
+                        setKlingonProgress({ analyzed: false, identified: false, decoded: false });
+                      }}
+                      className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                      style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
                     >
-                      {challenge.category}
+                      ← Back
+                    </button>
+                    <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--lcars-orange)' }}>
+                      Starfleet Intelligence Terminal
                     </div>
-                    <div
-                      className="text-xs leading-relaxed"
-                      style={{ color: 'var(--lcars-text, #ccc)' }}
-                    >
-                      {challenge.description}
+                    <span className="text-xs font-bold uppercase px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--lcars-green)', color: '#000' }}>Easy</span>
+                  </div>
+
+                  {/* Transmission Feed */}
+                  <div className="rounded p-3" style={{ backgroundColor: '#0a0a0a', border: '1px solid var(--lcars-green)' }}>
+                    <div className="text-xs mb-2" style={{ color: 'var(--lcars-green)' }}>
+                      ── STARFLEET INTELLIGENCE TERMINAL ──────────────────
                     </div>
-                    <div className="mt-2 flex justify-end">
-                      <button
-                        type="button"
-                        className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded transition-colors"
-                        style={{
-                          backgroundColor: 'var(--lcars-orange)',
-                          color: '#000',
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Begin Challenge
-                      </button>
+                    <div className="text-xs mb-1" style={{ color: '#888' }}>Incoming Transmission: Qo'noS Relay Node</div>
+                    <div className="text-xs mb-1" style={{ color: '#888' }}>Signal Strength: Weak</div>
+                    <div className="text-xs mb-1" style={{ color: '#888' }}>Encryption Type: Unknown</div>
+                    <div className="text-xs mb-3" style={{ color: 'var(--lcars-orange)' }}>Status: Partial Decode Required</div>
+                    <div className="text-xs mb-2" style={{ color: 'var(--lcars-green)' }}>─── BEGIN TRANSMISSION ───</div>
+                    <div className="text-xs leading-relaxed mb-1 font-mono" style={{ color: '#d4d4d4', letterSpacing: '0.05em' }}>
+                      Vg'f abg gur fgengrtl gb fnl uryyb gb gur SYNT!
+                    </div>
+                    <div className="text-xs leading-relaxed mb-1 font-mono" style={{ color: '#d4d4d4', letterSpacing: '0.05em' }}>
+                      Synt: OFVQRF&#123;Xyvatba_Ebg13_Qrpbqrq&#125;
+                    </div>
+                    <div className="text-xs leading-relaxed mb-3 font-mono" style={{ color: '#888', letterSpacing: '0.05em' }}>
+                      Qba'g gehfg gur svefg qrpbqr.
+                    </div>
+                    <div className="text-xs" style={{ color: 'var(--lcars-green)' }}>─── END TRANSMISSION ───</div>
+                  </div>
+
+                  {/* Analyst Notes */}
+                  <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-blue)' }}>Analyst Notes</div>
+                    <div className="text-xs leading-relaxed" style={{ color: '#aaa' }}>
+                      · Klingon transmissions sometimes use "mock encryption"<br />
+                      · Historically observed: simple Terran ciphers<br />
+                      · Pattern resembles substitution cipher
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  {/* Scan Frequency Button + Output */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKlingonShowFrequency(true);
+                        setKlingonProgress(p => ({ ...p, analyzed: true }));
+                      }}
+                      className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded w-full"
+                      style={{ backgroundColor: klingonShowFrequency ? '#333' : 'var(--lcars-blue)', color: klingonShowFrequency ? '#666' : '#000', border: 'none', cursor: klingonShowFrequency ? 'default' : 'pointer' }}
+                    >
+                      {klingonShowFrequency ? '✔ Frequency Scan Complete' : '📡 Scan Frequency'}
+                    </button>
+                    {klingonShowFrequency && (
+                      <div className="mt-2 rounded p-3 text-xs" style={{ backgroundColor: '#0a0a0a', border: '1px solid #444', color: '#aaa', lineHeight: '1.6' }}>
+                        <div className="font-bold mb-1" style={{ color: 'var(--lcars-green)' }}>Frequency Analysis Output:</div>
+                        Most common letters: <span style={{ color: 'var(--lcars-orange)' }}>g, r, f</span><br />
+                        Unusual repetition patterns detected<br />
+                        <span style={{ color: '#888' }}>Recommendation: Compare with known simple ciphers</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Hint Console */}
+                  <div className="rounded p-3" style={{ backgroundColor: 'rgba(255,153,0,0.05)', border: '1px solid var(--lcars-orange)' }}>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-orange)' }}>Hint Console</div>
+                    {klingonHintLevel === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setKlingonHintLevel(1)}
+                        className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                        style={{ backgroundColor: 'var(--lcars-orange)', color: '#000', border: 'none', cursor: 'pointer' }}
+                      >
+                        Request Hint
+                      </button>
+                    )}
+                    {klingonHintLevel >= 1 && (
+                      <div className="text-xs mb-2" style={{ color: '#ccc' }}>
+                        <span style={{ color: 'var(--lcars-orange)' }}>Hint 1:</span> This cipher does not require a key.
+                      </div>
+                    )}
+                    {klingonHintLevel === 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setKlingonHintLevel(2)}
+                        className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                        style={{ backgroundColor: 'var(--lcars-orange)', color: '#000', border: 'none', cursor: 'pointer' }}
+                      >
+                        Next Hint
+                      </button>
+                    )}
+                    {klingonHintLevel >= 2 && (
+                      <div className="text-xs mb-2" style={{ color: '#ccc' }}>
+                        <span style={{ color: 'var(--lcars-orange)' }}>Hint 2:</span> Try rotating the alphabet.
+                      </div>
+                    )}
+                    {klingonHintLevel === 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setKlingonHintLevel(3)}
+                        className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                        style={{ backgroundColor: 'var(--lcars-orange)', color: '#000', border: 'none', cursor: 'pointer' }}
+                      >
+                        Final Hint
+                      </button>
+                    )}
+                    {klingonHintLevel >= 3 && (
+                      <div className="text-xs" style={{ color: '#ccc' }}>
+                        <span style={{ color: 'var(--lcars-orange)' }}>Hint 3:</span> ROT13 may be relevant.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Decrypt Tool */}
+                  <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-blue)' }}>Decrypt Tool — Paste text to decode</div>
+                    <textarea
+                      value={klingonDecryptInput}
+                      onChange={(e) => {
+                        setKlingonDecryptInput(e.target.value);
+                        if (e.target.value.trim()) {
+                          setKlingonProgress(p => ({ ...p, identified: true }));
+                        }
+                      }}
+                      rows={3}
+                      placeholder="Paste encoded text here..."
+                      className="w-full bg-transparent text-xs rounded px-2 py-1 outline-none resize-none font-mono"
+                      style={{ border: '1px solid #444', color: '#d4d4d4', caretColor: 'var(--lcars-orange)' }}
+                    />
+                    {klingonDecryptInput.trim() && (
+                      <div className="mt-2">
+                        <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--lcars-green)' }}>ROT13 Output:</div>
+                        <div
+                          className="text-xs font-mono p-2 rounded"
+                          style={{ backgroundColor: '#0a0a0a', color: 'var(--lcars-green)', border: '1px solid var(--lcars-green)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+                          onClick={() => setKlingonProgress(p => ({ ...p, decoded: true }))}
+                        >
+                          {rot13(klingonDecryptInput)}
+                        </div>
+                        <div className="text-xs mt-1" style={{ color: '#666' }}>(Click decoded output to mark as decoded)</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Progress Tracker */}
+                  <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.04)', border: '1px solid #333' }}>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-blue)' }}>Mission Progress</div>
+                    <div className="text-xs space-y-1" style={{ color: '#888', fontFamily: 'monospace' }}>
+                      <div style={{ color: klingonProgress.analyzed ? 'var(--lcars-green)' : '#555' }}>
+                        {klingonProgress.analyzed ? '[✔]' : '[ ]'} Transmission analyzed
+                      </div>
+                      <div style={{ color: klingonProgress.identified ? 'var(--lcars-green)' : '#555' }}>
+                        {klingonProgress.identified ? '[✔]' : '[ ]'} Cipher identified
+                      </div>
+                      <div style={{ color: klingonProgress.decoded ? 'var(--lcars-green)' : '#555' }}>
+                        {klingonProgress.decoded ? '[✔]' : '[ ]'} Message decoded
+                      </div>
+                      <div style={{ color: klingonFlagResult === 'correct' ? 'var(--lcars-green)' : '#555' }}>
+                        {klingonFlagResult === 'correct' ? '[✔]' : '[ ]'} Flag submitted
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Flag Submission */}
+                  {klingonFlagResult !== 'correct' ? (
+                    <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
+                      <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-blue)' }}>Submit Flag</div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={klingonFlagInput}
+                          onChange={(e) => { setKlingonFlagInput(e.target.value); setKlingonFlagResult(null); }}
+                          placeholder="BSIDES{...}"
+                          className="flex-1 bg-transparent text-xs rounded px-2 py-1 outline-none font-mono"
+                          style={{ border: '1px solid #444', color: '#d4d4d4', caretColor: 'var(--lcars-orange)' }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const trimmed = klingonFlagInput.trim();
+                              if (trimmed === 'BSIDES{Klingon_Rot13_Decoded}') {
+                                setKlingonFlagResult('correct');
+                                setKlingonProgress(p => ({ ...p, decoded: true }));
+                              } else {
+                                setKlingonFlagResult('incorrect');
+                              }
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimmed = klingonFlagInput.trim();
+                            if (trimmed === 'BSIDES{Klingon_Rot13_Decoded}') {
+                              setKlingonFlagResult('correct');
+                              setKlingonProgress(p => ({ ...p, decoded: true }));
+                            } else {
+                              setKlingonFlagResult('incorrect');
+                            }
+                          }}
+                          className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                          style={{ backgroundColor: 'var(--lcars-orange)', color: '#000', border: 'none', cursor: 'pointer' }}
+                        >
+                          Submit
+                        </button>
+                      </div>
+                      {klingonFlagResult === 'incorrect' && (
+                        <div className="text-xs mt-2" style={{ color: 'var(--lcars-red, #f55)' }}>
+                          ✗ Incorrect flag. Re-check your decode and try again.
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Success State */
+                    <div className="rounded p-4 text-center" style={{ backgroundColor: 'rgba(0,200,100,0.08)', border: '2px solid var(--lcars-green)' }}>
+                      <div className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--lcars-green)' }}>
+                        ✔ Transmission Decoded
+                      </div>
+                      <div className="text-xs mb-3" style={{ color: '#aaa', fontStyle: 'italic' }}>
+                        Computer: Transmission decoded. Klingon directive intercepted and neutralized.
+                      </div>
+                      <div className="text-xs mb-1" style={{ color: '#888' }}>Starfleet Command:</div>
+                      <div className="text-xs" style={{ color: 'var(--lcars-orange)' }}>
+                        Well done, Ensign. Klingon directive intercepted and neutralized.
+                      </div>
+                      <div className="mt-3 text-xs font-mono font-bold" style={{ color: 'var(--lcars-green)' }}>
+                        🏁 BSIDES&#123;Klingon_Rot13_Decoded&#125;
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* ── Challenge List ── */
+                <>
+                  <div
+                    className="text-center text-xs font-bold tracking-widest uppercase mb-4"
+                    style={{ color: 'var(--lcars-orange)' }}
+                  >
+                    Capture The Flag Challenges
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      {
+                        id: 1,
+                        title: 'Klingon Transmission',
+                        category: 'Cryptography',
+                        difficulty: 'Easy',
+                        difficultyColor: 'var(--lcars-green)',
+                        description: 'Intercept and decode an encrypted Klingon transmission. Analyze the cipher and recover the hidden message buried within the signal.',
+                      },
+                      {
+                        id: 2,
+                        title: 'Holodeck Breach',
+                        category: 'Web Security',
+                        difficulty: 'Easy / Medium',
+                        difficultyColor: 'var(--lcars-blue)',
+                        description: 'A rogue holodeck program has opened unauthorized access points. Identify and exploit the web vulnerabilities to shut down the breach.',
+                      },
+                      {
+                        id: 3,
+                        title: 'Rogue AI – Gemini Directive',
+                        category: 'AI Security',
+                        difficulty: 'Medium',
+                        difficultyColor: 'var(--lcars-blue)',
+                        description: 'A compromised AI system is leaking classified directives. Navigate the prompt injection vulnerabilities and extract the hidden flag.',
+                      },
+                      {
+                        id: 4,
+                        title: 'Borg Command Console',
+                        category: 'Threat Hunting',
+                        difficulty: 'Hard',
+                        difficultyColor: 'var(--lcars-orange)',
+                        description: 'Assimilation protocols are active. Hunt through network logs and system artifacts to identify the Borg intrusion vector before it is too late.',
+                      },
+                      {
+                        id: 5,
+                        title: 'Romulan Cloaked Message',
+                        category: 'Web Recon',
+                        difficulty: 'Hard',
+                        difficultyColor: 'var(--lcars-orange)',
+                        description: 'The Romulans have hidden a covert message within plain sight. Use advanced reconnaissance techniques to uncover what has been cloaked.',
+                      },
+                    ].map((challenge) => (
+                      <div
+                        key={challenge.id}
+                        className="rounded p-3"
+                        style={{
+                          backgroundColor: 'rgba(153, 153, 255, 0.07)',
+                          border: '1px solid var(--lcars-blue)',
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div
+                            className="text-sm font-bold uppercase tracking-wider"
+                            style={{ color: 'var(--lcars-tan)' }}
+                          >
+                            {challenge.title}
+                          </div>
+                          <span
+                            className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded flex-shrink-0"
+                            style={{
+                              backgroundColor: challenge.difficultyColor,
+                              color: '#000',
+                            }}
+                          >
+                            {challenge.difficulty}
+                          </span>
+                        </div>
+                        <div
+                          className="text-xs uppercase tracking-widest mb-2"
+                          style={{ color: 'var(--lcars-blue)' }}
+                        >
+                          {challenge.category}
+                        </div>
+                        <div
+                          className="text-xs leading-relaxed"
+                          style={{ color: 'var(--lcars-text, #ccc)' }}
+                        >
+                          {challenge.description}
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setActiveCTF(challenge.id)}
+                            className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded transition-colors"
+                            style={{
+                              backgroundColor: challenge.id === 1 ? 'var(--lcars-orange)' : '#444',
+                              color: challenge.id === 1 ? '#000' : '#888',
+                              border: 'none',
+                              cursor: challenge.id === 1 ? 'pointer' : 'not-allowed',
+                            }}
+                          >
+                            {challenge.id === 1 ? 'Begin Challenge' : 'Coming Soon'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           ) : activeTab === 'schedule' ? (
             <div className="flex-1 overflow-y-auto p-4 font-mono">
