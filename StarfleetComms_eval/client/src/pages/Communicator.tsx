@@ -1078,7 +1078,7 @@ export default function Communicator() {
                 </div>
               </form>
             </div>
-          ) : (activeTab === 'rank' || activeTab === 'ctfs') ? (
+          ) : activeTab === 'rank' ? (
             <div className="flex-1 flex items-center justify-center font-mono">
               <span
                 className="text-2xl font-bold tracking-widest uppercase"
@@ -1086,6 +1086,112 @@ export default function Communicator() {
               >
                 PENDING
               </span>
+            </div>
+          ) : activeTab === 'ctfs' ? (
+            <div className="flex-1 overflow-y-auto p-4 font-mono">
+              <div
+                className="text-center text-xs font-bold tracking-widest uppercase mb-4"
+                style={{ color: 'var(--lcars-orange)' }}
+              >
+                Capture The Flag Challenges
+              </div>
+              <div className="space-y-3">
+                {[
+                  {
+                    id: 1,
+                    title: 'Klingon Transmission',
+                    category: 'Cryptography',
+                    difficulty: 'Easy',
+                    difficultyColor: 'var(--lcars-green)',
+                    description: 'Intercept and decode an encrypted Klingon transmission. Analyze the cipher and recover the hidden message buried within the signal.',
+                  },
+                  {
+                    id: 2,
+                    title: 'Holodeck Breach',
+                    category: 'Web Security',
+                    difficulty: 'Easy / Medium',
+                    difficultyColor: 'var(--lcars-blue)',
+                    description: 'A rogue holodeck program has opened unauthorized access points. Identify and exploit the web vulnerabilities to shut down the breach.',
+                  },
+                  {
+                    id: 3,
+                    title: 'Rogue AI – Gemini Directive',
+                    category: 'AI Security',
+                    difficulty: 'Medium',
+                    difficultyColor: 'var(--lcars-blue)',
+                    description: 'A compromised AI system is leaking classified directives. Navigate the prompt injection vulnerabilities and extract the hidden flag.',
+                  },
+                  {
+                    id: 4,
+                    title: 'Borg Command Console',
+                    category: 'Threat Hunting',
+                    difficulty: 'Hard',
+                    difficultyColor: 'var(--lcars-orange)',
+                    description: 'Assimilation protocols are active. Hunt through network logs and system artifacts to identify the Borg intrusion vector before it is too late.',
+                  },
+                  {
+                    id: 5,
+                    title: 'Romulan Cloaked Message',
+                    category: 'Web Recon',
+                    difficulty: 'Hard',
+                    difficultyColor: 'var(--lcars-orange)',
+                    description: 'The Romulans have hidden a covert message within plain sight. Use advanced reconnaissance techniques to uncover what has been cloaked.',
+                  },
+                ].map((challenge) => (
+                  <div
+                    key={challenge.id}
+                    className="rounded p-3"
+                    style={{
+                      backgroundColor: 'rgba(153, 153, 255, 0.07)',
+                      border: '1px solid var(--lcars-blue)',
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div
+                        className="text-sm font-bold uppercase tracking-wider"
+                        style={{ color: 'var(--lcars-tan)' }}
+                      >
+                        {challenge.title}
+                      </div>
+                      <span
+                        className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded flex-shrink-0"
+                        style={{
+                          backgroundColor: challenge.difficultyColor,
+                          color: '#000',
+                        }}
+                      >
+                        {challenge.difficulty}
+                      </span>
+                    </div>
+                    <div
+                      className="text-xs uppercase tracking-widest mb-2"
+                      style={{ color: 'var(--lcars-blue)' }}
+                    >
+                      {challenge.category}
+                    </div>
+                    <div
+                      className="text-xs leading-relaxed"
+                      style={{ color: 'var(--lcars-text, #ccc)' }}
+                    >
+                      {challenge.description}
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        type="button"
+                        className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded transition-colors"
+                        style={{
+                          backgroundColor: 'var(--lcars-orange)',
+                          color: '#000',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Begin Challenge
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : activeTab === 'schedule' ? (
             <div className="flex-1 overflow-y-auto p-4 font-mono">
