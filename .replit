@@ -38,5 +38,7 @@ args = "cd StarfleetComms_eval && npm run dev"
 waitForPort = 5000
 
 [deployment]
-deploymentTarget = "cloudrun"
+deploymentTarget = "vm"
+run = ["bash", "-c", "redis-server --port 6379 --bind 127.0.0.1 --requirepass ${REDIS_PASSWORD:-lcars_override_739} --daemonize yes && uvicorn main:app --host 0.0.0.0 --port 8000 & cd StarfleetComms_eval && node dist/index.js"]
+build = ["bash", "-c", "cd StarfleetComms_eval && npm install && npm run build && pip install -r requirements.txt"]
 
