@@ -113,7 +113,7 @@ export default function Communicator() {
   const [rogueAISuccess, setRogueAISuccess] = useState(false);
   const [rogueAIAttempts, setRogueAIAttempts] = useState(0);
   const [borgFilter, setBorgFilter] = useState({ dns: false, http: false, internal: false, suspicious: false });
-  const [borgExpandCollect, setBorgExpandCollect] = useState(false);
+  const [borgExpandedEntries, setBorgExpandedEntries] = useState<number[]>([]);
   const [borgHintLevel, setBorgHintLevel] = useState(0);
   const [borgFlagInput, setBorgFlagInput] = useState('');
   const [borgFlagResult, setBorgFlagResult] = useState<'correct' | 'incorrect' | null>(null);
@@ -1881,6 +1881,66 @@ export default function Communicator() {
                     'The payload in that request may be encoded.',
                     'Common encoding schemes include Base64. Try decoding the payload.',
                   ];
+                  const getDetails = (entry: LogEntry, idx: number): Array<{ label: string; value: string; highlight?: boolean }> => {
+                    if (entry.isCollect) return [
+                      { label: 'Method', value: 'POST' },
+                      { label: 'Host', value: 'assimilation-node.local' },
+                      { label: 'Content-Type', value: 'application/octet-stream' },
+                      { label: 'Content-Length', value: '118 bytes' },
+                      { label: 'Payload', value: 'QlNJREVTe0JvcmdfQ29tbWFuZF9PdmVycmlkZX0=', highlight: true },
+                    ];
+                    if (entry.cat === 'dns' && entry.text.includes('Query:')) {
+                      const host = entry.text.replace('DNS Query: ', '');
+                      return [
+                        { label: 'Type', value: 'A' },
+                        { label: 'Class', value: 'IN' },
+                        { label: 'Host', value: host },
+                        { label: 'Recursion', value: 'desired' },
+                        { label: 'Resolver', value: '10.0.0.1:53' },
+                      ];
+                    }
+                    if (entry.cat === 'dns' && entry.text.includes('Response:')) {
+                      const ip = entry.text.split(': ').pop() || '';
+                      return [
+                        { label: 'Record', value: 'A' },
+                        { label: 'TTL', value: '60s' },
+                        { label: 'Answer', value: ip },
+                        { label: 'Status', value: 'NOERROR' },
+                      ];
+                    }
+                    if (entry.cat === 'http' && entry.text.startsWith('Response:')) {
+                      const size = (idx * 37 + 30) % 200 + 50;
+                      return [
+                        { label: 'Protocol', value: 'HTTP/1.1' },
+                        { label: 'Status', value: entry.text.replace('Response: ', '') },
+                        { label: 'Content-Type', value: 'application/octet-stream' },
+                        { label: 'Content-Length', value: `${size} bytes` },
+                        { label: 'Connection', value: 'keep-alive' },
+                      ];
+                    }
+                    if (entry.cat === 'http') {
+                      const method = entry.text.startsWith('HTTP POST') ? 'POST' : 'GET';
+                      const path = entry.text.split(' ')[2] || '/';
+                      const size = (idx * 53 + 16) % 128 + 16;
+                      return [
+                        { label: 'Method', value: method },
+                        { label: 'Path', value: path },
+                        { label: 'Protocol', value: 'HTTP/1.1' },
+                        { label: 'User-Agent', value: 'BorgNode/4.4' },
+                        { label: 'Content-Length', value: `${size} bytes` },
+                        { label: 'Connection', value: 'keep-alive' },
+                      ];
+                    }
+                    const pid = (idx * 17 + 7700) % 100 + 7700;
+                    const mem = (idx * 11 + 100) % 64 + 100;
+                    return [
+                      { label: 'Process', value: 'borg-core' },
+                      { label: 'PID', value: `${pid}` },
+                      { label: 'Thread', value: 'core-sync' },
+                      { label: 'Memory', value: `${mem}MB used` },
+                      { label: 'Status', value: 'OK' },
+                    ];
+                  };
                   return (
                     <div className="flex flex-col gap-3">
                       {/* Header */}
@@ -1890,7 +1950,7 @@ export default function Communicator() {
                           onClick={() => {
                             setActiveCTF(null);
                             setBorgFilter({ dns: false, http: false, internal: false, suspicious: false });
-                            setBorgExpandCollect(false);
+                            setBorgExpandedEntries([]);
                             setBorgHintLevel(0);
                             setBorgFlagInput('');
                             setBorgFlagResult(null);
@@ -1952,37 +2012,37 @@ export default function Communicator() {
                       <div className="rounded p-3" style={{ backgroundColor: '#050505', border: '1px solid #222', minHeight: '200px' }}>
                         <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#666' }}>Console Log Stream</div>
                         <div className="space-y-0.5 font-mono text-xs">
-                          {visibleLogs.map((entry, i) => (
-                            <div key={i}>
-                              <div
-                                className={entry.isCollect ? 'cursor-pointer' : ''}
-                                onClick={entry.isCollect ? () => setBorgExpandCollect(v => !v) : undefined}
-                                style={{
-                                  color: entry.suspicious ? '#ff9900' : entry.cat === 'dns' ? '#66aaff' : entry.cat === 'http' ? '#aaffaa' : '#555',
-                                  backgroundColor: entry.isCollect ? 'rgba(255,153,0,0.08)' : 'transparent',
-                                  padding: entry.isCollect ? '2px 4px' : '0',
-                                  borderRadius: '2px',
-                                }}
-                              >
-                                <span style={{ color: '#444' }}>[{entry.time}]</span> {entry.text}
-                                {entry.isCollect && (
-                                  <span style={{ color: '#ff6600', marginLeft: '6px' }}>
-                                    {borgExpandCollect ? '▲ collapse' : '▶ inspect'}
+                          {visibleLogs.map((entry, i) => {
+                            const globalIdx = borgLogs.indexOf(entry);
+                            const isExpanded = borgExpandedEntries.includes(globalIdx);
+                            const details = getDetails(entry, globalIdx);
+                            return (
+                              <div key={i}>
+                                <div
+                                  className="cursor-pointer"
+                                  onClick={() => setBorgExpandedEntries(prev =>
+                                    prev.includes(globalIdx) ? prev.filter(x => x !== globalIdx) : [...prev, globalIdx]
+                                  )}
+                                  style={{ color: '#7aaa88', padding: '1px 2px', borderRadius: '2px' }}
+                                >
+                                  <span style={{ color: '#444' }}>[{entry.time}]</span> {entry.text}
+                                  <span style={{ color: '#3a6a48', marginLeft: '6px', fontSize: '10px' }}>
+                                    {isExpanded ? '▲' : '▶'}
                                   </span>
+                                </div>
+                                {isExpanded && (
+                                  <div className="rounded p-2 mt-0.5 mb-0.5" style={{ backgroundColor: '#0a0f0a', border: '1px solid #2a4a2a', marginLeft: '8px' }}>
+                                    {details.map((d, di) => (
+                                      <div key={di} className="flex gap-2" style={{ lineHeight: '1.5' }}>
+                                        <span style={{ color: '#4a7a58', minWidth: '90px' }}>{d.label}:</span>
+                                        <span style={{ color: d.highlight ? '#ffcc66' : '#7aaa88', wordBreak: 'break-all', userSelect: 'text' }}>{d.value}</span>
+                                      </div>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
-                              {entry.isCollect && borgExpandCollect && (
-                                <div className="rounded p-2 mt-1 mb-1" style={{ backgroundColor: '#0f0800', border: '1px solid #ff6600', marginLeft: '8px' }}>
-                                  <div style={{ color: '#ff9900', fontWeight: 'bold' }}>POST /collect</div>
-                                  <div style={{ color: '#666' }}>Host: assimilation-node.local</div>
-                                  <div style={{ color: '#666', marginTop: '4px' }}>Payload:</div>
-                                  <div style={{ color: '#ffcc66', wordBreak: 'break-all', marginTop: '2px', userSelect: 'text' }}>
-                                    QlNJREVTe0JvcmdfQ29tbWFuZF9PdmVycmlkZX0=
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                           {visibleLogs.length === 0 && (
                             <div style={{ color: '#444' }}>No entries match selected filters.</div>
                           )}
