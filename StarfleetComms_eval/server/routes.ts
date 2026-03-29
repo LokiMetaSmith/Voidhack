@@ -1,25 +1,187 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
-import { chatRequestSchema, conversationMessageSchema, appUsers } from "@shared/schema";
+import {
+  chatRequestSchema,
+  conversationMessageSchema,
+  appUsers,
+  saveProgressSchema,
+  saveCTFProgressSchema,
+} from "@shared/schema";
 import { generateComputerResponse } from "./gemini";
 import { storage, db } from "./storage";
-import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "./auth";
 
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session?.userId) {
+    return res.status(401).json({ error: "Not authenticated." });
+  }
+  next();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth: check current session
+  app.get("/api/auth/me", (req, res) => {
+    if (req.session?.userId) {
+      return res.json({ authenticated: true, userId: req.session.userId });
+    }
+    res.json({ authenticated: false });
+  });
+
+  // Auth: register a new user
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { userId, password } = req.body;
+      if (!userId || !password) {
+        return res.status(400).json({ error: "User ID and password are required." });
+      }
+      if (password.length < 8 || password.length > 25) {
+        return res.status(400).json({ error: "Password must be 8–25 characters." });
+      }
+      const existing = await db.select().from(appUsers).where(eq(appUsers.userId, userId)).limit(1);
+      if (existing.length > 0) {
+        return res.status(409).json({ error: "User ID already exists." });
+      }
+      const passwordHash = hashPassword(password);
+      const [user] = await db.insert(appUsers).values({ userId, passwordHash }).returning();
+      res.status(201).json({ success: true, userId: user.userId });
+    } catch (error) {
+      console.error("Register error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Auth: login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { userId, password } = req.body;
+      if (!userId || !password) {
+        return res.status(400).json({ error: "User ID and password are required." });
+      }
+      const [user] = await db.select().from(appUsers).where(eq(appUsers.userId, userId)).limit(1);
+      if (!user || !verifyPassword(password, user.passwordHash)) {
+        return res.status(401).json({ error: "Invalid User ID or password." });
+      }
+      req.session.userId = user.userId;
+      res.json({ success: true, userId: user.userId });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Auth: logout
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.json({ success: true });
+    });
+  });
+
+  // Get all progress for the current user (game state + CTF progress)
+  app.get("/api/progress", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const [userProg, ctfProgresses] = await Promise.all([
+        storage.getUserProgress(userId),
+        storage.getAllCTFProgress(userId),
+      ]);
+
+      // Also load conversation messages if a conversationId is stored
+      let conversationMessages: Array<{ id: string; role: string; text: string; timestamp: number }> = [];
+      const conversationId = userProg?.conversationId ?? null;
+      if (conversationId) {
+        const msgs = await storage.getConversationMessages(conversationId);
+        conversationMessages = msgs.map(m => ({
+          id: m.id,
+          role: m.role,
+          text: m.text,
+          timestamp: m.timestamp,
+        }));
+      }
+
+      // Build a map of challengeId -> progress
+      const ctfMap: Record<string, { completed: boolean; progressData: unknown }> = {};
+      for (const cp of ctfProgresses) {
+        ctfMap[cp.challengeId] = {
+          completed: cp.completed,
+          progressData: cp.progressData,
+        };
+      }
+
+      res.json({
+        rank: userProg?.rank ?? "Cadet",
+        xp: userProg?.xp ?? 0,
+        conversationId,
+        conversationMessages,
+        ctf: ctfMap,
+      });
+    } catch (error) {
+      console.error("Get progress error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Save game state progress (rank, XP)
+  app.put("/api/progress", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const validated = saveProgressSchema.parse(req.body);
+      const updated = await storage.upsertUserProgress(userId, validated);
+      res.json({ success: true, rank: updated.rank, xp: updated.xp });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data." });
+      }
+      console.error("Save progress error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Save CTF challenge progress
+  app.put("/api/ctf/:challengeId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { challengeId } = req.params;
+      const validated = saveCTFProgressSchema.parse(req.body);
+      const updated = await storage.upsertCTFProgress(userId, challengeId, {
+        completed: validated.completed,
+        progressData: validated.progressData as Record<string, unknown>,
+      });
+      res.json({ success: true, challengeId: updated.challengeId, completed: updated.completed });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data." });
+      }
+      console.error("Save CTF progress error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
   // Chat endpoint for Enterprise Computer
   app.post("/api/chat", async (req, res) => {
     try {
-      // Validate request body
       const validatedData = chatRequestSchema.parse(req.body);
+      const userId = req.session?.userId;
 
-      // Get or create conversation
+      // Get or create conversation tied to this user
       let conversationId = validatedData.conversationId;
       if (!conversationId) {
-        const newConversation = await storage.createConversation();
-        conversationId = newConversation.id;
+        // Try to reuse the user's existing conversation from progress
+        if (userId) {
+          const userProg = await storage.getUserProgress(userId);
+          if (userProg?.conversationId) {
+            conversationId = userProg.conversationId;
+          }
+        }
+        if (!conversationId) {
+          const newConversation = await storage.createConversation(userId);
+          conversationId = newConversation.id;
+          // Link this conversation to the user's progress
+          if (userId) {
+            await storage.upsertUserProgress(userId, { conversationId });
+          }
+        }
       }
 
       // Get conversation history from database if not provided
@@ -56,6 +218,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         text: computerResponse,
         timestamp: Date.now(),
       });
+
+      // Update conversation updatedAt by touching the user's progress record
+      if (userId) {
+        await storage.upsertUserProgress(userId, { conversationId });
+      }
 
       res.json({
         message: computerResponse,
@@ -102,53 +269,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const conversationId = req.params.id;
       await storage.deleteConversation(conversationId);
+
+      // Also clear the conversationId from user's progress if it's theirs
+      const userId = req.session?.userId;
+      if (userId) {
+        const userProg = await storage.getUserProgress(userId);
+        if (userProg?.conversationId === conversationId) {
+          await storage.upsertUserProgress(userId, { conversationId: null });
+        }
+      }
+
       res.json({ success: true });
     } catch (error) {
       console.error("Delete conversation error:", error);
       res.status(500).json({
         error: error instanceof Error ? error.message : "Internal server error"
       });
-    }
-  });
-
-  // Auth: register a new user
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const { userId, password } = req.body;
-      if (!userId || !password) {
-        return res.status(400).json({ error: "User ID and password are required." });
-      }
-      if (password.length < 8 || password.length > 25) {
-        return res.status(400).json({ error: "Password must be 8–25 characters." });
-      }
-      const existing = await db.select().from(appUsers).where(eq(appUsers.userId, userId)).limit(1);
-      if (existing.length > 0) {
-        return res.status(409).json({ error: "User ID already exists." });
-      }
-      const passwordHash = hashPassword(password);
-      const [user] = await db.insert(appUsers).values({ userId, passwordHash }).returning();
-      res.status(201).json({ success: true, userId: user.userId });
-    } catch (error) {
-      console.error("Register error:", error);
-      res.status(500).json({ error: "Internal server error." });
-    }
-  });
-
-  // Auth: login
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { userId, password } = req.body;
-      if (!userId || !password) {
-        return res.status(400).json({ error: "User ID and password are required." });
-      }
-      const [user] = await db.select().from(appUsers).where(eq(appUsers.userId, userId)).limit(1);
-      if (!user || !verifyPassword(password, user.passwordHash)) {
-        return res.status(401).json({ error: "Invalid User ID or password." });
-      }
-      res.json({ success: true, userId: user.userId });
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Internal server error." });
     }
   });
 

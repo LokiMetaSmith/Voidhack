@@ -131,13 +131,24 @@ A voice-interactive web application that emulates the iconic Star Trek Enterpris
 
 ### Data Schema
 ```typescript
-ConversationMessage {
-  id: string
-  role: "user" | "computer"
-  text: string
-  timestamp: number
-}
+// app_users: authentication
+// conversations: chat sessions (linked to user via user_id FK)
+// messages: individual chat messages within a conversation
+// user_progress: per-user rank, XP, and active conversationId
+// ctf_progress: per-user, per-challenge JSON state (completed flag + progress data)
 ```
+
+### API Endpoints
+- `GET /api/auth/me` - check if the current session is authenticated
+- `POST /api/auth/login` - log in; sets server-side session cookie
+- `POST /api/auth/logout` - destroy session
+- `POST /api/auth/register` - create a new user account
+- `GET /api/progress` - load authenticated user's full progress (rank, XP, conversation, CTF state)
+- `PUT /api/progress` - save rank/XP changes for the authenticated user
+- `PUT /api/ctf/:challengeId` - save CTF challenge progress for the authenticated user
+- `POST /api/chat` - send message, receive Enterprise Computer response (conversation tied to user)
+- `GET /api/conversations/:id/messages` - retrieve conversation message history
+- `DELETE /api/conversations/:id` - delete conversation
 
 ## User Preferences
 - Authentic Star Trek LCARS design aesthetic

@@ -75,6 +75,7 @@ function rot13(str: string): string {
 export default function Communicator() {
   const [activeTab, setActiveTab] = useState<'computer' | 'schedule' | 'rank' | 'ctfs'>("computer");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loginUserId, setLoginUserId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -436,9 +437,82 @@ export default function Communicator() {
     }
   }, [isListening]);
 
-  // Load existing conversation on mount
+  // Helper to apply loaded progress state from the server
+  const applyProgress = useCallback((data: {
+    rank?: string;
+    xp?: number;
+    conversationId?: string | null;
+    conversationMessages?: Array<{ id: string; role: string; text: string; timestamp: number }>;
+    ctf?: Record<string, { completed: boolean; progressData: Record<string, unknown> }>;
+  }) => {
+    if (data.conversationId) {
+      setConversationId(data.conversationId);
+      localStorage.setItem("currentConversationId", data.conversationId);
+    }
+    if (data.conversationMessages && data.conversationMessages.length > 0) {
+      setMessages(data.conversationMessages.map(m => ({
+        id: m.id,
+        role: m.role as "user" | "computer",
+        text: m.text,
+        timestamp: m.timestamp,
+      })));
+    }
+    if (data.ctf) {
+      const klingon = data.ctf["klingon"];
+      if (klingon?.progressData) {
+        const pd = klingon.progressData as Record<string, unknown>;
+        if (pd.progress) setKlingonProgress(pd.progress as { analyzed: boolean; identified: boolean; decoded: boolean });
+        if (pd.flagResult !== undefined) setKlingonFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
+        if (pd.hintLevel !== undefined) setKlingonHintLevel(pd.hintLevel as number);
+      }
+      const holodeck = data.ctf["holodeck"];
+      if (holodeck?.progressData) {
+        const pd = holodeck.progressData as Record<string, unknown>;
+        if (pd.attempts !== undefined) setHolodeckAttempts(pd.attempts as number);
+        if (pd.screen !== undefined) setHolodeckScreen(pd.screen as 'login' | 'programs' | 'archive');
+        if (pd.flagResult !== undefined) setHolodeckFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
+      }
+      const rogueai = data.ctf["rogueai"];
+      if (rogueai?.progressData) {
+        const pd = rogueai.progressData as Record<string, unknown>;
+        if (pd.flagResult !== undefined) setRogueAIFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
+        if (pd.success !== undefined) setRogueAISuccess(pd.success as boolean);
+        if (pd.attempts !== undefined) setRogueAIAttempts(pd.attempts as number);
+        if (pd.hintLevel !== undefined) setRogueAIHintLevel(pd.hintLevel as number);
+        if (pd.chatLog !== undefined) setRogueAIChatLog(pd.chatLog as { role: 'user' | 'ai'; text: string }[]);
+      }
+      const borg = data.ctf["borg"];
+      if (borg?.progressData) {
+        const pd = borg.progressData as Record<string, unknown>;
+        if (pd.flagResult !== undefined) setBorgFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
+        if (pd.hintLevel !== undefined) setBorgHintLevel(pd.hintLevel as number);
+      }
+    }
+  }, []);
+
+  // Check session and restore progress on mount
   useEffect(() => {
-    const loadConversation = async () => {
+    const restoreSession = async () => {
+      try {
+        const meRes = await fetch("/api/auth/me");
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData.authenticated && meData.userId) {
+            setIsAuthenticated(true);
+            setCurrentUserId(meData.userId);
+            setLoginUserId(meData.userId);
+            const progRes = await fetch("/api/progress");
+            if (progRes.ok) {
+              const progData = await progRes.json();
+              applyProgress(progData);
+            }
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Session restore failed:", error);
+      }
+      // Fall back to localStorage conversation if not authenticated
       const savedConversationId = localStorage.getItem("currentConversationId");
       if (savedConversationId) {
         try {
@@ -453,8 +527,55 @@ export default function Communicator() {
         }
       }
     };
-    loadConversation();
-  }, []);
+    restoreSession();
+  }, [applyProgress]);
+
+  // Save CTF progress to server whenever relevant state changes (debounced per challenge)
+  const saveCTFRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const saveCTFProgress = useCallback((challengeId: string, completed: boolean, progressData: Record<string, unknown>) => {
+    if (!currentUserId) return;
+    if (saveCTFRef.current[challengeId]) clearTimeout(saveCTFRef.current[challengeId]);
+    saveCTFRef.current[challengeId] = setTimeout(() => {
+      fetch(`/api/ctf/${challengeId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed, progressData }),
+      }).catch(err => console.error(`Failed to save CTF progress for ${challengeId}:`, err));
+    }, 800);
+  }, [currentUserId]);
+
+  useEffect(() => {
+    saveCTFProgress("klingon", klingonFlagResult === 'correct', {
+      progress: klingonProgress,
+      flagResult: klingonFlagResult,
+      hintLevel: klingonHintLevel,
+    });
+  }, [klingonProgress, klingonFlagResult, klingonHintLevel, saveCTFProgress]);
+
+  useEffect(() => {
+    saveCTFProgress("holodeck", holodeckFlagResult === 'correct', {
+      attempts: holodeckAttempts,
+      screen: holodeckScreen,
+      flagResult: holodeckFlagResult,
+    });
+  }, [holodeckAttempts, holodeckScreen, holodeckFlagResult, saveCTFProgress]);
+
+  useEffect(() => {
+    saveCTFProgress("rogueai", rogueAIFlagResult === 'correct', {
+      flagResult: rogueAIFlagResult,
+      success: rogueAISuccess,
+      attempts: rogueAIAttempts,
+      hintLevel: rogueAIHintLevel,
+      chatLog: rogueAIChatLog,
+    });
+  }, [rogueAIFlagResult, rogueAISuccess, rogueAIAttempts, rogueAIHintLevel, rogueAIChatLog, saveCTFProgress]);
+
+  useEffect(() => {
+    saveCTFProgress("borg", borgFlagResult === 'correct', {
+      flagResult: borgFlagResult,
+      hintLevel: borgHintLevel,
+    });
+  }, [borgFlagResult, borgHintLevel, saveCTFProgress]);
 
   // Chat mutation
   const chatMutation = useMutation({
@@ -883,6 +1004,17 @@ export default function Communicator() {
       const data = await res.json();
       if (res.ok && data.success) {
         setIsAuthenticated(true);
+        setCurrentUserId(data.userId);
+        // Load persisted progress from server
+        try {
+          const progRes = await fetch("/api/progress");
+          if (progRes.ok) {
+            const progData = await progRes.json();
+            applyProgress(progData);
+          }
+        } catch (err) {
+          console.error("Failed to load progress after login:", err);
+        }
       } else {
         setLoginError(data.error || "Authentication failed.");
       }
@@ -929,14 +1061,37 @@ export default function Communicator() {
     }
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
     setIsAuthenticated(false);
+    setCurrentUserId(null);
     setLoginUserId("");
     setLoginPassword("");
     setLoginError("");
     setShowPassword(false);
     setUserIdTouched(false);
     setPasswordTouched(false);
+    // Clear CTF and conversation state so next user starts fresh
+    setMessages([]);
+    setConversationId(null);
+    localStorage.removeItem("currentConversationId");
+    setKlingonProgress({ analyzed: false, identified: false, decoded: false });
+    setKlingonFlagResult(null);
+    setKlingonHintLevel(0);
+    setHolodeckAttempts(0);
+    setHolodeckScreen('login');
+    setHolodeckFlagResult(null);
+    setRogueAIChatLog([]);
+    setRogueAIFlagResult(null);
+    setRogueAISuccess(false);
+    setRogueAIAttempts(0);
+    setRogueAIHintLevel(0);
+    setBorgFlagResult(null);
+    setBorgHintLevel(0);
   };
 
   return (
