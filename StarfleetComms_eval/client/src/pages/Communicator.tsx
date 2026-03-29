@@ -2063,7 +2063,7 @@ export default function Communicator() {
                         title: 'Borg Command Console',
                         category: 'Threat Hunting',
                         difficulty: 'Hard',
-                        difficultyColor: 'var(--lcars-orange)',
+                        difficultyColor: 'var(--lcars-blue)',
                         description: 'Assimilation protocols are active. Hunt through network logs and system artifacts to identify the Borg intrusion vector before it is too late.',
                       },
                       {
