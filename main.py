@@ -708,7 +708,6 @@ async def startup_event():
         # Better to just log it and rely on the global variable concept if we were using a class,
         # but here we can just set it in os.environ for the process life.
         os.environ["GAME_ADMIN_TOKEN"] = token
-    logging.info(f"GAME ADMIN TOKEN: {token}")
     asyncio.create_task(radiation_leak_simulator())
 
 async def broadcast_state_change():
