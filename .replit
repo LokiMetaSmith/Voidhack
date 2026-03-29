@@ -37,3 +37,6 @@ task = "shell.exec"
 args = "cd StarfleetComms_eval && npm run dev"
 waitForPort = 5000
 
+[deployment]
+deploymentTarget = "cloudrun"
+
