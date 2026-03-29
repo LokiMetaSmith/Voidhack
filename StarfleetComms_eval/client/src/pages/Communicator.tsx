@@ -42,7 +42,7 @@ const MAIN_SCHEDULE = [
     ],
   },
   {
-    room: "South Room",
+    room: "Center Room",
     sessions: [
       { time: "09:00am - 10:00am", title: "How to steal a network", speaker: "Andrew Lemon" },
       { time: "10:00am - 11:00am", title: "The Adversary Doesn't Care About Your Compliance Score", speaker: "Ian Anderson" },
@@ -53,7 +53,7 @@ const MAIN_SCHEDULE = [
     ],
   },
   {
-    room: "Center Room",
+    room: "South Room",
     sessions: [
       { time: "09:00am - 10:00am", title: "How to steal a network", speaker: "Andrew Lemon" },
       { time: "10:00am - 11:00am", title: "Hardening the OS - Fighting 0-Days with Modern Exploit Defenses", speaker: "Michael Oglesby" },
