@@ -2740,44 +2740,48 @@ export default function Communicator() {
           ) : (
             <>
               <div className="flex-1 flex flex-col overflow-hidden p-4" style={{ minHeight: 0 }}>
-                {/* Chat history — grows to fill available space */}
-                <div className="flex-1 overflow-y-auto mb-2" style={{ minHeight: 0 }}>
-                  {uiErrors.length > 0 && (
-                    <div className="w-full max-w-2xl mx-auto mb-2 space-y-1">
-                      {uiErrors.map((err) => (
-                        <div
-                          key={err.id}
-                          className="flex items-center justify-between gap-2 px-3 py-2 rounded text-sm font-mono"
+                {/* Errors — always shown at top */}
+                {uiErrors.length > 0 && (
+                  <div className="flex-shrink-0 w-full max-w-2xl mx-auto mb-2 space-y-1">
+                    {uiErrors.map((err) => (
+                      <div
+                        key={err.id}
+                        className="flex items-center justify-between gap-2 px-3 py-2 rounded text-sm font-mono"
+                        style={{
+                          backgroundColor: 'rgba(204, 0, 0, 0.15)',
+                          border: '1px solid var(--lcars-red)',
+                          color: 'var(--lcars-red)',
+                        }}
+                      >
+                        <span className="flex-1 break-words">{err.message}</span>
+                        <button
+                          onClick={() => dismissUiError(err.id)}
+                          className="flex-shrink-0 text-xs uppercase tracking-wider px-2 py-0.5 rounded"
                           style={{
-                            backgroundColor: 'rgba(204, 0, 0, 0.15)',
-                            border: '1px solid var(--lcars-red)',
                             color: 'var(--lcars-red)',
+                            border: '1px solid var(--lcars-red)',
+                            background: 'transparent',
+                            cursor: 'pointer',
                           }}
                         >
-                          <span className="flex-1 break-words">{err.message}</span>
-                          <button
-                            onClick={() => dismissUiError(err.id)}
-                            className="flex-shrink-0 text-xs uppercase tracking-wider px-2 py-0.5 rounded"
-                            style={{
-                              color: 'var(--lcars-red)',
-                              border: '1px solid var(--lcars-red)',
-                              background: 'transparent',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <ConversationDisplay messages={messages} />
-                </div>
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-                {/* Voice controls — capped at 30% of viewport on mobile */}
+                {/* Chat history — only shown when messages exist */}
+                {messages.length > 0 && (
+                  <div className="flex-1 overflow-y-auto mb-2" style={{ minHeight: 0 }}>
+                    <ConversationDisplay messages={messages} />
+                  </div>
+                )}
+
+                {/* Voice controls — centered when no history, anchored to bottom otherwise */}
                 <div
-                  className="flex-shrink-0 flex flex-col"
-                  style={{ maxHeight: '30dvh', overflowY: 'auto' }}
+                  className={messages.length === 0 ? 'flex-1 flex flex-col items-center justify-center' : 'flex-shrink-0 flex flex-col'}
+                  style={messages.length > 0 ? { maxHeight: '30dvh', overflowY: 'auto' } : {}}
                 >
                   <div className="w-full max-w-2xl mx-auto mb-2">
                     <StatusIndicator state={voiceState} />

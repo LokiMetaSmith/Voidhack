@@ -66,7 +66,7 @@ export function VoiceControlPanel({
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 p-8">
+    <div className="flex flex-col items-center gap-3 p-4">
       <div className="text-sm font-bold tracking-widest uppercase" style={{ color: getStatusColor() }}>
         {getStatusLabel()}
       </div>
@@ -74,7 +74,7 @@ export function VoiceControlPanel({
       <div className="relative">
         <button
           data-testid="button-voice-control"
-          className={`h-32 w-32 rounded-full transition-all duration-300 flex items-center justify-center ${
+          className={`h-20 w-20 rounded-full transition-all duration-300 flex items-center justify-center ${
             isListening ? "animate-pulse" : ""
           }`}
           style={{
@@ -92,15 +92,15 @@ export function VoiceControlPanel({
           disabled={isProcessing || isSpeaking || isCheckingPermission || isPermissionDenied}
         >
           {isCheckingPermission ? (
-            <Mic className="h-16 w-16 opacity-50" />
+            <Mic className="h-10 w-10 opacity-50" />
           ) : isPermissionDenied ? (
-            <AlertCircle className="h-16 w-16" />
+            <AlertCircle className="h-10 w-10" />
           ) : isListening ? (
-            <MicOff className="h-16 w-16" />
+            <MicOff className="h-10 w-10" />
           ) : isSpeaking ? (
-            <Volume2 className="h-16 w-16" />
+            <Volume2 className="h-10 w-10" />
           ) : (
-            <Mic className="h-16 w-16" />
+            <Mic className="h-10 w-10" />
           )}
         </button>
 
@@ -109,8 +109,8 @@ export function VoiceControlPanel({
             <div
               className="rounded-full transition-all duration-100"
               style={{
-                width: `${132 + audioLevel * 40}px`,
-                height: `${132 + audioLevel * 40}px`,
+                width: `${84 + audioLevel * 30}px`,
+                height: `${84 + audioLevel * 30}px`,
                 backgroundColor: 'rgba(204, 0, 0, 0.2)',
               }}
             />
@@ -122,8 +122,8 @@ export function VoiceControlPanel({
             <div
               className="rounded-full lcars-scan"
               style={{
-                width: '148px',
-                height: '148px',
+                width: '92px',
+                height: '92px',
                 border: '2px solid var(--lcars-orange)',
               }}
             />
