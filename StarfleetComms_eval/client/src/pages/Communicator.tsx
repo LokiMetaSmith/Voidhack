@@ -1607,7 +1607,7 @@ export default function Communicator() {
                         title: 'Klingon Transmission',
                         category: 'Cryptography',
                         difficulty: 'Easy',
-                        difficultyColor: '#39c16c',
+                        difficultyColor: 'var(--lcars-blue)',
                         description: 'Intercept and decode an encrypted Klingon transmission. Analyze the cipher and recover the hidden message buried within the signal.',
                       },
                       {
