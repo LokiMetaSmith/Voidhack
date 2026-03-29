@@ -1027,7 +1027,7 @@ export default function Communicator() {
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>
-                    User ID
+                    Player Name
                   </label>
                   <input
                     type="text"
@@ -2341,7 +2341,7 @@ export default function Communicator() {
               <form onSubmit={handleRegister} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>
-                    User ID
+                    Player Name
                   </label>
                   <input
                     type="text"
