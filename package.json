@@ -7,6 +7,7 @@
     "test": "tests"
   },
   "scripts": {
+    "build": "cd StarfleetComms_eval && npm install && npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
