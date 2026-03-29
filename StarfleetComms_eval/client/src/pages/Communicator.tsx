@@ -2856,7 +2856,7 @@ export default function Communicator() {
       {/* Mobile bottom tab bar — visible only on small screens */}
       <div
         className="flex sm:hidden flex-shrink-0"
-        style={{ backgroundColor: 'var(--lcars-purple)', borderTop: '2px solid var(--lcars-orange)' }}
+        style={{ backgroundColor: 'var(--lcars-purple)', borderTop: '3px solid var(--lcars-orange)', minHeight: '70px' }}
       >
         {(
           [
@@ -2870,7 +2870,7 @@ export default function Communicator() {
           <button
             key={id}
             onClick={() => setActiveTab(id)}
-            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
+            className="flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-colors"
             style={{
               backgroundColor: activeTab === id ? 'var(--lcars-orange)' : 'transparent',
               color: activeTab === id ? '#000' : '#000',
@@ -2878,8 +2878,8 @@ export default function Communicator() {
               minWidth: 0,
             }}
           >
-            <Icon className="h-4 w-4 flex-shrink-0" />
-            <span className="text-xs font-bold uppercase tracking-wide leading-none" style={{ fontSize: '9px' }}>
+            <Icon className="h-6 w-6 flex-shrink-0" />
+            <span className="font-bold uppercase tracking-wide leading-none" style={{ fontSize: '11px' }}>
               {label}
             </span>
           </button>
