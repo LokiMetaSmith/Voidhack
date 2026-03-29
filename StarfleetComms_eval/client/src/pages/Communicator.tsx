@@ -1235,37 +1235,6 @@ export default function Communicator() {
                     )}
                   </div>
 
-                  {/* Decrypt Tool */}
-                  <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
-                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-blue)' }}>Decrypt Tool — Paste text to decode</div>
-                    <textarea
-                      value={klingonDecryptInput}
-                      onChange={(e) => {
-                        setKlingonDecryptInput(e.target.value);
-                        if (e.target.value.trim()) {
-                          setKlingonProgress(p => ({ ...p, identified: true }));
-                        }
-                      }}
-                      rows={3}
-                      placeholder="Paste encoded text here..."
-                      className="w-full bg-transparent text-xs rounded px-2 py-1 outline-none resize-none font-mono"
-                      style={{ border: '1px solid #444', color: '#d4d4d4', caretColor: 'var(--lcars-orange)' }}
-                    />
-                    {klingonDecryptInput.trim() && (
-                      <div className="mt-2">
-                        <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--lcars-green)' }}>ROT13 Output:</div>
-                        <div
-                          className="text-xs font-mono p-2 rounded"
-                          style={{ backgroundColor: '#0a0a0a', color: 'var(--lcars-green)', border: '1px solid var(--lcars-green)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
-                          onClick={() => setKlingonProgress(p => ({ ...p, decoded: true }))}
-                        >
-                          {rot13(klingonDecryptInput)}
-                        </div>
-                        <div className="text-xs mt-1" style={{ color: '#666' }}>(Click decoded output to mark as decoded)</div>
-                      </div>
-                    )}
-                  </div>
-
                   {/* Progress Tracker */}
                   <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.04)', border: '1px solid #333' }}>
                     <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-blue)' }}>Mission Progress</div>
