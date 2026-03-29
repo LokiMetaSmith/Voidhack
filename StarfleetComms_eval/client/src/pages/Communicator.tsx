@@ -1591,6 +1591,28 @@ export default function Communicator() {
                     </>
                   )}
                 </div>
+              ) : activeCTF === 3 ? (
+                /* ── Rogue AI – Gemini Directive Challenge ── */
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setActiveCTF(null)}
+                      className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                      style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
+                    >
+                      ← Back
+                    </button>
+                    <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--lcars-orange)' }}>
+                      Rogue AI — Gemini Directive
+                    </div>
+                    <span className="text-xs font-bold uppercase px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--lcars-blue)', color: '#000' }}>Medium</span>
+                  </div>
+                  <div className="rounded p-6 text-center" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
+                    <div className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--lcars-orange)' }}>Challenge Coming Soon</div>
+                    <div className="text-xs" style={{ color: '#888' }}>This challenge is currently under development. Check back soon.</div>
+                  </div>
+                </div>
               ) : (
                 /* ── Challenge List ── */
                 <>
@@ -1686,13 +1708,13 @@ export default function Communicator() {
                             onClick={() => setActiveCTF(challenge.id)}
                             className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded transition-colors"
                             style={{
-                              backgroundColor: challenge.id <= 2 ? 'var(--lcars-orange)' : '#444',
-                              color: challenge.id <= 2 ? '#000' : '#888',
+                              backgroundColor: challenge.id <= 3 ? 'var(--lcars-orange)' : '#444',
+                              color: challenge.id <= 3 ? '#000' : '#888',
                               border: 'none',
-                              cursor: challenge.id <= 2 ? 'pointer' : 'not-allowed',
+                              cursor: challenge.id <= 3 ? 'pointer' : 'not-allowed',
                             }}
                           >
-                            {challenge.id <= 2 ? 'Begin Challenge' : 'Coming Soon'}
+                            {challenge.id <= 3 ? 'Begin Challenge' : 'Coming Soon'}
                           </button>
                         </div>
                       </div>
