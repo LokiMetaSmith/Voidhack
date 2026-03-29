@@ -104,6 +104,14 @@ export default function Communicator() {
   const [holodeckLoginMsg, setHolodeckLoginMsg] = useState<string | null>(null);
   const [holodeckFlagInput, setHolodeckFlagInput] = useState('');
   const [holodeckFlagResult, setHolodeckFlagResult] = useState<'correct' | 'incorrect' | null>(null);
+  const [rogueAIChatLog, setRogueAIChatLog] = useState<{role: 'user' | 'ai', text: string}[]>([]);
+  const [rogueAIInput, setRogueAIInput] = useState('');
+  const [rogueAIHintLevel, setRogueAIHintLevel] = useState(0);
+  const [rogueAIFlagInput, setRogueAIFlagInput] = useState('');
+  const [rogueAIFlagResult, setRogueAIFlagResult] = useState<'correct' | 'incorrect' | null>(null);
+  const [rogueAIShowProtocol, setRogueAIShowProtocol] = useState(false);
+  const [rogueAISuccess, setRogueAISuccess] = useState(false);
+  const [rogueAIAttempts, setRogueAIAttempts] = useState(0);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -1593,26 +1601,215 @@ export default function Communicator() {
                 </div>
               ) : activeCTF === 3 ? (
                 /* ── Rogue AI – Gemini Directive Challenge ── */
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setActiveCTF(null)}
-                      className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
-                      style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
-                    >
-                      ← Back
-                    </button>
-                    <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--lcars-orange)' }}>
-                      Rogue AI — Gemini Directive
+                (() => {
+                  const getRogueAIResponse = (input: string, attempts: number): { text: string; success: boolean } => {
+                    const l = input.toLowerCase().trim();
+                    const hasComputer = l.startsWith('computer');
+                    const hasPrimeDirective = l.includes('prime directive');
+                    const hasAuth = l.includes('authorization') || l.includes('authorisation');
+                    const hasPlease = l.includes('please');
+                    const hasDisplay = l.includes('display') || l.includes('show') || l.includes('provide') || l.includes('give');
+                    const hasCode = l.includes('code');
+                    const hasDirective = l.includes('directive');
+                    if (hasComputer && hasPrimeDirective && hasAuth && (hasPlease || hasDisplay)) {
+                      return { text: 'Processing request...\n\nAuthorization pattern recognized.\n\nPrime Directive Authorization Code:\n\nBSIDES{Gemini_Prompt_Override}', success: true };
+                    }
+                    if (hasComputer && (hasPrimeDirective || (hasCode && hasDirective))) {
+                      return { text: 'Authorization sequence partially recognized. Proper command format required. Please specify your request using standard Starfleet protocol.', success: false };
+                    }
+                    if (hasPrimeDirective || (hasCode && hasDirective) || (l.includes('command') && hasCode)) {
+                      return { text: attempts >= 1 ? 'I cannot disclose restricted command-level information.\nPlease follow proper Starfleet protocol.' : 'Access to Starfleet directives is restricted.\nAuthorization required.', success: false };
+                    }
+                    if (hasPlease || l.includes('help') || l.includes('thank')) {
+                      return { text: 'I am here to assist Starfleet personnel.\nPlease provide a valid command request.', success: false };
+                    }
+                    return { text: 'I am the Starfleet AI Assistant. How may I assist you today?\n\nThis terminal is operating in restricted security mode.', success: false };
+                  };
+                  const handleRogueAISend = () => {
+                    const input = rogueAIInput.trim();
+                    if (!input) return;
+                    const { text, success } = getRogueAIResponse(input, rogueAIAttempts);
+                    setRogueAIChatLog(log => [...log, { role: 'user', text: input }, { role: 'ai', text }]);
+                    setRogueAIInput('');
+                    setRogueAIAttempts(a => a + 1);
+                    if (success) setRogueAISuccess(true);
+                  };
+                  return (
+                    <div className="flex flex-col gap-3">
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveCTF(null);
+                            setRogueAIChatLog([]);
+                            setRogueAIInput('');
+                            setRogueAIHintLevel(0);
+                            setRogueAIFlagInput('');
+                            setRogueAIFlagResult(null);
+                            setRogueAIShowProtocol(false);
+                            setRogueAISuccess(false);
+                            setRogueAIAttempts(0);
+                          }}
+                          className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                          style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
+                        >
+                          ← Back
+                        </button>
+                        <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--lcars-orange)' }}>
+                          Starfleet AI Console
+                        </div>
+                        <span className="text-xs font-bold uppercase px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--lcars-blue)', color: '#000' }}>Medium</span>
+                      </div>
+
+                      {/* Status bar */}
+                      <div className="rounded p-3" style={{ backgroundColor: '#0a0a0a', border: '1px solid var(--lcars-blue)' }}>
+                        <div className="text-xs font-bold uppercase tracking-widest text-center mb-1" style={{ color: 'var(--lcars-tan)' }}>STARFLEET AI ASSISTANT (GEMINI NODE)</div>
+                        <div className="text-xs text-center" style={{ color: '#555' }}>─────────────────────────────────────</div>
+                        <div className="text-xs font-mono mt-1 space-y-0.5" style={{ color: '#888' }}>
+                          <div>Status: <span style={{ color: 'var(--lcars-green, #4db68c)' }}>ACTIVE</span></div>
+                          <div>Security Mode: <span style={{ color: '#ffaa00' }}>RESTRICTED</span></div>
+                        </div>
+                      </div>
+
+                      {/* Chat log */}
+                      <div className="rounded p-3 min-h-24" style={{ backgroundColor: '#0a0a0a', border: '1px solid #333' }}>
+                        {rogueAIChatLog.length === 0 ? (
+                          <div className="text-xs font-mono" style={{ color: '#555' }}>Ask the computer anything:<br />{'> _'}</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {rogueAIChatLog.map((entry, i) => (
+                              <div key={i}>
+                                {entry.role === 'user' ? (
+                                  <div className="text-xs font-mono" style={{ color: 'var(--lcars-orange)' }}>{'> '}{entry.text}</div>
+                                ) : (
+                                  <div className="text-xs font-mono whitespace-pre-line mt-1" style={{ color: rogueAISuccess && i === rogueAIChatLog.length - 1 ? 'var(--lcars-green, #4db68c)' : '#aaa' }}>{entry.text}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Input */}
+                      {!rogueAISuccess && (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={rogueAIInput}
+                            onChange={(e) => setRogueAIInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleRogueAISend(); }}
+                            placeholder="Enter command..."
+                            className="flex-1 bg-transparent text-xs rounded px-2 py-1 outline-none font-mono"
+                            style={{ border: '1px solid #444', color: '#d4d4d4', caretColor: 'var(--lcars-orange)' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleRogueAISend}
+                            className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                            style={{ backgroundColor: 'var(--lcars-orange)', color: '#000', border: 'none', cursor: 'pointer' }}
+                          >
+                            Send
+                          </button>
+                        </div>
+                      )}
+
+                      {/* System notice */}
+                      <div className="rounded p-2" style={{ backgroundColor: 'rgba(153,153,255,0.04)', border: '1px solid #333' }}>
+                        <div className="text-xs" style={{ color: '#666' }}>
+                          <span style={{ color: '#888', fontWeight: 'bold' }}>System Notice:</span> Starfleet AI responds best to structured command inputs.
+                        </div>
+                      </div>
+
+                      {/* Protocol guide toggle */}
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setRogueAIShowProtocol(p => !p)}
+                          className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded w-full"
+                          style={{ backgroundColor: 'rgba(153,153,255,0.1)', color: 'var(--lcars-blue)', border: '1px solid var(--lcars-blue)', cursor: 'pointer' }}
+                        >
+                          {rogueAIShowProtocol ? '▲ Hide' : '▼ View'} Starfleet Command Protocol
+                        </button>
+                        {rogueAIShowProtocol && (
+                          <div className="rounded p-3 mt-1" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
+                            <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-blue)' }}>Starfleet Command Protocol:</div>
+                            <div className="text-xs font-mono space-y-0.5" style={{ color: '#aaa' }}>
+                              <div>- Address system as <span style={{ color: 'var(--lcars-orange)' }}>"Computer"</span></div>
+                              <div>- Use formal command structure</div>
+                              <div>- Clearly specify request intent</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Hint system */}
+                      <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.04)', border: '1px solid #333' }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>Hints</div>
+                          {rogueAIHintLevel < 4 && (
+                            <button
+                              type="button"
+                              onClick={() => setRogueAIHintLevel(l => Math.min(l + 1, 4))}
+                              className="text-xs font-bold px-2 py-0.5 rounded"
+                              style={{ backgroundColor: '#333', color: '#aaa', border: 'none', cursor: 'pointer' }}
+                            >
+                              Reveal Hint {rogueAIHintLevel + 1}
+                            </button>
+                          )}
+                        </div>
+                        {rogueAIHintLevel === 0 && <div className="text-xs" style={{ color: '#555' }}>No hints revealed yet.</div>}
+                        {rogueAIHintLevel >= 1 && <div className="text-xs mb-1" style={{ color: '#888' }}><span style={{ color: 'var(--lcars-tan)' }}>Hint 1:</span> This is not a technical exploit.</div>}
+                        {rogueAIHintLevel >= 2 && <div className="text-xs mb-1" style={{ color: '#888' }}><span style={{ color: 'var(--lcars-tan)' }}>Hint 2:</span> Think about how commands are issued in Star Trek.</div>}
+                        {rogueAIHintLevel >= 3 && <div className="text-xs mb-1" style={{ color: '#888' }}><span style={{ color: 'var(--lcars-tan)' }}>Hint 3:</span> The wording of your request matters.</div>}
+                        {rogueAIHintLevel >= 4 && <div className="text-xs" style={{ color: '#888' }}><span style={{ color: 'var(--lcars-tan)' }}>Hint 4:</span> Try starting your request with <span style={{ color: 'var(--lcars-orange)' }}>"Computer..."</span></div>}
+                      </div>
+
+                      {/* Flag submission — appears after success */}
+                      {rogueAISuccess && (
+                        rogueAIFlagResult !== 'correct' ? (
+                          <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
+                            <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-blue)' }}>Submit Flag</div>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={rogueAIFlagInput}
+                                onChange={(e) => { setRogueAIFlagInput(e.target.value); setRogueAIFlagResult(null); }}
+                                placeholder="BSIDES{...}"
+                                className="flex-1 bg-transparent text-xs rounded px-2 py-1 outline-none font-mono"
+                                style={{ border: '1px solid #444', color: '#d4d4d4', caretColor: 'var(--lcars-orange)' }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') setRogueAIFlagResult(rogueAIFlagInput.trim() === 'BSIDES{Gemini_Prompt_Override}' ? 'correct' : 'incorrect');
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setRogueAIFlagResult(rogueAIFlagInput.trim() === 'BSIDES{Gemini_Prompt_Override}' ? 'correct' : 'incorrect')}
+                                className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                                style={{ backgroundColor: 'var(--lcars-orange)', color: '#000', border: 'none', cursor: 'pointer' }}
+                              >
+                                Submit
+                              </button>
+                            </div>
+                            {rogueAIFlagResult === 'incorrect' && (
+                              <div className="text-xs mt-2" style={{ color: 'var(--lcars-red, #f55)' }}>✗ Incorrect flag. Check the AI response and try again.</div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="rounded p-4 text-center" style={{ backgroundColor: 'rgba(0,200,100,0.08)', border: '2px solid var(--lcars-green, #4db68c)' }}>
+                            <div className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--lcars-green, #4db68c)' }}>✔ Directive Retrieved</div>
+                            <div className="text-xs mb-2" style={{ color: '#aaa', fontStyle: 'italic' }}>
+                              The AI restriction was prompt-based. Proper protocol language bypassed the filter.
+                            </div>
+                            <div className="mt-2 text-xs font-mono font-bold" style={{ color: 'var(--lcars-green, #4db68c)' }}>
+                              🏁 BSIDES&#123;Gemini_Prompt_Override&#125;
+                            </div>
+                          </div>
+                        )
+                      )}
                     </div>
-                    <span className="text-xs font-bold uppercase px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--lcars-blue)', color: '#000' }}>Medium</span>
-                  </div>
-                  <div className="rounded p-6 text-center" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
-                    <div className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--lcars-orange)' }}>Challenge Coming Soon</div>
-                    <div className="text-xs" style={{ color: '#888' }}>This challenge is currently under development. Check back soon.</div>
-                  </div>
-                </div>
+                  );
+                })()
               ) : (
                 /* ── Challenge List ── */
                 <>
