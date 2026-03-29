@@ -73,7 +73,7 @@ function rot13(str: string): string {
 }
 
 export default function Communicator() {
-  const [activeTab, setActiveTab] = useState<'computer' | 'schedule' | 'rank' | 'ctfs'>("computer");
+  const [activeTab, setActiveTab] = useState<'computer' | 'schedule' | 'rank' | 'ctfs' | 'account'>("computer");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loginUserId, setLoginUserId] = useState("");
@@ -1251,6 +1251,18 @@ export default function Communicator() {
           >
             CTFs
           </button>
+          <button
+            className="flex items-center justify-end px-3 font-bold text-sm uppercase tracking-wider transition-colors"
+            style={{
+              backgroundColor: activeTab === 'account' ? 'var(--lcars-orange)' : 'var(--lcars-blue)',
+              color: '#000',
+              height: '50px',
+              borderRadius: '25px 0 0 25px',
+            }}
+            onClick={() => setActiveTab('account')}
+          >
+            ACCOUNT
+          </button>
           <div className="flex-1" style={{ backgroundColor: 'var(--lcars-purple)', borderRadius: '0 0 0 25px', minHeight: '40px' }} />
         </div>
 
@@ -1358,89 +1370,13 @@ export default function Communicator() {
               </form>
             </div>
           ) : activeTab === 'rank' ? (
-            <div className="flex-1 overflow-y-auto p-4 font-mono">
-              {/* Account info */}
-              <div
-                className="text-center text-xs font-bold tracking-widest uppercase mb-4"
+            <div className="flex-1 flex items-center justify-center font-mono">
+              <span
+                className="text-2xl font-bold tracking-widest uppercase"
                 style={{ color: 'var(--lcars-orange)' }}
               >
-                Account Management
-              </div>
-
-              {isAuthenticated ? (
-                <div className="space-y-3">
-                  {/* User ID display */}
-                  <div
-                    className="rounded p-3"
-                    style={{ backgroundColor: 'rgba(153,153,255,0.07)', border: '1px solid var(--lcars-blue)' }}
-                  >
-                    <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'var(--lcars-blue)' }}>Logged in as</div>
-                    <div className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--lcars-tan)' }}>
-                      {currentUserId}
-                    </div>
-                  </div>
-
-                  {/* Delete account section */}
-                  <div
-                    className="rounded p-3"
-                    style={{ backgroundColor: 'rgba(255,50,50,0.05)', border: '1px solid #552222' }}
-                  >
-                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#cc4444' }}>
-                      Danger Zone
-                    </div>
-                    <div className="text-xs mb-3" style={{ color: '#888' }}>
-                      Permanently delete your account and all associated data — conversation history, challenge progress, and rank. This cannot be undone.
-                    </div>
-
-                    {!showDeleteConfirm ? (
-                      <button
-                        type="button"
-                        onClick={() => { setShowDeleteConfirm(true); setDeleteError(""); }}
-                        className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded w-full"
-                        style={{ backgroundColor: '#552222', color: '#ff8888', border: '1px solid #cc4444', cursor: 'pointer' }}
-                      >
-                        Delete Account
-                      </button>
-                    ) : (
-                      <div className="space-y-2">
-                        <div
-                          className="text-xs font-bold uppercase tracking-wider text-center py-1.5 rounded"
-                          style={{ backgroundColor: '#330000', color: '#ff4444', border: '1px solid #cc4444' }}
-                        >
-                          ⚠ This will permanently erase all your data
-                        </div>
-                        {deleteError && (
-                          <div className="text-xs text-center" style={{ color: '#ff6666' }}>{deleteError}</div>
-                        )}
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => { setShowDeleteConfirm(false); setDeleteError(""); }}
-                            className="flex-1 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded"
-                            style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleDeleteAccount}
-                            className="flex-1 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded"
-                            style={{ backgroundColor: '#cc2222', color: '#fff', border: 'none', cursor: 'pointer' }}
-                          >
-                            Confirm Delete
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center mt-8">
-                  <span className="text-xs uppercase tracking-widest" style={{ color: '#555' }}>
-                    Sign in to manage your account
-                  </span>
-                </div>
-              )}
+                PENDING
+              </span>
             </div>
           ) : activeTab === 'ctfs' ? (
             <div className="flex-1 overflow-y-auto p-4 font-mono">
@@ -2582,6 +2518,90 @@ export default function Communicator() {
                     })()}
                   </div>
                 </>
+              )}
+            </div>
+          ) : activeTab === 'account' ? (
+            <div className="flex-1 overflow-y-auto p-4 font-mono">
+              <div
+                className="text-center text-xs font-bold tracking-widest uppercase mb-4"
+                style={{ color: 'var(--lcars-orange)' }}
+              >
+                Account Management
+              </div>
+
+              {isAuthenticated ? (
+                <div className="space-y-3">
+                  {/* User ID display */}
+                  <div
+                    className="rounded p-3"
+                    style={{ backgroundColor: 'rgba(153,153,255,0.07)', border: '1px solid var(--lcars-blue)' }}
+                  >
+                    <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'var(--lcars-blue)' }}>Logged in as</div>
+                    <div className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--lcars-tan)' }}>
+                      {currentUserId}
+                    </div>
+                  </div>
+
+                  {/* Delete account section */}
+                  <div
+                    className="rounded p-3"
+                    style={{ backgroundColor: 'rgba(255,50,50,0.05)', border: '1px solid #552222' }}
+                  >
+                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#cc4444' }}>
+                      Danger Zone
+                    </div>
+                    <div className="text-xs mb-3" style={{ color: '#888' }}>
+                      Permanently delete your account and all associated data — conversation history, challenge progress, and rank. This cannot be undone.
+                    </div>
+
+                    {!showDeleteConfirm ? (
+                      <button
+                        type="button"
+                        onClick={() => { setShowDeleteConfirm(true); setDeleteError(""); }}
+                        className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded w-full"
+                        style={{ backgroundColor: '#552222', color: '#ff8888', border: '1px solid #cc4444', cursor: 'pointer' }}
+                      >
+                        Delete Account
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <div
+                          className="text-xs font-bold uppercase tracking-wider text-center py-1.5 rounded"
+                          style={{ backgroundColor: '#330000', color: '#ff4444', border: '1px solid #cc4444' }}
+                        >
+                          ⚠ This will permanently erase all your data
+                        </div>
+                        {deleteError && (
+                          <div className="text-xs text-center" style={{ color: '#ff6666' }}>{deleteError}</div>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { setShowDeleteConfirm(false); setDeleteError(""); }}
+                            className="flex-1 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded"
+                            style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDeleteAccount}
+                            className="flex-1 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded"
+                            style={{ backgroundColor: '#cc2222', color: '#fff', border: 'none', cursor: 'pointer' }}
+                          >
+                            Confirm Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center mt-8">
+                  <span className="text-xs uppercase tracking-widest" style={{ color: '#555' }}>
+                    Sign in to manage your account
+                  </span>
+                </div>
               )}
             </div>
           ) : activeTab === 'schedule' ? (
