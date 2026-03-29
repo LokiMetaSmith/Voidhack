@@ -34,7 +34,7 @@ const MAIN_SCHEDULE = [
     room: "North Room",
     sessions: [
       { time: "09:00am - 10:00am", title: "Securing Small & Mid-Sized Enterprises - Defensible Security on a Shoestring", speaker: "Kumuda Sreenivasa" },
-      { time: "10:00am - 11:00am", title: "Offensive Threat Models Against AI Systems", speaker: "Tony UV" },
+      { time: "10:00am - 11:00am", title: "Hardening the OS: Fighting 0-Days with Modern Exploit Defenses", speaker: "Michael Oglesby" },
       { time: "11:00am - 12:00pm", title: "I'm in Danger - From Alert Chaos to CTEM", speaker: "Steven Lykins, Courtney Burr" },
       { time: "01:00pm - 02:00pm", title: "Extending Shared Threat Models with the Application Attack Matrix", speaker: "J Fridley" },
       { time: "02:00pm - 03:00pm", title: "A Fistful of Headers - Taming the Wild Web at Scale", speaker: "Cary Hooper" },
