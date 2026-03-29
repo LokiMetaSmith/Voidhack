@@ -1451,12 +1451,11 @@ export default function Communicator() {
                         </div>
                       </div>
 
-                      {/* Fake credentials hint */}
+                      {/* Hint */}
                       <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.04)', border: '1px solid #333' }}>
                         <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#555' }}>Hint:</div>
                         <div className="text-xs font-mono" style={{ color: '#555' }}>
-                          <div>Username: admin</div>
-                          <div>Password: starfleet123</div>
+                          The system might be trusting your input more than it should.
                         </div>
                       </div>
                     </>
