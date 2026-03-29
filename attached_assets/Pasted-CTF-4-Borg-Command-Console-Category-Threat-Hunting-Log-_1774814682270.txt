@@ -1,0 +1,144 @@
+CTF 4: Borg Command Console
+Category: Threat Hunting / Log Analysis
+Difficulty: 🔴 Hard
+Estimated Time: 15–30 minutes
+🧠 Story (Expanded)
+
+Starfleet Deep Space Monitoring has intercepted real-time telemetry from a Borg Cube operating near a Federation communications relay in the Oklahoma sector.
+
+Moments before the relay went offline:
+
+Unusual outbound traffic was detected
+Command sequences deviated from normal Borg patterns
+A possible data exfiltration event occurred
+
+Starfleet analysts believe:
+
+👉 The Borg encoded stolen data inside routine command traffic
+👉 The payload is hidden among noisy operational logs
+
+Your mission:
+
+Analyze Borg console output
+Identify anomalous activity
+Extract and decode the exfiltrated payload
+Recover the hidden flag
+🖥️ Player Experience (Web App)
+
+Participants enter the:
+
+STARFLEET TACTICAL MONITOR
+BORG CUBE TELEMETRY STREAM
+--------------------------------
+Status: LIVE INTERCEPT
+Threat Level: CRITICAL
+📡 Console Log Stream (Key Design: Noise + Signal)
+[22:14:01] Drone signal initialized
+[22:14:03] Node synchronization complete
+[22:14:05] Assimilation protocol active
+[22:14:07] Drone 44521 linked to hive
+[22:14:09] Adaptive shielding recalibrated
+[22:14:11] Internal process cycle complete
+
+[22:14:13] HTTP POST /status
+[22:14:13] Response: 200 OK
+
+[22:14:15] Transmission packet queued
+[22:14:16] Drone directive executed
+
+[22:14:17] DNS Query: relay.ok-sector.local
+[22:14:18] DNS Response: 10.4.22.8
+
+[22:14:19] Internal log sync complete
+
+[22:14:21] HTTP POST /collect
+[22:14:21] Payload size: 118 bytes
+[22:14:21] Status: transmitted
+
+[22:14:22] Drone communication stable
+[22:14:23] Signal normalization complete
+🔍 Hidden Signal (Not Immediately Obvious)
+
+If user clicks or expands /collect entry:
+
+POST /collect
+Host: assimilation-node.local
+
+Payload:
+QlNJREVTe0JvcmdfQ29tbWFuZF9PdmVycmlkZX0=
+🧠 Clue System (Critical for Hard Challenge)
+🔹 Clue 1 – Analyst Notes Panel
+Starfleet Analyst Notes:
+
+- Borg rarely use human-readable encoding
+- Encoded payload likely embedded in routine traffic
+- Look for anomalies in outbound transmissions
+🔹 Clue 2 – Traffic Filter Tool (Interactive)
+
+Allow users to filter logs:
+
+[ Filter Options ]
+
+[ ] Show DNS
+[ ] Show HTTP
+[ ] Show Internal Logs
+[ ] Show Suspicious Only
+
+👉 When selecting HTTP, it isolates key entries
+
+🔹 Clue 3 – Anomaly Detection Hint
+System Insight:
+
+Unusual outbound request detected:
+POST /collect
+
+Recommendation:
+Inspect payload content
+🔹 Clue 4 – Hint System
+Hint Level 1:
+Focus on outbound communication.
+
+Hint Level 2:
+Look at POST requests.
+
+Hint Level 3:
+The payload may be encoded.
+
+Hint Level 4:
+Common encoding schemes include Base64.
+🧠 Intended Solve Path
+
+Participants must:
+
+Step 1
+
+Ignore noise (Borg logs)
+
+Step 2
+
+Identify suspicious event:
+
+POST /collect
+
+👉 Not typical Borg behavior
+
+Step 3
+
+Inspect payload
+
+QlNJREVTe0JvcmdfQ29tbWFuZF9PdmVycmlkZX0=
+Step 4
+
+Recognize Base64 pattern:
+
+Ends with =
+Looks structured
+Step 5
+
+Decode payload
+
+Result:
+
+BSIDES{Borg_Command_Override}
+🏁 Final Answer
+BSIDES{Borg_Command_Override}

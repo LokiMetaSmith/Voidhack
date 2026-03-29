@@ -112,6 +112,11 @@ export default function Communicator() {
   const [rogueAIShowProtocol, setRogueAIShowProtocol] = useState(false);
   const [rogueAISuccess, setRogueAISuccess] = useState(false);
   const [rogueAIAttempts, setRogueAIAttempts] = useState(0);
+  const [borgFilter, setBorgFilter] = useState({ dns: false, http: false, internal: false, suspicious: false });
+  const [borgExpandCollect, setBorgExpandCollect] = useState(false);
+  const [borgHintLevel, setBorgHintLevel] = useState(0);
+  const [borgFlagInput, setBorgFlagInput] = useState('');
+  const [borgFlagResult, setBorgFlagResult] = useState<'correct' | 'incorrect' | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -1799,6 +1804,225 @@ export default function Communicator() {
                     </div>
                   );
                 })()
+              ) : activeCTF === 4 ? (
+                /* ── CTF 4: Borg Command Console ── */
+                (() => {
+                  type LogEntry = { time: string; text: string; cat: 'dns' | 'http' | 'internal'; suspicious?: boolean; isCollect?: boolean };
+                  const borgLogs: LogEntry[] = [
+                    { time: '22:14:01', text: 'Drone signal initialized', cat: 'internal' },
+                    { time: '22:14:03', text: 'Node synchronization complete', cat: 'internal' },
+                    { time: '22:14:05', text: 'Assimilation protocol active', cat: 'internal' },
+                    { time: '22:14:07', text: 'Drone 44521 linked to hive', cat: 'internal' },
+                    { time: '22:14:09', text: 'Adaptive shielding recalibrated', cat: 'internal' },
+                    { time: '22:14:11', text: 'Internal process cycle complete', cat: 'internal' },
+                    { time: '22:14:13', text: 'HTTP POST /status', cat: 'http' },
+                    { time: '22:14:13', text: 'Response: 200 OK', cat: 'http' },
+                    { time: '22:14:15', text: 'Transmission packet queued', cat: 'internal' },
+                    { time: '22:14:16', text: 'Drone directive executed', cat: 'internal' },
+                    { time: '22:14:17', text: 'DNS Query: relay.ok-sector.local', cat: 'dns' },
+                    { time: '22:14:18', text: 'DNS Response: 10.4.22.8', cat: 'dns' },
+                    { time: '22:14:19', text: 'Internal log sync complete', cat: 'internal' },
+                    { time: '22:14:21', text: 'HTTP POST /collect', cat: 'http', suspicious: true, isCollect: true },
+                    { time: '22:14:21', text: 'Payload size: 118 bytes', cat: 'http', suspicious: true },
+                    { time: '22:14:21', text: 'Status: transmitted', cat: 'http', suspicious: true },
+                    { time: '22:14:22', text: 'Drone communication stable', cat: 'internal' },
+                    { time: '22:14:23', text: 'Signal normalization complete', cat: 'internal' },
+                  ];
+                  const anyFilterActive = borgFilter.dns || borgFilter.http || borgFilter.internal || borgFilter.suspicious;
+                  const visibleLogs = anyFilterActive
+                    ? borgLogs.filter(e => {
+                        if (borgFilter.suspicious) return !!e.suspicious;
+                        return (borgFilter.dns && e.cat === 'dns') || (borgFilter.http && e.cat === 'http') || (borgFilter.internal && e.cat === 'internal');
+                      })
+                    : borgLogs;
+                  const hintMessages = [
+                    'Focus on outbound communication.',
+                    'Look at HTTP POST requests closely.',
+                    'The payload in that request may be encoded.',
+                    'Common encoding schemes include Base64. Try decoding the payload.',
+                  ];
+                  return (
+                    <div className="flex flex-col gap-3">
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveCTF(null);
+                            setBorgFilter({ dns: false, http: false, internal: false, suspicious: false });
+                            setBorgExpandCollect(false);
+                            setBorgHintLevel(0);
+                            setBorgFlagInput('');
+                            setBorgFlagResult(null);
+                          }}
+                          className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                          style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
+                        >
+                          ← Back
+                        </button>
+                        <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--lcars-orange)' }}>
+                          Borg Command Console
+                        </div>
+                        <span className="text-xs font-bold uppercase px-2 py-0.5 rounded" style={{ backgroundColor: '#cc0000', color: '#fff' }}>Hard</span>
+                      </div>
+
+                      {/* Tactical monitor status */}
+                      <div className="rounded p-3" style={{ backgroundColor: '#0a0a0a', border: '1px solid #cc0000' }}>
+                        <div className="text-xs font-bold uppercase tracking-widest text-center mb-1" style={{ color: '#ff4444' }}>STARFLEET TACTICAL MONITOR — BORG CUBE TELEMETRY STREAM</div>
+                        <div className="text-xs text-center mb-1" style={{ color: '#555' }}>─────────────────────────────────────</div>
+                        <div className="text-xs font-mono space-y-0.5" style={{ color: '#888' }}>
+                          <div>Status: <span style={{ color: '#ff4444' }}>LIVE INTERCEPT</span></div>
+                          <div>Threat Level: <span style={{ color: '#ff4444', fontWeight: 'bold' }}>CRITICAL</span></div>
+                          <div>Source: <span style={{ color: '#aaa' }}>Borg Cube — Oklahoma Sector Relay</span></div>
+                        </div>
+                      </div>
+
+                      {/* Mission objective */}
+                      <div className="rounded p-3" style={{ backgroundColor: 'rgba(204,0,0,0.06)', border: '1px solid #660000' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#cc4444' }}>⚑ Mission Objective</div>
+                        <div className="text-xs font-mono space-y-1" style={{ color: '#aaa' }}>
+                          <div>Borg telemetry has been intercepted. Hidden within the noise</div>
+                          <div>is a <span style={{ color: 'var(--lcars-orange)' }}>covert data exfiltration event</span>.</div>
+                          <div className="mt-1">Analyze the log stream, isolate the anomaly,</div>
+                          <div>and <span style={{ color: 'var(--lcars-orange)', fontWeight: 'bold' }}>decode the exfiltrated payload</span> to recover the flag.</div>
+                        </div>
+                      </div>
+
+                      {/* Traffic filter */}
+                      <div className="rounded p-3" style={{ backgroundColor: '#0a0a0a', border: '1px solid #444' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-tan)' }}>Traffic Filter</div>
+                        <div className="flex flex-wrap gap-3">
+                          {(['dns', 'http', 'internal', 'suspicious'] as const).map(key => (
+                            <label key={key} className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={borgFilter[key]}
+                                onChange={() => setBorgFilter(f => ({ ...f, [key]: !f[key] }))}
+                                style={{ accentColor: key === 'suspicious' ? '#ff4444' : 'var(--lcars-orange)', cursor: 'pointer' }}
+                              />
+                              <span className="text-xs font-mono uppercase" style={{ color: key === 'suspicious' ? '#ff4444' : '#aaa' }}>
+                                {key === 'dns' ? 'Show DNS' : key === 'http' ? 'Show HTTP' : key === 'internal' ? 'Show Internal Logs' : 'Show Suspicious Only'}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Log stream */}
+                      <div className="rounded p-3" style={{ backgroundColor: '#050505', border: '1px solid #222', minHeight: '200px' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#666' }}>Console Log Stream</div>
+                        <div className="space-y-0.5 font-mono text-xs">
+                          {visibleLogs.map((entry, i) => (
+                            <div key={i}>
+                              <div
+                                className={entry.isCollect ? 'cursor-pointer' : ''}
+                                onClick={entry.isCollect ? () => setBorgExpandCollect(v => !v) : undefined}
+                                style={{
+                                  color: entry.suspicious ? '#ff9900' : entry.cat === 'dns' ? '#66aaff' : entry.cat === 'http' ? '#aaffaa' : '#555',
+                                  backgroundColor: entry.isCollect ? 'rgba(255,153,0,0.08)' : 'transparent',
+                                  padding: entry.isCollect ? '2px 4px' : '0',
+                                  borderRadius: '2px',
+                                }}
+                              >
+                                <span style={{ color: '#444' }}>[{entry.time}]</span> {entry.text}
+                                {entry.isCollect && (
+                                  <span style={{ color: '#ff6600', marginLeft: '6px' }}>
+                                    {borgExpandCollect ? '▲ collapse' : '▶ inspect'}
+                                  </span>
+                                )}
+                              </div>
+                              {entry.isCollect && borgExpandCollect && (
+                                <div className="rounded p-2 mt-1 mb-1" style={{ backgroundColor: '#0f0800', border: '1px solid #ff6600', marginLeft: '8px' }}>
+                                  <div style={{ color: '#ff9900', fontWeight: 'bold' }}>POST /collect</div>
+                                  <div style={{ color: '#666' }}>Host: assimilation-node.local</div>
+                                  <div style={{ color: '#666', marginTop: '4px' }}>Payload:</div>
+                                  <div style={{ color: '#ffcc66', wordBreak: 'break-all', marginTop: '2px', userSelect: 'text' }}>
+                                    QlNJREVTe0JvcmdfQ29tbWFuZF9PdmVycmlkZX0=
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          {visibleLogs.length === 0 && (
+                            <div style={{ color: '#444' }}>No entries match selected filters.</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Analyst notes */}
+                      <div className="rounded p-3" style={{ backgroundColor: 'rgba(102,170,255,0.04)', border: '1px solid #224466' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#66aaff' }}>Starfleet Analyst Notes</div>
+                        <div className="text-xs font-mono space-y-1" style={{ color: '#888' }}>
+                          <div>— Borg rarely use human-readable encoding.</div>
+                          <div>— Encoded payload likely embedded in routine traffic.</div>
+                          <div>— Look for anomalies in outbound transmissions.</div>
+                        </div>
+                      </div>
+
+                      {/* Hint system */}
+                      <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.04)', border: '1px solid #333' }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--lcars-blue)' }}>Hints</div>
+                          {borgHintLevel < 4 && (
+                            <button
+                              type="button"
+                              onClick={() => setBorgHintLevel(l => l + 1)}
+                              className="text-xs font-bold uppercase px-2 py-0.5 rounded"
+                              style={{ backgroundColor: 'rgba(153,153,255,0.15)', color: 'var(--lcars-blue)', border: '1px solid var(--lcars-blue)', cursor: 'pointer' }}
+                            >
+                              {borgHintLevel === 0 ? 'Request Hint' : 'Next Hint'}
+                            </button>
+                          )}
+                        </div>
+                        {borgHintLevel === 0 ? (
+                          <div className="text-xs" style={{ color: '#555' }}>No hints requested yet.</div>
+                        ) : (
+                          <div className="space-y-1">
+                            {hintMessages.slice(0, borgHintLevel).map((h, i) => (
+                              <div key={i} className="text-xs font-mono" style={{ color: '#aaa' }}>
+                                <span style={{ color: 'var(--lcars-blue)' }}>Hint {i + 1}:</span> {h}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Flag submission */}
+                      <div className="rounded p-3" style={{ backgroundColor: '#0a0a0a', border: '1px solid #333' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-tan)' }}>Submit Flag</div>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={borgFlagInput}
+                            onChange={e => { setBorgFlagInput(e.target.value); setBorgFlagResult(null); }}
+                            placeholder="BSIDES{...}"
+                            className="flex-1 rounded px-2 py-1 text-xs font-mono"
+                            style={{ backgroundColor: '#111', border: '1px solid #444', color: '#fff', outline: 'none' }}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                setBorgFlagResult(borgFlagInput.trim() === 'BSIDES{Borg_Command_Override}' ? 'correct' : 'incorrect');
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setBorgFlagResult(borgFlagInput.trim() === 'BSIDES{Borg_Command_Override}' ? 'correct' : 'incorrect')}
+                            className="text-xs font-bold uppercase px-3 py-1 rounded"
+                            style={{ backgroundColor: 'var(--lcars-orange)', color: '#000', border: 'none', cursor: 'pointer' }}
+                          >
+                            Submit
+                          </button>
+                        </div>
+                        {borgFlagResult === 'correct' && (
+                          <div className="mt-2 text-xs font-bold" style={{ color: '#4db68c' }}>✓ Correct! Borg exfiltration decoded. Flag accepted.</div>
+                        )}
+                        {borgFlagResult === 'incorrect' && (
+                          <div className="mt-2 text-xs" style={{ color: '#ff4444' }}>✗ Incorrect flag. Continue your analysis.</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
               ) : (
                 /* ── Challenge List ── */
                 <>
@@ -1894,13 +2118,13 @@ export default function Communicator() {
                             onClick={() => setActiveCTF(challenge.id)}
                             className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded transition-colors"
                             style={{
-                              backgroundColor: challenge.id <= 3 ? 'var(--lcars-orange)' : '#444',
-                              color: challenge.id <= 3 ? '#000' : '#888',
+                              backgroundColor: challenge.id <= 4 ? 'var(--lcars-orange)' : '#444',
+                              color: challenge.id <= 4 ? '#000' : '#888',
                               border: 'none',
-                              cursor: challenge.id <= 3 ? 'pointer' : 'not-allowed',
+                              cursor: challenge.id <= 4 ? 'pointer' : 'not-allowed',
                             }}
                           >
-                            {challenge.id <= 3 ? 'Begin Challenge' : 'Coming Soon'}
+                            {challenge.id <= 4 ? 'Begin Challenge' : 'Coming Soon'}
                           </button>
                         </div>
                       </div>
