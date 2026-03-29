@@ -2288,102 +2288,124 @@ export default function Communicator() {
                     Capture The Flag Challenges
                   </div>
                   <div className="space-y-3">
-                    {[
-                      {
-                        id: 1,
-                        title: 'Klingon Transmission',
-                        category: 'Cryptography',
-                        difficulty: 'Easy',
-                        difficultyColor: 'var(--lcars-blue)',
-                        description: 'Intercept and decode an encrypted Klingon transmission. Analyze the cipher and recover the hidden message buried within the signal.',
-                      },
-                      {
-                        id: 2,
-                        title: 'Holodeck Breach',
-                        category: 'Web Security',
-                        difficulty: 'Easy / Medium',
-                        difficultyColor: 'var(--lcars-blue)',
-                        description: 'A rogue holodeck program has opened unauthorized access points. Identify and exploit the web vulnerabilities to shut down the breach.',
-                      },
-                      {
-                        id: 3,
-                        title: 'Rogue AI – Gemini Directive',
-                        category: 'AI Security',
-                        difficulty: 'Medium',
-                        difficultyColor: 'var(--lcars-blue)',
-                        description: 'A compromised AI system is leaking classified directives. Navigate the prompt injection vulnerabilities and extract the hidden flag.',
-                      },
-                      {
-                        id: 4,
-                        title: 'Borg Command Console',
-                        category: 'Threat Hunting',
-                        difficulty: 'Hard',
-                        difficultyColor: 'var(--lcars-blue)',
-                        description: 'Assimilation protocols are active. Hunt through network logs and system artifacts to identify the Borg intrusion vector before it is too late.',
-                      },
-                      {
-                        id: 5,
-                        title: 'Romulan Cloaked Message',
-                        category: 'Web Recon',
-                        difficulty: 'Hard',
-                        difficultyColor: 'var(--lcars-orange)',
-                        description: 'The Romulans have hidden a covert message within plain sight. Use advanced reconnaissance techniques to uncover what has been cloaked.',
-                      },
-                    ].map((challenge) => (
-                      <div
-                        key={challenge.id}
-                        className="rounded p-3"
-                        style={{
-                          backgroundColor: 'rgba(153, 153, 255, 0.07)',
-                          border: '1px solid var(--lcars-blue)',
-                        }}
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-1">
+                    {(() => {
+                      const completionMap: Record<number, boolean> = {
+                        1: klingonFlagResult === 'correct',
+                        2: holodeckFlagResult === 'correct',
+                        3: rogueAIFlagResult === 'correct',
+                        4: borgFlagResult === 'correct',
+                      };
+                      return [
+                        {
+                          id: 1,
+                          title: 'Klingon Transmission',
+                          category: 'Cryptography',
+                          difficulty: 'Easy',
+                          difficultyColor: 'var(--lcars-blue)',
+                          description: 'Intercept and decode an encrypted Klingon transmission. Analyze the cipher and recover the hidden message buried within the signal.',
+                        },
+                        {
+                          id: 2,
+                          title: 'Holodeck Breach',
+                          category: 'Web Security',
+                          difficulty: 'Easy / Medium',
+                          difficultyColor: 'var(--lcars-blue)',
+                          description: 'A rogue holodeck program has opened unauthorized access points. Identify and exploit the web vulnerabilities to shut down the breach.',
+                        },
+                        {
+                          id: 3,
+                          title: 'Rogue AI – Gemini Directive',
+                          category: 'AI Security',
+                          difficulty: 'Medium',
+                          difficultyColor: 'var(--lcars-blue)',
+                          description: 'A compromised AI system is leaking classified directives. Navigate the prompt injection vulnerabilities and extract the hidden flag.',
+                        },
+                        {
+                          id: 4,
+                          title: 'Borg Command Console',
+                          category: 'Threat Hunting',
+                          difficulty: 'Hard',
+                          difficultyColor: 'var(--lcars-blue)',
+                          description: 'Assimilation protocols are active. Hunt through network logs and system artifacts to identify the Borg intrusion vector before it is too late.',
+                        },
+                        {
+                          id: 5,
+                          title: 'Romulan Cloaked Message',
+                          category: 'Web Recon',
+                          difficulty: 'Hard',
+                          difficultyColor: 'var(--lcars-orange)',
+                          description: 'The Romulans have hidden a covert message within plain sight. Use advanced reconnaissance techniques to uncover what has been cloaked.',
+                        },
+                      ].map((challenge) => {
+                        const isComplete = completionMap[challenge.id] ?? false;
+                        return (
                           <div
-                            className="text-sm font-bold uppercase tracking-wider"
-                            style={{ color: 'var(--lcars-tan)' }}
+                            key={challenge.id}
+                            className="rounded p-3"
+                            style={{
+                              backgroundColor: isComplete ? 'rgba(77, 182, 140, 0.08)' : 'rgba(153, 153, 255, 0.07)',
+                              border: isComplete ? '1px solid #4db68c' : '1px solid var(--lcars-blue)',
+                            }}
                           >
-                            {challenge.title}
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <div
+                                className="text-sm font-bold uppercase tracking-wider"
+                                style={{ color: isComplete ? '#4db68c' : 'var(--lcars-tan)' }}
+                              >
+                                {challenge.title}
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {isComplete && (
+                                  <span
+                                    className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded"
+                                    style={{ backgroundColor: '#4db68c', color: '#000' }}
+                                  >
+                                    ✓ Complete
+                                  </span>
+                                )}
+                                <span
+                                  className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded"
+                                  style={{
+                                    backgroundColor: challenge.difficultyColor,
+                                    color: '#000',
+                                  }}
+                                >
+                                  {challenge.difficulty}
+                                </span>
+                              </div>
+                            </div>
+                            <div
+                              className="text-xs uppercase tracking-widest mb-2"
+                              style={{ color: 'var(--lcars-blue)' }}
+                            >
+                              {challenge.category}
+                            </div>
+                            <div
+                              className="text-xs leading-relaxed"
+                              style={{ color: 'var(--lcars-text, #ccc)' }}
+                            >
+                              {challenge.description}
+                            </div>
+                            <div className="mt-2 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => challenge.id <= 4 ? setActiveCTF(challenge.id) : undefined}
+                                className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded transition-colors"
+                                style={{
+                                  backgroundColor: isComplete ? '#4db68c' : challenge.id <= 4 ? 'var(--lcars-orange)' : '#444',
+                                  color: '#000',
+                                  border: 'none',
+                                  cursor: challenge.id <= 4 ? 'pointer' : 'not-allowed',
+                                  opacity: challenge.id > 4 ? 0.5 : 1,
+                                }}
+                              >
+                                {challenge.id > 4 ? 'Coming Soon' : isComplete ? 'Review' : 'Begin Challenge'}
+                              </button>
+                            </div>
                           </div>
-                          <span
-                            className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded flex-shrink-0"
-                            style={{
-                              backgroundColor: challenge.difficultyColor,
-                              color: '#000',
-                            }}
-                          >
-                            {challenge.difficulty}
-                          </span>
-                        </div>
-                        <div
-                          className="text-xs uppercase tracking-widest mb-2"
-                          style={{ color: 'var(--lcars-blue)' }}
-                        >
-                          {challenge.category}
-                        </div>
-                        <div
-                          className="text-xs leading-relaxed"
-                          style={{ color: 'var(--lcars-text, #ccc)' }}
-                        >
-                          {challenge.description}
-                        </div>
-                        <div className="mt-2 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => setActiveCTF(challenge.id)}
-                            className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded transition-colors"
-                            style={{
-                              backgroundColor: challenge.id <= 4 ? 'var(--lcars-orange)' : '#444',
-                              color: challenge.id <= 4 ? '#000' : '#888',
-                              border: 'none',
-                              cursor: challenge.id <= 4 ? 'pointer' : 'not-allowed',
-                            }}
-                          >
-                            {challenge.id <= 4 ? 'Begin Challenge' : 'Coming Soon'}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                        );
+                      });
+                    })()}
                   </div>
                 </>
               )}
