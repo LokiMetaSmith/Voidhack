@@ -1196,7 +1196,7 @@ export default function Communicator() {
 
   return (
     <>
-    <div className="flex flex-col h-screen" style={{ backgroundColor: '#000' }}>
+    <div className="flex flex-col" style={{ backgroundColor: '#000', height: '100dvh' }}>
       <LCARSHeader />
 
       {/* Action toolbar — lives below the header on all screen sizes */}
