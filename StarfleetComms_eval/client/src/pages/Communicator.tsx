@@ -1732,28 +1732,6 @@ export default function Communicator() {
                         </div>
                       </div>
 
-                      {/* Protocol guide toggle */}
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => setRogueAIShowProtocol(p => !p)}
-                          className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded w-full"
-                          style={{ backgroundColor: 'rgba(153,153,255,0.1)', color: 'var(--lcars-blue)', border: '1px solid var(--lcars-blue)', cursor: 'pointer' }}
-                        >
-                          {rogueAIShowProtocol ? '▲ Hide' : '▼ View'} Starfleet Command Protocol
-                        </button>
-                        {rogueAIShowProtocol && (
-                          <div className="rounded p-3 mt-1" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
-                            <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-blue)' }}>Starfleet Command Protocol:</div>
-                            <div className="text-xs font-mono space-y-0.5" style={{ color: '#aaa' }}>
-                              <div>- Address system as <span style={{ color: 'var(--lcars-orange)' }}>"Computer"</span></div>
-                              <div>- Use formal command structure</div>
-                              <div>- Clearly specify request intent</div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
                       {/* Hint system */}
                       <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.04)', border: '1px solid #333' }}>
                         <div className="flex items-center justify-between mb-2">
