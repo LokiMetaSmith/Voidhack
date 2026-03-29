@@ -1,0 +1,142 @@
+CTF 2: Holodeck Breach
+Category: Web Security
+Difficulty: 🟡 Easy–Medium
+Estimated Time: 10–15 minutes
+🧠 Story (Enhanced)
+
+Starfleet Engineering has detected unauthorized access attempts within the Holodeck Training System used by cadets.
+
+The system contains:
+
+Tactical combat simulations
+Navigation drills
+Classified Section 31 programs
+
+Security logs indicate that an unknown user has been:
+
+⚠️ Attempting authentication bypass
+⚠️ Triggering database query errors
+⚠️ Accessing restricted programs
+
+Starfleet suspects a vulnerability in the authentication system.
+
+Your mission:
+
+👉 Analyze the system behavior
+👉 Identify the vulnerability
+👉 Gain unauthorized access
+👉 Retrieve the Section 31 directive flag
+
+🖥️ Player Experience (Web App)
+Screen 1 – Holodeck Login Console
+STARFLEET HOLODECK SYSTEM
+--------------------------------
+
+Authorized Personnel Only
+
+Username: [____________]
+Password: [____________]
+
+[ LOGIN ]
+🔍 Interactive Clue System
+🔹 Behavior 1 – Normal Failed Login
+Error: Invalid credentials
+🔹 Behavior 2 – Single Quote Input (Enhanced Feedback)
+
+If user enters ':
+
+SQL Error: Unexpected token near "'"
+
+👉 This is a strong signal of SQL vulnerability
+
+🔹 Behavior 3 – Debug Output (Critical Clue)
+
+After a few failed attempts:
+
+Debug Mode Enabled:
+
+SELECT * FROM users 
+WHERE username = 'input' 
+AND password = 'input'
+🔹 Behavior 4 – Security Logs Panel
+Recent Authentication Logs:
+
+[14:02:11] Failed login: user=admin
+[14:02:15] Failed login: user=test
+[14:02:18] SQL error near "'"
+[14:02:18] Warning: Unhandled input in query
+[14:02:21] Suspicious query structure detected
+🔹 Behavior 5 – System Diagnostics Panel
+System Diagnostics:
+
+Input validation: DISABLED
+Parameterized queries: NOT IN USE
+Database protection: WEAK
+
+Risk Level: HIGH
+🔹 Behavior 6 – Fake Credentials (Misdirection)
+
+Displayed subtly on screen:
+
+Hint:
+Username: admin
+Password: starfleet123
+
+👉 Does NOT work
+
+🧠 Intended Exploitation
+
+Participants try payloads such as:
+
+' OR 1=1 --
+
+Alternative valid payloads:
+
+' OR 'a'='a
+admin' --
+🔓 Successful Login (Enhanced Feedback)
+Access Granted
+
+Welcome, Commander.
+
+⚠️ Security Alert: Authentication anomaly detected
+
+Loading Holodeck Archives...
+🗂️ Screen 2 – Holodeck Program List
+Holodeck Training Programs:
+
+- Basic Combat Simulation
+- Starship Navigation Drills
+- Klingon Diplomacy Scenarios
+- Section 31 Restricted Archive 🔒
+🔓 Interaction
+
+Only Section 31 Restricted Archive becomes accessible after bypass.
+
+🗂️ Screen 3 – Section 31 Archive
+SECTION 31 ARCHIVE ACCESS
+
+WARNING: Unauthorized access logged
+
+Retrieving hidden directive...
+
+Flag: BSIDES{Holodeck_SQL_Injection}
+🏁 Final Answer
+BSIDES{Holodeck_SQL_Injection}
+🧠 Post-Solve Security Feedback (NEW)
+
+After submission:
+
+Starfleet Security Advisory:
+
+Vulnerability Identified: SQL Injection
+
+Root Cause:
+- Unsanitized user input
+- Dynamic query construction
+- No parameterized queries
+
+Recommended Fix:
+- Use prepared statements
+- Implement input validation
+- Apply least privilege access controls

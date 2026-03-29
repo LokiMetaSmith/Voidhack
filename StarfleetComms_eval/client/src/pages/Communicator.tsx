@@ -97,6 +97,13 @@ export default function Communicator() {
   const [klingonFlagInput, setKlingonFlagInput] = useState('');
   const [klingonFlagResult, setKlingonFlagResult] = useState<'correct' | 'incorrect' | null>(null);
   const [klingonProgress, setKlingonProgress] = useState({ analyzed: false, identified: false, decoded: false });
+  const [holodeckUsername, setHolodeckUsername] = useState('');
+  const [holodeckPassword, setHolodeckPassword] = useState('');
+  const [holodeckAttempts, setHolodeckAttempts] = useState(0);
+  const [holodeckScreen, setHolodeckScreen] = useState<'login' | 'programs' | 'archive'>('login');
+  const [holodeckLoginMsg, setHolodeckLoginMsg] = useState<string | null>(null);
+  const [holodeckFlagInput, setHolodeckFlagInput] = useState('');
+  const [holodeckFlagResult, setHolodeckFlagResult] = useState<'correct' | 'incorrect' | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -1320,6 +1327,253 @@ export default function Communicator() {
                     </div>
                   )}
                 </div>
+              ) : activeCTF === 2 ? (
+                /* ── Holodeck Breach Challenge ── */
+                <div className="flex flex-col gap-3">
+                  {/* Header bar */}
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveCTF(null);
+                        setHolodeckUsername('');
+                        setHolodeckPassword('');
+                        setHolodeckAttempts(0);
+                        setHolodeckScreen('login');
+                        setHolodeckLoginMsg(null);
+                        setHolodeckFlagInput('');
+                        setHolodeckFlagResult(null);
+                      }}
+                      className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                      style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
+                    >
+                      ← Back
+                    </button>
+                    <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--lcars-orange)' }}>
+                      Holodeck Training System
+                    </div>
+                  </div>
+
+                  {holodeckScreen === 'login' && (
+                    <>
+                      {/* Login Console */}
+                      <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
+                        <div className="text-xs font-bold uppercase tracking-widest mb-1 text-center" style={{ color: 'var(--lcars-tan)' }}>STARFLEET HOLODECK SYSTEM</div>
+                        <div className="text-xs text-center mb-3" style={{ color: '#666' }}>────────────────────────────────</div>
+                        <div className="text-xs text-center mb-4" style={{ color: '#aaa' }}>Authorized Personnel Only</div>
+                        <div className="space-y-2 mb-3">
+                          <div>
+                            <div className="text-xs mb-1" style={{ color: 'var(--lcars-blue)' }}>Username:</div>
+                            <input
+                              type="text"
+                              value={holodeckUsername}
+                              onChange={(e) => { setHolodeckUsername(e.target.value); setHolodeckLoginMsg(null); }}
+                              placeholder="Enter username..."
+                              className="w-full bg-transparent text-xs rounded px-2 py-1 outline-none font-mono"
+                              style={{ border: '1px solid #444', color: '#d4d4d4', caretColor: 'var(--lcars-orange)' }}
+                            />
+                          </div>
+                          <div>
+                            <div className="text-xs mb-1" style={{ color: 'var(--lcars-blue)' }}>Password:</div>
+                            <input
+                              type="text"
+                              value={holodeckPassword}
+                              onChange={(e) => { setHolodeckPassword(e.target.value); setHolodeckLoginMsg(null); }}
+                              placeholder="Enter password..."
+                              className="w-full bg-transparent text-xs rounded px-2 py-1 outline-none font-mono"
+                              style={{ border: '1px solid #444', color: '#d4d4d4', caretColor: 'var(--lcars-orange)' }}
+                            />
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const u = holodeckUsername;
+                            const p = holodeckPassword;
+                            const combined = (u + ' ' + p).toLowerCase();
+                            const isSQLi = /'\s*or\s+/i.test(u) || /'\s*or\s+/i.test(p) || /admin'\s*--/i.test(u) || /'\s*or\s*'/i.test(u) || /'\s*or\s*'/i.test(p) || combined.includes("' or 1") || combined.includes("or 1=1");
+                            if (isSQLi) {
+                              setHolodeckScreen('programs');
+                              setHolodeckLoginMsg(null);
+                            } else if (u.includes("'") || p.includes("'")) {
+                              setHolodeckAttempts(a => a + 1);
+                              setHolodeckLoginMsg('sql-error');
+                            } else {
+                              setHolodeckAttempts(a => a + 1);
+                              setHolodeckLoginMsg('invalid');
+                            }
+                          }}
+                          className="w-full text-xs font-bold uppercase tracking-wider py-1.5 rounded"
+                          style={{ backgroundColor: 'var(--lcars-orange)', color: '#000', border: 'none', cursor: 'pointer' }}
+                        >
+                          LOGIN
+                        </button>
+                        {holodeckLoginMsg === 'invalid' && (
+                          <div className="text-xs mt-2 text-center" style={{ color: 'var(--lcars-red, #f55)' }}>Error: Invalid credentials</div>
+                        )}
+                        {holodeckLoginMsg === 'sql-error' && (
+                          <div className="text-xs mt-2 font-mono p-2 rounded" style={{ backgroundColor: '#1a0000', color: '#ff6666', border: '1px solid #ff4444' }}>
+                            SQL Error: Unexpected token near &quot;&apos;&quot;
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Debug query — shown after 3+ attempts */}
+                      {holodeckAttempts >= 3 && (
+                        <div className="rounded p-3" style={{ backgroundColor: 'rgba(255,200,0,0.05)', border: '1px solid #886600' }}>
+                          <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#ccaa00' }}>⚠ Debug Mode Enabled:</div>
+                          <pre className="text-xs font-mono" style={{ color: '#aaa', whiteSpace: 'pre-wrap' }}>{`SELECT * FROM users\nWHERE username = '${holodeckUsername || 'input'}'\nAND password = '${holodeckPassword || 'input'}'`}</pre>
+                        </div>
+                      )}
+
+                      {/* Security logs — shown after 2+ attempts */}
+                      {holodeckAttempts >= 2 && (
+                        <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.04)', border: '1px solid #333' }}>
+                          <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-blue)' }}>Recent Authentication Logs:</div>
+                          <div className="text-xs font-mono space-y-0.5" style={{ color: '#888' }}>
+                            <div>[14:02:11] Failed login: user=admin</div>
+                            <div>[14:02:15] Failed login: user=test</div>
+                            <div style={{ color: '#ff8888' }}>[14:02:18] SQL error near &quot;&apos;&quot;</div>
+                            <div style={{ color: '#ff8888' }}>[14:02:18] Warning: Unhandled input in query</div>
+                            <div style={{ color: '#ffaa44' }}>[14:02:21] Suspicious query structure detected</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* System diagnostics */}
+                      <div className="rounded p-3" style={{ backgroundColor: 'rgba(255,50,50,0.05)', border: '1px solid #552222' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#cc4444' }}>System Diagnostics:</div>
+                        <div className="text-xs font-mono space-y-0.5" style={{ color: '#aaa' }}>
+                          <div>Input validation: <span style={{ color: '#ff5555' }}>DISABLED</span></div>
+                          <div>Parameterized queries: <span style={{ color: '#ff5555' }}>NOT IN USE</span></div>
+                          <div>Database protection: <span style={{ color: '#ffaa00' }}>WEAK</span></div>
+                          <div className="mt-1">Risk Level: <span style={{ color: '#ff3333', fontWeight: 'bold' }}>HIGH</span></div>
+                        </div>
+                      </div>
+
+                      {/* Fake credentials hint */}
+                      <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.04)', border: '1px solid #333' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#555' }}>Hint:</div>
+                        <div className="text-xs font-mono" style={{ color: '#555' }}>
+                          <div>Username: admin</div>
+                          <div>Password: starfleet123</div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {holodeckScreen === 'programs' && (
+                    <>
+                      {/* Access granted banner */}
+                      <div className="rounded p-3 text-center" style={{ backgroundColor: 'rgba(0,200,100,0.08)', border: '1px solid var(--lcars-green)' }}>
+                        <div className="text-sm font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--lcars-green)' }}>✔ Access Granted</div>
+                        <div className="text-xs mb-1" style={{ color: '#aaa' }}>Welcome, Commander.</div>
+                        <div className="text-xs mb-1" style={{ color: '#ffaa00' }}>⚠ Security Alert: Authentication anomaly detected</div>
+                        <div className="text-xs" style={{ color: '#666' }}>Loading Holodeck Archives...</div>
+                      </div>
+
+                      {/* Program list */}
+                      <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
+                        <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--lcars-tan)' }}>Holodeck Training Programs:</div>
+                        <div className="space-y-2">
+                          {[
+                            { label: 'Basic Combat Simulation', locked: true },
+                            { label: 'Starship Navigation Drills', locked: true },
+                            { label: 'Klingon Diplomacy Scenarios', locked: true },
+                            { label: 'Section 31 Restricted Archive 🔒', locked: false },
+                          ].map((prog) => (
+                            <div
+                              key={prog.label}
+                              onClick={() => { if (!prog.locked) setHolodeckScreen('archive'); }}
+                              className="text-xs font-mono px-3 py-2 rounded"
+                              style={{
+                                backgroundColor: prog.locked ? 'rgba(80,80,80,0.2)' : 'rgba(153,153,255,0.12)',
+                                border: prog.locked ? '1px solid #333' : '1px solid var(--lcars-orange)',
+                                color: prog.locked ? '#555' : 'var(--lcars-orange)',
+                                cursor: prog.locked ? 'default' : 'pointer',
+                              }}
+                            >
+                              {prog.label}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {holodeckScreen === 'archive' && (
+                    <>
+                      {/* Archive header */}
+                      <div className="rounded p-3 text-center" style={{ backgroundColor: 'rgba(255,50,50,0.07)', border: '1px solid #882222' }}>
+                        <div className="text-sm font-bold uppercase tracking-widest mb-1" style={{ color: '#cc4444' }}>SECTION 31 ARCHIVE ACCESS</div>
+                        <div className="text-xs mb-1" style={{ color: '#ff6666' }}>⚠ WARNING: Unauthorized access logged</div>
+                        <div className="text-xs" style={{ color: '#888' }}>Retrieving hidden directive...</div>
+                      </div>
+
+                      {/* Flag area */}
+                      {holodeckFlagResult !== 'correct' ? (
+                        <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.06)', border: '1px solid var(--lcars-blue)' }}>
+                          <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-blue)' }}>Submit Flag</div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={holodeckFlagInput}
+                              onChange={(e) => { setHolodeckFlagInput(e.target.value); setHolodeckFlagResult(null); }}
+                              placeholder="BSIDES{...}"
+                              className="flex-1 bg-transparent text-xs rounded px-2 py-1 outline-none font-mono"
+                              style={{ border: '1px solid #444', color: '#d4d4d4', caretColor: 'var(--lcars-orange)' }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  setHolodeckFlagResult(holodeckFlagInput.trim() === 'BSIDES{Holodeck_SQL_Injection}' ? 'correct' : 'incorrect');
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setHolodeckFlagResult(holodeckFlagInput.trim() === 'BSIDES{Holodeck_SQL_Injection}' ? 'correct' : 'incorrect')}
+                              className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
+                              style={{ backgroundColor: 'var(--lcars-orange)', color: '#000', border: 'none', cursor: 'pointer' }}
+                            >
+                              Submit
+                            </button>
+                          </div>
+                          {holodeckFlagResult === 'incorrect' && (
+                            <div className="text-xs mt-2" style={{ color: 'var(--lcars-red, #f55)' }}>✗ Incorrect flag. Check the archive and try again.</div>
+                          )}
+                        </div>
+                      ) : (
+                        /* Success state */
+                        <>
+                          <div className="rounded p-4 text-center" style={{ backgroundColor: 'rgba(0,200,100,0.08)', border: '2px solid var(--lcars-green)' }}>
+                            <div className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--lcars-green)' }}>✔ Directive Retrieved</div>
+                            <div className="text-xs mb-3" style={{ color: '#aaa', fontStyle: 'italic' }}>
+                              Computer: Section 31 directive extracted. Breach logged.
+                            </div>
+                            <div className="mt-3 text-xs font-mono font-bold" style={{ color: 'var(--lcars-green)' }}>
+                              🏁 BSIDES&#123;Holodeck_SQL_Injection&#125;
+                            </div>
+                          </div>
+                          <div className="rounded p-3" style={{ backgroundColor: 'rgba(153,153,255,0.04)', border: '1px solid #333' }}>
+                            <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-orange)' }}>Starfleet Security Advisory:</div>
+                            <div className="text-xs font-bold mb-1" style={{ color: '#aaa' }}>Vulnerability Identified: SQL Injection</div>
+                            <div className="text-xs font-bold mb-1 mt-2" style={{ color: 'var(--lcars-blue)' }}>Root Cause:</div>
+                            <div className="text-xs font-mono space-y-0.5" style={{ color: '#888' }}>
+                              <div>- Unsanitized user input</div>
+                              <div>- Dynamic query construction</div>
+                              <div>- No parameterized queries</div>
+                            </div>
+                            <div className="text-xs font-bold mb-1 mt-2" style={{ color: 'var(--lcars-green)' }}>Recommended Fix:</div>
+                            <div className="text-xs font-mono space-y-0.5" style={{ color: '#888' }}>
+                              <div>- Use prepared statements</div>
+                              <div>- Implement input validation</div>
+                              <div>- Apply least privilege access controls</div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
               ) : (
                 /* ── Challenge List ── */
                 <>
@@ -1415,13 +1669,13 @@ export default function Communicator() {
                             onClick={() => setActiveCTF(challenge.id)}
                             className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded transition-colors"
                             style={{
-                              backgroundColor: challenge.id === 1 ? 'var(--lcars-orange)' : '#444',
-                              color: challenge.id === 1 ? '#000' : '#888',
+                              backgroundColor: challenge.id <= 2 ? 'var(--lcars-orange)' : '#444',
+                              color: challenge.id <= 2 ? '#000' : '#888',
                               border: 'none',
-                              cursor: challenge.id === 1 ? 'pointer' : 'not-allowed',
+                              cursor: challenge.id <= 2 ? 'pointer' : 'not-allowed',
                             }}
                           >
-                            {challenge.id === 1 ? 'Begin Challenge' : 'Coming Soon'}
+                            {challenge.id <= 2 ? 'Begin Challenge' : 'Coming Soon'}
                           </button>
                         </div>
                       </div>
