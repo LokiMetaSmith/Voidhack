@@ -1992,16 +1992,16 @@ export default function Communicator() {
                       <div className="rounded p-3" style={{ backgroundColor: '#0a0a0a', border: '1px solid #444' }}>
                         <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--lcars-tan)' }}>Traffic Filter</div>
                         <div className="flex flex-wrap gap-3">
-                          {(['dns', 'http', 'internal', 'suspicious'] as const).map(key => (
+                          {(['dns', 'http', 'internal'] as const).map(key => (
                             <label key={key} className="flex items-center gap-1.5 cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={borgFilter[key]}
                                 onChange={() => setBorgFilter(f => ({ ...f, [key]: !f[key] }))}
-                                style={{ accentColor: key === 'suspicious' ? '#ff4444' : 'var(--lcars-orange)', cursor: 'pointer' }}
+                                style={{ accentColor: 'var(--lcars-orange)', cursor: 'pointer' }}
                               />
-                              <span className="text-xs font-mono uppercase" style={{ color: key === 'suspicious' ? '#ff4444' : '#aaa' }}>
-                                {key === 'dns' ? 'Show DNS' : key === 'http' ? 'Show HTTP' : key === 'internal' ? 'Show Internal Logs' : 'Show Suspicious Only'}
+                              <span className="text-xs font-mono uppercase" style={{ color: '#aaa' }}>
+                                {key === 'dns' ? 'Show DNS' : key === 'http' ? 'Show HTTP' : 'Show Internal Logs'}
                               </span>
                             </label>
                           ))}
