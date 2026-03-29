@@ -12,6 +12,16 @@ import { useVoiceActivityDetection } from "@/hooks/useVoiceActivityDetection";
 import { useTrekSounds } from "@/hooks/useTrekSounds";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, authHeaders } from "@/lib/queryClient";
+import { Info, Calendar, Cpu, Star, Shield, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 // Helper function to determine if continuous voice mode should be available
 // Continuous mode uses Voice Activity Detection which has microphone conflicts on Android
@@ -1187,19 +1197,88 @@ export default function Communicator() {
   return (
     <>
     <div className="flex flex-col h-screen" style={{ backgroundColor: '#000' }}>
-      <LCARSHeader
-        onClearConversation={messages.length > 0 ? handleClearConversation : undefined}
-        isHandsFreeMode={isHandsFreeMode}
-        onHandsFreeModeChange={continuousModeAvailable ? handleHandsFreeModeChange : undefined}
-        voiceSettingsButton={
-          <VoiceSettingsPanel
-            onSettingsChange={setVoiceSettings}
-            onSoundSettingsChange={setSoundSettings}
-          />
-        }
-        isAuthenticated={isAuthenticated}
-        onSignOut={handleSignOut}
-      />
+      <LCARSHeader />
+
+      {/* Action toolbar — lives below the header on all screen sizes */}
+      <div
+        className="flex items-center justify-end gap-1 px-3 py-1 flex-shrink-0"
+        style={{ backgroundColor: '#111', borderBottom: '1px solid var(--lcars-purple)' }}
+      >
+        {messages.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearConversation}
+            className="uppercase tracking-wider text-xs font-bold h-7 px-2"
+            style={{ color: 'var(--lcars-blue)' }}
+          >
+            Clear
+          </Button>
+        )}
+
+        <VoiceSettingsPanel
+          onSettingsChange={setVoiceSettings}
+          onSoundSettingsChange={setSoundSettings}
+        />
+
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              style={{ color: 'var(--lcars-blue)' }}
+            >
+              <Info className="h-4 w-4" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Enterprise Computer Interface</DialogTitle>
+              <DialogDescription className="space-y-4 pt-4">
+                <p>
+                  Welcome to the USS Enterprise Computer voice interface. This system
+                  uses advanced AI to simulate the iconic Star Trek computer experience.
+                </p>
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-foreground">How to Use:</h4>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    <li>Tap the communicator button to start voice input</li>
+                    <li>Speak your query clearly</li>
+                    <li>The computer will process and respond with voice output</li>
+                    <li>Continue the conversation naturally</li>
+                  </ul>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-foreground">Mobile Devices:</h4>
+                  <p className="text-sm">
+                    On iPhone and Android, tap the on-screen microphone button each time you want to speak.
+                    Bluetooth headset buttons (like AirPods) cannot control this web app due to browser limitations.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-foreground">Status Indicators:</h4>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    <li style={{ color: 'var(--lcars-red)' }}>Red: Listening to your voice</li>
+                    <li style={{ color: 'var(--lcars-purple)' }}>Purple: Processing your request</li>
+                    <li style={{ color: 'var(--lcars-blue)' }}>Blue: Computer speaking</li>
+                  </ul>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={isAuthenticated ? handleSignOut : undefined}
+          className="uppercase tracking-wider text-xs font-bold h-7 px-2"
+          style={{ color: 'var(--lcars-orange)' }}
+        >
+          {isAuthenticated ? "Sign Out" : "Sign In"}
+        </Button>
+      </div>
 
       <div className="flex-1 flex overflow-hidden" style={{ gap: '10px', padding: '10px' }}>
         <div className="hidden sm:flex flex-col gap-1.5 flex-shrink-0" style={{ width: '140px' }}>
@@ -2772,6 +2851,39 @@ export default function Communicator() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Mobile bottom tab bar — visible only on small screens */}
+      <div
+        className="flex sm:hidden flex-shrink-0"
+        style={{ backgroundColor: 'var(--lcars-purple)', borderTop: '2px solid var(--lcars-orange)' }}
+      >
+        {(
+          [
+            { id: 'schedule' as const, label: 'Schedule', Icon: Calendar },
+            { id: 'computer' as const, label: 'Computer', Icon: Cpu },
+            { id: 'rank'     as const, label: 'Rank',     Icon: Star },
+            { id: 'ctfs'     as const, label: 'CTFs',     Icon: Shield },
+            { id: 'account'  as const, label: 'Account',  Icon: User },
+          ]
+        ).map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
+            style={{
+              backgroundColor: activeTab === id ? 'var(--lcars-orange)' : 'transparent',
+              color: activeTab === id ? '#000' : '#000',
+              border: 'none',
+              minWidth: 0,
+            }}
+          >
+            <Icon className="h-4 w-4 flex-shrink-0" />
+            <span className="text-xs font-bold uppercase tracking-wide leading-none" style={{ fontSize: '9px' }}>
+              {label}
+            </span>
+          </button>
+        ))}
       </div>
 
       {showRegisterModal && (
