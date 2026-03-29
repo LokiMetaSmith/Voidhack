@@ -149,7 +149,8 @@ export class DbStorage implements IStorage {
       const [updated] = await db
         .update(schema.ctfProgress)
         .set({
-          completed: data.completed,
+          // Never downgrade completed from true → false (page reloads reset state)
+          completed: existing.completed || data.completed,
           progressData: data.progressData,
           updatedAt: new Date(),
         })

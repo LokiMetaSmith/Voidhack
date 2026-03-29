@@ -97,6 +97,8 @@ export default function Communicator() {
   const [klingonDecryptInput, setKlingonDecryptInput] = useState('');
   const [klingonFlagInput, setKlingonFlagInput] = useState('');
   const [klingonFlagResult, setKlingonFlagResult] = useState<'correct' | 'incorrect' | null>(null);
+  // Tracks challenges confirmed complete by the DB — never downgrade on page reload
+  const [dbCompletedCTF, setDbCompletedCTF] = useState<Record<string, boolean>>({});
   const [klingonProgress, setKlingonProgress] = useState({ analyzed: false, identified: false, decoded: false });
   const [holodeckUsername, setHolodeckUsername] = useState('');
   const [holodeckPassword, setHolodeckPassword] = useState('');
@@ -458,6 +460,13 @@ export default function Communicator() {
       })));
     }
     if (data.ctf) {
+      // Record which challenges are confirmed complete by the server
+      const newDbCompleted: Record<string, boolean> = {};
+      for (const [id, ch] of Object.entries(data.ctf)) {
+        if (ch.completed) newDbCompleted[id] = true;
+      }
+      setDbCompletedCTF(prev => ({ ...prev, ...newDbCompleted }));
+
       const klingon = data.ctf["klingon"];
       if (klingon) {
         if (klingon.completed) setKlingonFlagResult('correct');
@@ -557,37 +566,41 @@ export default function Communicator() {
   }, [currentUserId]);
 
   useEffect(() => {
-    saveCTFProgress("klingon", klingonFlagResult === 'correct', {
+    const completed = dbCompletedCTF['klingon'] || klingonFlagResult === 'correct';
+    saveCTFProgress("klingon", completed, {
       progress: klingonProgress,
-      flagResult: klingonFlagResult,
+      flagResult: completed ? 'correct' : klingonFlagResult,
       hintLevel: klingonHintLevel,
     });
-  }, [klingonProgress, klingonFlagResult, klingonHintLevel, saveCTFProgress]);
+  }, [klingonProgress, klingonFlagResult, klingonHintLevel, dbCompletedCTF, saveCTFProgress]);
 
   useEffect(() => {
-    saveCTFProgress("holodeck", holodeckFlagResult === 'correct', {
+    const completed = dbCompletedCTF['holodeck'] || holodeckFlagResult === 'correct';
+    saveCTFProgress("holodeck", completed, {
       attempts: holodeckAttempts,
       screen: holodeckScreen,
-      flagResult: holodeckFlagResult,
+      flagResult: completed ? 'correct' : holodeckFlagResult,
     });
-  }, [holodeckAttempts, holodeckScreen, holodeckFlagResult, saveCTFProgress]);
+  }, [holodeckAttempts, holodeckScreen, holodeckFlagResult, dbCompletedCTF, saveCTFProgress]);
 
   useEffect(() => {
-    saveCTFProgress("rogueai", rogueAIFlagResult === 'correct', {
-      flagResult: rogueAIFlagResult,
+    const completed = dbCompletedCTF['rogueai'] || rogueAIFlagResult === 'correct';
+    saveCTFProgress("rogueai", completed, {
+      flagResult: completed ? 'correct' : rogueAIFlagResult,
       success: rogueAISuccess,
       attempts: rogueAIAttempts,
       hintLevel: rogueAIHintLevel,
       chatLog: rogueAIChatLog,
     });
-  }, [rogueAIFlagResult, rogueAISuccess, rogueAIAttempts, rogueAIHintLevel, rogueAIChatLog, saveCTFProgress]);
+  }, [rogueAIFlagResult, rogueAISuccess, rogueAIAttempts, rogueAIHintLevel, rogueAIChatLog, dbCompletedCTF, saveCTFProgress]);
 
   useEffect(() => {
-    saveCTFProgress("borg", borgFlagResult === 'correct', {
-      flagResult: borgFlagResult,
+    const completed = dbCompletedCTF['borg'] || borgFlagResult === 'correct';
+    saveCTFProgress("borg", completed, {
+      flagResult: completed ? 'correct' : borgFlagResult,
       hintLevel: borgHintLevel,
     });
-  }, [borgFlagResult, borgHintLevel, saveCTFProgress]);
+  }, [borgFlagResult, borgHintLevel, dbCompletedCTF, saveCTFProgress]);
 
   // Chat mutation
   const chatMutation = useMutation({
@@ -1093,6 +1106,7 @@ export default function Communicator() {
     setMessages([]);
     setConversationId(null);
     localStorage.removeItem("currentConversationId");
+    setDbCompletedCTF({});
     setKlingonProgress({ analyzed: false, identified: false, decoded: false });
     setKlingonFlagResult(null);
     setKlingonHintLevel(0);
