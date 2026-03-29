@@ -44,12 +44,12 @@ const MAIN_SCHEDULE = [
   {
     room: "South Room",
     sessions: [
-      { time: "09:00am - 10:00am", title: "Acts of God - How Cybercriminals Leverage AI to Exploit Breaking News", speaker: "Andre Piazza" },
-      { time: "10:00am - 11:00am", title: "How to Combat Digital Deception - A Guide to Deepfakes", speaker: "Trevor Wiseman" },
-      { time: "11:00am - 12:00pm", title: "Burned-Out Admins - Your Most Exploitable Vulnerability", speaker: "Stephen Engler" },
-      { time: "01:00pm - 02:00pm", title: "Hunting Smarter, Not Harder - Building Threat Hunting Pipelines with Python (Featuring ESXi Hunting)", speaker: "James Honeycutt" },
-      { time: "02:00pm - 03:00pm", title: "Beyond the Prompt - The New Threat Surface of Vibe‑Coded Apps", speaker: "Yotam Perkal, Gil Maman" },
-      { time: "03:00pm - 04:00pm", title: "Death By (Python) Pickle - \"Betrayal ML\"", speaker: "Andy Lewis" },
+      { time: "09:00am - 10:00am", title: "How to steal a network", speaker: "Andrew Lemon" },
+      { time: "10:00am - 11:00am", title: "The Adversary Doesn't Care About Your Compliance Score", speaker: "Ian Anderson" },
+      { time: "11:00am - 12:00pm", title: "Operation Moonlander - Dismantling the Anyproxy/5socks Botnet", speaker: "Camron Borders" },
+      { time: "01:00pm - 02:00pm", title: "The Mentor's Roadmap to Your Cyber Career", speaker: "Kris Wall" },
+      { time: "02:00pm - 03:00pm", title: "Hacking Unpacked - This Year's Most Interesting Breaches, Mapped to Real Controls", speaker: "Geoff Wilson" },
+      { time: "03:00pm - 04:00pm", title: "The CISO as Diplomat - Surviving the Political Battlefield of IT", speaker: "Jonathan Kimmitt" },
     ],
   },
   {
