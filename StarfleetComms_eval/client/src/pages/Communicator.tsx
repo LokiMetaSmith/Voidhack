@@ -11,7 +11,7 @@ import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import { useVoiceActivityDetection } from "@/hooks/useVoiceActivityDetection";
 import { useTrekSounds } from "@/hooks/useTrekSounds";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, authHeaders } from "@/lib/queryClient";
 
 // Helper function to determine if continuous voice mode should be available
 // Continuous mode uses Voice Activity Detection which has microphone conflicts on Android
@@ -494,14 +494,14 @@ export default function Communicator() {
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        const meRes = await fetch("/api/auth/me");
+        const meRes = await fetch("/api/auth/me", { headers: authHeaders() });
         if (meRes.ok) {
           const meData = await meRes.json();
           if (meData.authenticated && meData.userId) {
             setIsAuthenticated(true);
             setCurrentUserId(meData.userId);
             setLoginUserId(meData.userId);
-            const progRes = await fetch("/api/progress");
+            const progRes = await fetch("/api/progress", { headers: authHeaders() });
             if (progRes.ok) {
               const progData = await progRes.json();
               applyProgress(progData);
@@ -538,7 +538,7 @@ export default function Communicator() {
     saveCTFRef.current[challengeId] = setTimeout(() => {
       fetch(`/api/ctf/${challengeId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ completed, progressData }),
       }).catch(err => console.error(`Failed to save CTF progress for ${challengeId}:`, err));
     }, 800);
@@ -1003,11 +1003,12 @@ export default function Communicator() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        if (data.token) localStorage.setItem("authToken", data.token);
         setIsAuthenticated(true);
         setCurrentUserId(data.userId);
         // Load persisted progress from server
         try {
-          const progRes = await fetch("/api/progress");
+          const progRes = await fetch("/api/progress", { headers: authHeaders() });
           if (progRes.ok) {
             const progData = await progRes.json();
             applyProgress(progData);
@@ -1063,10 +1064,11 @@ export default function Communicator() {
 
   const handleSignOut = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/auth/logout", { method: "POST", headers: authHeaders() });
     } catch (err) {
       console.error("Logout error:", err);
     }
+    localStorage.removeItem("authToken");
     setIsAuthenticated(false);
     setCurrentUserId(null);
     setLoginUserId("");

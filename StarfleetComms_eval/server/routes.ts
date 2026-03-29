@@ -1,9 +1,9 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { randomUUID } from "crypto";
 import { z } from "zod";
 import {
   chatRequestSchema,
-  conversationMessageSchema,
   appUsers,
   saveProgressSchema,
   saveCTFProgressSchema,
@@ -13,18 +13,34 @@ import { storage, db } from "./storage";
 import { eq } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "./auth";
 
+// In-memory token store: token → userId
+// Works reliably in all proxy/iframe environments where cookies may be blocked.
+const tokenStore = new Map<string, string>();
+
+function getUserIdFromRequest(req: Request): string | undefined {
+  const header = req.headers["x-auth-token"];
+  if (typeof header === "string" && header) {
+    return tokenStore.get(header);
+  }
+  return req.session?.userId;
+}
+
 function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.session?.userId) {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
     return res.status(401).json({ error: "Not authenticated." });
   }
+  // Attach for downstream handlers
+  (req as any).authenticatedUserId = userId;
   next();
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth: check current session
+  // Auth: check current session/token
   app.get("/api/auth/me", (req, res) => {
-    if (req.session?.userId) {
-      return res.json({ authenticated: true, userId: req.session.userId });
+    const userId = getUserIdFromRequest(req);
+    if (userId) {
+      return res.json({ authenticated: true, userId });
     }
     res.json({ authenticated: false });
   });
@@ -52,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Auth: login
+  // Auth: login — returns a token for header-based auth
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { userId, password } = req.body;
@@ -63,15 +79,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user || !verifyPassword(password, user.passwordHash)) {
         return res.status(401).json({ error: "Invalid User ID or password." });
       }
+      const token = randomUUID();
+      tokenStore.set(token, user.userId);
+      // Also set cookie-based session as fallback
       req.session.userId = user.userId;
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-          return res.status(500).json({ error: "Internal server error." });
-        }
-        res.json({ success: true, userId: user.userId });
-      });
-      return;
+      req.session.save(() => {});
+      res.json({ success: true, userId: user.userId, token });
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ error: "Internal server error." });
@@ -80,21 +93,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Auth: logout
   app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy(() => {
-      res.json({ success: true });
-    });
+    const header = req.headers["x-auth-token"];
+    if (typeof header === "string" && header) {
+      tokenStore.delete(header);
+    }
+    req.session.destroy(() => {});
+    res.json({ success: true });
   });
 
   // Get all progress for the current user (game state + CTF progress)
   app.get("/api/progress", requireAuth, async (req, res) => {
     try {
-      const userId = req.session.userId!;
+      const userId = (req as any).authenticatedUserId as string;
       const [userProg, ctfProgresses] = await Promise.all([
         storage.getUserProgress(userId),
         storage.getAllCTFProgress(userId),
       ]);
 
-      // Also load conversation messages if a conversationId is stored
       let conversationMessages: Array<{ id: string; role: string; text: string; timestamp: number }> = [];
       const conversationId = userProg?.conversationId ?? null;
       if (conversationId) {
@@ -107,7 +122,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
       }
 
-      // Build a map of challengeId -> progress
       const ctfMap: Record<string, { completed: boolean; progressData: unknown }> = {};
       for (const cp of ctfProgresses) {
         ctfMap[cp.challengeId] = {
@@ -132,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Save game state progress (rank, XP)
   app.put("/api/progress", requireAuth, async (req, res) => {
     try {
-      const userId = req.session.userId!;
+      const userId = (req as any).authenticatedUserId as string;
       const validated = saveProgressSchema.parse(req.body);
       const updated = await storage.upsertUserProgress(userId, validated);
       res.json({ success: true, rank: updated.rank, xp: updated.xp });
@@ -148,7 +162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Save CTF challenge progress
   app.put("/api/ctf/:challengeId", requireAuth, async (req, res) => {
     try {
-      const userId = req.session.userId!;
+      const userId = (req as any).authenticatedUserId as string;
       const { challengeId } = req.params;
       const validated = saveCTFProgressSchema.parse(req.body);
       const updated = await storage.upsertCTFProgress(userId, challengeId, {
@@ -169,12 +183,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/chat", async (req, res) => {
     try {
       const validatedData = chatRequestSchema.parse(req.body);
-      const userId = req.session?.userId;
+      const userId = getUserIdFromRequest(req);
 
-      // Get or create conversation tied to this user
       let conversationId = validatedData.conversationId;
       if (!conversationId) {
-        // Try to reuse the user's existing conversation from progress
         if (userId) {
           const userProg = await storage.getUserProgress(userId);
           if (userProg?.conversationId) {
@@ -184,14 +196,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!conversationId) {
           const newConversation = await storage.createConversation(userId);
           conversationId = newConversation.id;
-          // Link this conversation to the user's progress
           if (userId) {
             await storage.upsertUserProgress(userId, { conversationId });
           }
         }
       }
 
-      // Get conversation history from database if not provided
       let conversationHistory = validatedData.conversationHistory || [];
       if (!validatedData.conversationHistory && conversationId) {
         const dbMessages = await storage.getConversationMessages(conversationId);
@@ -203,7 +213,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
       }
 
-      // Save user message
       const userMessage = await storage.createMessage({
         conversationId,
         role: "user",
@@ -211,14 +220,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: Date.now(),
       });
 
-      // Generate response from Gemini
       const computerResponse = await generateComputerResponse(
         validatedData.message,
         conversationHistory,
         validatedData.shipSystems
       );
 
-      // Save computer response
       const computerMessage = await storage.createMessage({
         conversationId,
         role: "computer",
@@ -226,7 +233,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: Date.now(),
       });
 
-      // Update conversation updatedAt by touching the user's progress record
       if (userId) {
         await storage.upsertUserProgress(userId, { conversationId });
       }
@@ -238,11 +244,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Chat error:", error);
-
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid request data" });
       }
-
       res.status(500).json({
         error: error instanceof Error ? error.message : "Internal server error"
       });
@@ -254,7 +258,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const conversationId = req.params.id;
       const messages = await storage.getConversationMessages(conversationId);
-
       res.json({
         messages: messages.map(msg => ({
           id: msg.id,
@@ -276,16 +279,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const conversationId = req.params.id;
       await storage.deleteConversation(conversationId);
-
-      // Also clear the conversationId from user's progress if it's theirs
-      const userId = req.session?.userId;
+      const userId = getUserIdFromRequest(req);
       if (userId) {
         const userProg = await storage.getUserProgress(userId);
         if (userProg?.conversationId === conversationId) {
           await storage.upsertUserProgress(userId, { conversationId: null });
         }
       }
-
       res.json({ success: true });
     } catch (error) {
       console.error("Delete conversation error:", error);
@@ -296,6 +296,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
-
   return httpServer;
 }
