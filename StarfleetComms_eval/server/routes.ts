@@ -101,6 +101,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
+  // Auth: delete account — permanently removes user and all associated data
+  app.delete("/api/auth/account", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).authenticatedUserId as string;
+      // Cascading deletes: ctf_progress, user_progress, conversations+messages all cascade from app_users
+      await db.delete(appUsers).where(eq(appUsers.userId, userId));
+      // Revoke the token
+      const header = req.headers["x-auth-token"];
+      if (typeof header === "string" && header) {
+        tokenStore.delete(header);
+      }
+      req.session.destroy(() => {});
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete account error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
   // Get all progress for the current user (game state + CTF progress)
   app.get("/api/progress", requireAuth, async (req, res) => {
     try {

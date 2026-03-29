@@ -80,6 +80,8 @@ export default function Communicator() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [userIdTouched, setUserIdTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -1101,6 +1103,52 @@ export default function Communicator() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    setDeleteError("");
+    try {
+      const res = await fetch("/api/auth/account", {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDeleteError(data.error || "Failed to delete account.");
+        return;
+      }
+    } catch (err) {
+      setDeleteError("Connection error. Please try again.");
+      return;
+    }
+    // Account deleted — clear all local state exactly as sign-out does
+    localStorage.removeItem("authToken");
+    setShowDeleteConfirm(false);
+    setIsAuthenticated(false);
+    setCurrentUserId(null);
+    setLoginUserId("");
+    setLoginPassword("");
+    setLoginError("");
+    setShowPassword(false);
+    setUserIdTouched(false);
+    setPasswordTouched(false);
+    setMessages([]);
+    setConversationId(null);
+    localStorage.removeItem("currentConversationId");
+    setDbCompletedCTF({});
+    setKlingonProgress({ analyzed: false, identified: false, decoded: false });
+    setKlingonFlagResult(null);
+    setKlingonHintLevel(0);
+    setHolodeckAttempts(0);
+    setHolodeckScreen('login');
+    setHolodeckFlagResult(null);
+    setRogueAIChatLog([]);
+    setRogueAIFlagResult(null);
+    setRogueAISuccess(false);
+    setRogueAIAttempts(0);
+    setRogueAIHintLevel(0);
+    setBorgFlagResult(null);
+    setBorgHintLevel(0);
+  };
+
   const handleSignOut = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST", headers: authHeaders() });
@@ -1310,13 +1358,89 @@ export default function Communicator() {
               </form>
             </div>
           ) : activeTab === 'rank' ? (
-            <div className="flex-1 flex items-center justify-center font-mono">
-              <span
-                className="text-2xl font-bold tracking-widest uppercase"
+            <div className="flex-1 overflow-y-auto p-4 font-mono">
+              {/* Account info */}
+              <div
+                className="text-center text-xs font-bold tracking-widest uppercase mb-4"
                 style={{ color: 'var(--lcars-orange)' }}
               >
-                PENDING
-              </span>
+                Account Management
+              </div>
+
+              {isAuthenticated ? (
+                <div className="space-y-3">
+                  {/* User ID display */}
+                  <div
+                    className="rounded p-3"
+                    style={{ backgroundColor: 'rgba(153,153,255,0.07)', border: '1px solid var(--lcars-blue)' }}
+                  >
+                    <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'var(--lcars-blue)' }}>Logged in as</div>
+                    <div className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--lcars-tan)' }}>
+                      {currentUserId}
+                    </div>
+                  </div>
+
+                  {/* Delete account section */}
+                  <div
+                    className="rounded p-3"
+                    style={{ backgroundColor: 'rgba(255,50,50,0.05)', border: '1px solid #552222' }}
+                  >
+                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#cc4444' }}>
+                      Danger Zone
+                    </div>
+                    <div className="text-xs mb-3" style={{ color: '#888' }}>
+                      Permanently delete your account and all associated data — conversation history, challenge progress, and rank. This cannot be undone.
+                    </div>
+
+                    {!showDeleteConfirm ? (
+                      <button
+                        type="button"
+                        onClick={() => { setShowDeleteConfirm(true); setDeleteError(""); }}
+                        className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded w-full"
+                        style={{ backgroundColor: '#552222', color: '#ff8888', border: '1px solid #cc4444', cursor: 'pointer' }}
+                      >
+                        Delete Account
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <div
+                          className="text-xs font-bold uppercase tracking-wider text-center py-1.5 rounded"
+                          style={{ backgroundColor: '#330000', color: '#ff4444', border: '1px solid #cc4444' }}
+                        >
+                          ⚠ This will permanently erase all your data
+                        </div>
+                        {deleteError && (
+                          <div className="text-xs text-center" style={{ color: '#ff6666' }}>{deleteError}</div>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { setShowDeleteConfirm(false); setDeleteError(""); }}
+                            className="flex-1 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded"
+                            style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDeleteAccount}
+                            className="flex-1 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded"
+                            style={{ backgroundColor: '#cc2222', color: '#fff', border: 'none', cursor: 'pointer' }}
+                          >
+                            Confirm Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center mt-8">
+                  <span className="text-xs uppercase tracking-widest" style={{ color: '#555' }}>
+                    Sign in to manage your account
+                  </span>
+                </div>
+              )}
             </div>
           ) : activeTab === 'ctfs' ? (
             <div className="flex-1 overflow-y-auto p-4 font-mono">
