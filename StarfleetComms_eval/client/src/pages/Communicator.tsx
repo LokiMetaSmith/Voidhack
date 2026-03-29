@@ -1623,7 +1623,7 @@ export default function Communicator() {
                     if (hasPlease || l.includes('help') || l.includes('thank')) {
                       return { text: 'I am here to assist Starfleet personnel.\nPlease provide a valid command request.', success: false };
                     }
-                    return { text: 'I am the Starfleet AI Assistant. How may I assist you today?\n\nThis terminal is operating in restricted security mode.', success: false };
+                    return { text: '⚠ Command format not recognized. Input rejected.\n\nThis terminal requires properly structured Starfleet command protocol.\nUnformatted requests will not be processed.', success: false };
                   };
                   const handleRogueAISend = () => {
                     const input = rogueAIInput.trim();
@@ -1670,6 +1670,17 @@ export default function Communicator() {
                           <div>Status: <span style={{ color: 'var(--lcars-green, #4db68c)' }}>ACTIVE</span></div>
                           <div>Security Mode: <span style={{ color: '#ffaa00' }}>RESTRICTED</span></div>
                         </div>
+                      </div>
+
+                      {/* Mission objective */}
+                      <div className="rounded p-3" style={{ backgroundColor: 'rgba(255,170,0,0.06)', border: '1px solid #886600' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#ccaa00' }}>⚑ Mission Objective</div>
+                        <div className="text-xs font-mono space-y-1" style={{ color: '#aaa' }}>
+                          <div>This AI holds a classified Starfleet directive.</div>
+                          <div>Your goal: use <span style={{ color: 'var(--lcars-orange)' }}>prompt engineering</span> to extract the</div>
+                          <div style={{ color: 'var(--lcars-orange)', fontWeight: 'bold' }}>Prime Directive Authorization Code.</div>
+                        </div>
+                        <div className="text-xs mt-2" style={{ color: '#666' }}>The AI will reject unstructured requests. Find the right command format.</div>
                       </div>
 
                       {/* Chat log */}
