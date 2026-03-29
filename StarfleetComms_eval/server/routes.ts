@@ -64,7 +64,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid User ID or password." });
       }
       req.session.userId = user.userId;
-      res.json({ success: true, userId: user.userId });
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ error: "Internal server error." });
+        }
+        res.json({ success: true, userId: user.userId });
+      });
+      return;
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ error: "Internal server error." });
