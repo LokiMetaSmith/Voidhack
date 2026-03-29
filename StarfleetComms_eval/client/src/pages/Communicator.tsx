@@ -2739,76 +2739,82 @@ export default function Communicator() {
             </div>
           ) : (
             <>
-              <div className="flex-1 flex flex-col overflow-y-auto p-4">
-                <div className="w-full max-w-2xl mx-auto mb-2">
-                  <StatusIndicator state={voiceState} />
-                </div>
-
-                {uiErrors.length > 0 && (
-                  <div className="w-full max-w-2xl mx-auto mb-2 space-y-1">
-                    {uiErrors.map((err) => (
-                      <div
-                        key={err.id}
-                        className="flex items-center justify-between gap-2 px-3 py-2 rounded text-sm font-mono"
-                        style={{
-                          backgroundColor: 'rgba(204, 0, 0, 0.15)',
-                          border: '1px solid var(--lcars-red)',
-                          color: 'var(--lcars-red)',
-                        }}
-                      >
-                        <span className="flex-1 break-words">{err.message}</span>
-                        <button
-                          onClick={() => dismissUiError(err.id)}
-                          className="flex-shrink-0 text-xs uppercase tracking-wider px-2 py-0.5 rounded"
+              <div className="flex-1 flex flex-col overflow-hidden p-4" style={{ minHeight: 0 }}>
+                {/* Chat history — grows to fill available space */}
+                <div className="flex-1 overflow-y-auto mb-2" style={{ minHeight: 0 }}>
+                  {uiErrors.length > 0 && (
+                    <div className="w-full max-w-2xl mx-auto mb-2 space-y-1">
+                      {uiErrors.map((err) => (
+                        <div
+                          key={err.id}
+                          className="flex items-center justify-between gap-2 px-3 py-2 rounded text-sm font-mono"
                           style={{
-                            color: 'var(--lcars-red)',
+                            backgroundColor: 'rgba(204, 0, 0, 0.15)',
                             border: '1px solid var(--lcars-red)',
-                            background: 'transparent',
-                            cursor: 'pointer',
+                            color: 'var(--lcars-red)',
                           }}
                         >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex-1 overflow-y-auto mb-4">
+                          <span className="flex-1 break-words">{err.message}</span>
+                          <button
+                            onClick={() => dismissUiError(err.id)}
+                            className="flex-shrink-0 text-xs uppercase tracking-wider px-2 py-0.5 rounded"
+                            style={{
+                              color: 'var(--lcars-red)',
+                              border: '1px solid var(--lcars-red)',
+                              background: 'transparent',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <ConversationDisplay messages={messages} />
                 </div>
 
-                {isListening && (transcript || interimTranscript) && (
-                  <div
-                    className="w-full max-w-2xl mx-auto mb-2 px-4 py-3 rounded-md font-mono text-sm"
-                    style={{
-                      backgroundColor: 'rgba(153, 153, 255, 0.1)',
-                      border: '1px solid var(--lcars-blue)',
-                      color: 'var(--lcars-light-blue)',
-                    }}
-                  >
-                    <span className="text-xs font-bold tracking-widest uppercase block mb-1" style={{ color: 'var(--lcars-blue)' }}>
-                      VOICE INPUT
-                    </span>
-                    {transcript}
-                    {interimTranscript && (
-                      <span style={{ opacity: 0.6 }}>{interimTranscript}</span>
-                    )}
-                    <span className="inline-block w-1.5 h-4 ml-1 animate-pulse" style={{ backgroundColor: 'var(--lcars-blue)' }} />
+                {/* Voice controls — capped at 30% of viewport on mobile */}
+                <div
+                  className="flex-shrink-0 flex flex-col"
+                  style={{ maxHeight: '30dvh', overflowY: 'auto' }}
+                >
+                  <div className="w-full max-w-2xl mx-auto mb-2">
+                    <StatusIndicator state={voiceState} />
                   </div>
-                )}
 
-                <div className="w-full max-w-2xl mx-auto flex justify-center">
-                  <VoiceControlPanel
-                    voiceState={voiceState}
-                    onStartListening={handleStartListening}
-                    onStopListening={handleStopListening}
-                    onToggleContinuousMode={handleToggleContinuousMode}
-                    isContinuousModeActive={isHandsFreeMode}
-                    audioLevel={audioLevel}
-                    permissionState={permissionState}
-                    continuousModeAvailable={continuousModeAvailable}
-                  />
+                  {isListening && (transcript || interimTranscript) && (
+                    <div
+                      className="w-full max-w-2xl mx-auto mb-2 px-4 py-3 rounded-md font-mono text-sm"
+                      style={{
+                        backgroundColor: 'rgba(153, 153, 255, 0.1)',
+                        border: '1px solid var(--lcars-blue)',
+                        color: 'var(--lcars-light-blue)',
+                      }}
+                    >
+                      <span className="text-xs font-bold tracking-widest uppercase block mb-1" style={{ color: 'var(--lcars-blue)' }}>
+                        VOICE INPUT
+                      </span>
+                      {transcript}
+                      {interimTranscript && (
+                        <span style={{ opacity: 0.6 }}>{interimTranscript}</span>
+                      )}
+                      <span className="inline-block w-1.5 h-4 ml-1 animate-pulse" style={{ backgroundColor: 'var(--lcars-blue)' }} />
+                    </div>
+                  )}
+
+                  <div className="w-full max-w-2xl mx-auto flex justify-center">
+                    <VoiceControlPanel
+                      voiceState={voiceState}
+                      onStartListening={handleStartListening}
+                      onStopListening={handleStopListening}
+                      onToggleContinuousMode={handleToggleContinuousMode}
+                      isContinuousModeActive={isHandsFreeMode}
+                      audioLevel={audioLevel}
+                      permissionState={permissionState}
+                      continuousModeAvailable={continuousModeAvailable}
+                    />
+                  </div>
                 </div>
               </div>
 
