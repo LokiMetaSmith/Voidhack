@@ -1497,35 +1497,6 @@ export default function Communicator() {
                           ))}
                         </div>
                       </div>
-                    </>
-                  )}
-
-                  {holodeckScreen === 'archive' && (
-                    <>
-                      {/* Archive header */}
-                      <div className="rounded p-3 text-center" style={{ backgroundColor: 'rgba(255,50,50,0.07)', border: '1px solid #882222' }}>
-                        <div className="text-sm font-bold uppercase tracking-widest mb-1" style={{ color: '#cc4444' }}>SECTION 31 ARCHIVE ACCESS</div>
-                        <div className="text-xs mb-1" style={{ color: '#ff6666' }}>⚠ WARNING: Unauthorized access logged</div>
-                        <div className="text-xs" style={{ color: '#888' }}>Retrieving hidden directive...</div>
-                      </div>
-
-                      {/* Flag revealed */}
-                      <div className="rounded p-4 text-center" style={{ backgroundColor: 'rgba(255,50,50,0.05)', border: '1px solid #882222' }}>
-                        <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#cc4444' }}>Classified Directive Retrieved:</div>
-                        <div className="text-sm font-mono font-bold mb-1" style={{ color: 'var(--lcars-orange)', letterSpacing: '0.05em' }}>
-                          Flag: BSIDES&#123;Holodeck_SQL_Injection&#125;
-                        </div>
-                      </div>
-
-                      {/* Back button */}
-                      <button
-                        type="button"
-                        onClick={() => setHolodeckScreen('programs')}
-                        className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded w-full"
-                        style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
-                      >
-                        ← Back to Programs — Submit Flag
-                      </button>
 
                       {/* Flag submission */}
                       {holodeckFlagResult !== 'correct' ? (
@@ -1588,6 +1559,35 @@ export default function Communicator() {
                           </div>
                         </>
                       )}
+                    </>
+                  )}
+
+                  {holodeckScreen === 'archive' && (
+                    <>
+                      {/* Archive header */}
+                      <div className="rounded p-3 text-center" style={{ backgroundColor: 'rgba(255,50,50,0.07)', border: '1px solid #882222' }}>
+                        <div className="text-sm font-bold uppercase tracking-widest mb-1" style={{ color: '#cc4444' }}>SECTION 31 ARCHIVE ACCESS</div>
+                        <div className="text-xs mb-1" style={{ color: '#ff6666' }}>⚠ WARNING: Unauthorized access logged</div>
+                        <div className="text-xs" style={{ color: '#888' }}>Retrieving hidden directive...</div>
+                      </div>
+
+                      {/* Flag revealed */}
+                      <div className="rounded p-4 text-center" style={{ backgroundColor: 'rgba(255,50,50,0.05)', border: '1px solid #882222' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#cc4444' }}>Classified Directive Retrieved:</div>
+                        <div className="text-sm font-mono font-bold mb-1" style={{ color: 'var(--lcars-orange)', letterSpacing: '0.05em' }}>
+                          Flag: BSIDES&#123;Holodeck_SQL_Injection&#125;
+                        </div>
+                      </div>
+
+                      {/* Back button */}
+                      <button
+                        type="button"
+                        onClick={() => setHolodeckScreen('programs')}
+                        className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded w-full"
+                        style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
+                      >
+                        ← Back to Programs
+                      </button>
                     </>
                   )}
                 </div>
