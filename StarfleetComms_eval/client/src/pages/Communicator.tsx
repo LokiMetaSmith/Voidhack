@@ -459,33 +459,45 @@ export default function Communicator() {
     }
     if (data.ctf) {
       const klingon = data.ctf["klingon"];
-      if (klingon?.progressData) {
-        const pd = klingon.progressData as Record<string, unknown>;
-        if (pd.progress) setKlingonProgress(pd.progress as { analyzed: boolean; identified: boolean; decoded: boolean });
-        if (pd.flagResult !== undefined) setKlingonFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
-        if (pd.hintLevel !== undefined) setKlingonHintLevel(pd.hintLevel as number);
+      if (klingon) {
+        if (klingon.completed) setKlingonFlagResult('correct');
+        if (klingon.progressData) {
+          const pd = klingon.progressData as Record<string, unknown>;
+          if (pd.progress) setKlingonProgress(pd.progress as { analyzed: boolean; identified: boolean; decoded: boolean });
+          if (!klingon.completed && pd.flagResult !== undefined) setKlingonFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
+          if (pd.hintLevel !== undefined) setKlingonHintLevel(pd.hintLevel as number);
+        }
       }
       const holodeck = data.ctf["holodeck"];
-      if (holodeck?.progressData) {
-        const pd = holodeck.progressData as Record<string, unknown>;
-        if (pd.attempts !== undefined) setHolodeckAttempts(pd.attempts as number);
-        if (pd.screen !== undefined) setHolodeckScreen(pd.screen as 'login' | 'programs' | 'archive');
-        if (pd.flagResult !== undefined) setHolodeckFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
+      if (holodeck) {
+        if (holodeck.completed) setHolodeckFlagResult('correct');
+        if (holodeck.progressData) {
+          const pd = holodeck.progressData as Record<string, unknown>;
+          if (pd.attempts !== undefined) setHolodeckAttempts(pd.attempts as number);
+          if (pd.screen !== undefined) setHolodeckScreen(pd.screen as 'login' | 'programs' | 'archive');
+          if (!holodeck.completed && pd.flagResult !== undefined) setHolodeckFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
+        }
       }
       const rogueai = data.ctf["rogueai"];
-      if (rogueai?.progressData) {
-        const pd = rogueai.progressData as Record<string, unknown>;
-        if (pd.flagResult !== undefined) setRogueAIFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
-        if (pd.success !== undefined) setRogueAISuccess(pd.success as boolean);
-        if (pd.attempts !== undefined) setRogueAIAttempts(pd.attempts as number);
-        if (pd.hintLevel !== undefined) setRogueAIHintLevel(pd.hintLevel as number);
-        if (pd.chatLog !== undefined) setRogueAIChatLog(pd.chatLog as { role: 'user' | 'ai'; text: string }[]);
+      if (rogueai) {
+        if (rogueai.completed) setRogueAIFlagResult('correct');
+        if (rogueai.progressData) {
+          const pd = rogueai.progressData as Record<string, unknown>;
+          if (!rogueai.completed && pd.flagResult !== undefined) setRogueAIFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
+          if (pd.success !== undefined) setRogueAISuccess(pd.success as boolean);
+          if (pd.attempts !== undefined) setRogueAIAttempts(pd.attempts as number);
+          if (pd.hintLevel !== undefined) setRogueAIHintLevel(pd.hintLevel as number);
+          if (pd.chatLog !== undefined) setRogueAIChatLog(pd.chatLog as { role: 'user' | 'ai'; text: string }[]);
+        }
       }
       const borg = data.ctf["borg"];
-      if (borg?.progressData) {
-        const pd = borg.progressData as Record<string, unknown>;
-        if (pd.flagResult !== undefined) setBorgFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
-        if (pd.hintLevel !== undefined) setBorgHintLevel(pd.hintLevel as number);
+      if (borg) {
+        if (borg.completed) setBorgFlagResult('correct');
+        if (borg.progressData) {
+          const pd = borg.progressData as Record<string, unknown>;
+          if (!borg.completed && pd.flagResult !== undefined) setBorgFlagResult(pd.flagResult as 'correct' | 'incorrect' | null);
+          if (pd.hintLevel !== undefined) setBorgHintLevel(pd.hintLevel as number);
+        }
       }
     }
   }, []);
