@@ -7,7 +7,7 @@ import { ConversationMessage, ShipSystemStatus } from "@shared/schema";
 //   - do not change this unless explicitly requested by the user
 
 // This API key is from Gemini Developer API Key, not vertex AI API Key
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const ai = new GoogleGenAI({ apiKey: process.env.gemini_api || process.env.GEMINI_API_KEY || "" });
 
 function buildSystemPrompt(shipSystems: ShipSystemStatus): string {
   return `You are the USS Enterprise Computer from Star Trek: The Next Generation.
