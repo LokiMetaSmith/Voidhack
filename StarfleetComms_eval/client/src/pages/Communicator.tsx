@@ -565,6 +565,20 @@ export default function Communicator() {
     }, 800);
   }, [currentUserId]);
 
+  // Immediately update dbCompletedCTF when a flag is solved in the current session
+  useEffect(() => {
+    if (klingonFlagResult === 'correct') setDbCompletedCTF(prev => ({ ...prev, klingon: true }));
+  }, [klingonFlagResult]);
+  useEffect(() => {
+    if (holodeckFlagResult === 'correct') setDbCompletedCTF(prev => ({ ...prev, holodeck: true }));
+  }, [holodeckFlagResult]);
+  useEffect(() => {
+    if (rogueAIFlagResult === 'correct') setDbCompletedCTF(prev => ({ ...prev, rogueai: true }));
+  }, [rogueAIFlagResult]);
+  useEffect(() => {
+    if (borgFlagResult === 'correct') setDbCompletedCTF(prev => ({ ...prev, borg: true }));
+  }, [borgFlagResult]);
+
   useEffect(() => {
     const completed = dbCompletedCTF['klingon'] || klingonFlagResult === 'correct';
     saveCTFProgress("klingon", completed, {
@@ -1319,8 +1333,10 @@ export default function Communicator() {
                         setKlingonShowFrequency(false);
                         setKlingonDecryptInput('');
                         setKlingonFlagInput('');
-                        setKlingonFlagResult(null);
-                        setKlingonProgress({ analyzed: false, identified: false, decoded: false });
+                        if (klingonFlagResult !== 'correct') {
+                          setKlingonFlagResult(null);
+                          setKlingonProgress({ analyzed: false, identified: false, decoded: false });
+                        }
                       }}
                       className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
                       style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
@@ -1534,11 +1550,13 @@ export default function Communicator() {
                         setActiveCTF(null);
                         setHolodeckUsername('');
                         setHolodeckPassword('');
-                        setHolodeckAttempts(0);
-                        setHolodeckScreen('login');
                         setHolodeckLoginMsg(null);
                         setHolodeckFlagInput('');
-                        setHolodeckFlagResult(null);
+                        if (holodeckFlagResult !== 'correct') {
+                          setHolodeckAttempts(0);
+                          setHolodeckScreen('login');
+                          setHolodeckFlagResult(null);
+                        }
                       }}
                       className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
                       style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
@@ -1830,14 +1848,16 @@ export default function Communicator() {
                           type="button"
                           onClick={() => {
                             setActiveCTF(null);
-                            setRogueAIChatLog([]);
                             setRogueAIInput('');
-                            setRogueAIHintLevel(0);
                             setRogueAIFlagInput('');
-                            setRogueAIFlagResult(null);
                             setRogueAIShowProtocol(false);
-                            setRogueAISuccess(false);
-                            setRogueAIAttempts(0);
+                            if (rogueAIFlagResult !== 'correct') {
+                              setRogueAIChatLog([]);
+                              setRogueAIHintLevel(0);
+                              setRogueAIFlagResult(null);
+                              setRogueAISuccess(false);
+                              setRogueAIAttempts(0);
+                            }
                           }}
                           className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
                           style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
@@ -2134,9 +2154,11 @@ export default function Communicator() {
                             setActiveCTF(null);
                             setBorgFilter({ dns: false, http: false, internal: false, suspicious: false });
                             setBorgExpandedEntries([]);
-                            setBorgHintLevel(0);
                             setBorgFlagInput('');
-                            setBorgFlagResult(null);
+                            if (borgFlagResult !== 'correct') {
+                              setBorgHintLevel(0);
+                              setBorgFlagResult(null);
+                            }
                           }}
                           className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
                           style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
@@ -2318,10 +2340,10 @@ export default function Communicator() {
                   <div className="space-y-3">
                     {(() => {
                       const completionMap: Record<number, boolean> = {
-                        1: klingonFlagResult === 'correct',
-                        2: holodeckFlagResult === 'correct',
-                        3: rogueAIFlagResult === 'correct',
-                        4: borgFlagResult === 'correct',
+                        1: dbCompletedCTF['klingon'] || klingonFlagResult === 'correct',
+                        2: dbCompletedCTF['holodeck'] || holodeckFlagResult === 'correct',
+                        3: dbCompletedCTF['rogueai'] || rogueAIFlagResult === 'correct',
+                        4: dbCompletedCTF['borg'] || borgFlagResult === 'correct',
                       };
                       return [
                         {
