@@ -1462,26 +1462,27 @@ export default function Communicator() {
               {activeCTF === 1 ? (
                 /* ── Klingon Transmission Challenge ── */
                 <div className="flex flex-col gap-3">
+                  {/* Back button — above header */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveCTF(null);
+                      setKlingonHintLevel(0);
+                      setKlingonShowFrequency(false);
+                      setKlingonDecryptInput('');
+                      setKlingonFlagInput('');
+                      if (klingonFlagResult !== 'correct') {
+                        setKlingonFlagResult(null);
+                        setKlingonProgress({ analyzed: false, identified: false, decoded: false });
+                      }
+                    }}
+                    className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded self-start"
+                    style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
+                  >
+                    ← Back
+                  </button>
                   {/* Header bar */}
                   <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveCTF(null);
-                        setKlingonHintLevel(0);
-                        setKlingonShowFrequency(false);
-                        setKlingonDecryptInput('');
-                        setKlingonFlagInput('');
-                        if (klingonFlagResult !== 'correct') {
-                          setKlingonFlagResult(null);
-                          setKlingonProgress({ analyzed: false, identified: false, decoded: false });
-                        }
-                      }}
-                      className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
-                      style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
-                    >
-                      ← Back
-                    </button>
                     <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--lcars-orange)' }}>
                       Starfleet Intelligence Terminal
                     </div>
@@ -1681,27 +1682,28 @@ export default function Communicator() {
               ) : activeCTF === 2 ? (
                 /* ── Holodeck Breach Challenge ── */
                 <div className="flex flex-col gap-3">
+                  {/* Back button — above header */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveCTF(null);
+                      setHolodeckUsername('');
+                      setHolodeckPassword('');
+                      setHolodeckLoginMsg(null);
+                      setHolodeckFlagInput('');
+                      if (holodeckFlagResult !== 'correct') {
+                        setHolodeckAttempts(0);
+                        setHolodeckScreen('login');
+                        setHolodeckFlagResult(null);
+                      }
+                    }}
+                    className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded self-start"
+                    style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
+                  >
+                    ← Back
+                  </button>
                   {/* Header bar */}
                   <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveCTF(null);
-                        setHolodeckUsername('');
-                        setHolodeckPassword('');
-                        setHolodeckLoginMsg(null);
-                        setHolodeckFlagInput('');
-                        if (holodeckFlagResult !== 'correct') {
-                          setHolodeckAttempts(0);
-                          setHolodeckScreen('login');
-                          setHolodeckFlagResult(null);
-                        }
-                      }}
-                      className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
-                      style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
-                    >
-                      ← Back
-                    </button>
                     <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--lcars-orange)' }}>
                       Holodeck Training System
                     </div>
@@ -1981,28 +1983,29 @@ export default function Communicator() {
                   };
                   return (
                     <div className="flex flex-col gap-3">
+                      {/* Back button — above header */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveCTF(null);
+                          setRogueAIInput('');
+                          setRogueAIFlagInput('');
+                          setRogueAIShowProtocol(false);
+                          if (rogueAIFlagResult !== 'correct') {
+                            setRogueAIChatLog([]);
+                            setRogueAIHintLevel(0);
+                            setRogueAIFlagResult(null);
+                            setRogueAISuccess(false);
+                            setRogueAIAttempts(0);
+                          }
+                        }}
+                        className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded self-start"
+                        style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
+                      >
+                        ← Back
+                      </button>
                       {/* Header */}
                       <div className="flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveCTF(null);
-                            setRogueAIInput('');
-                            setRogueAIFlagInput('');
-                            setRogueAIShowProtocol(false);
-                            if (rogueAIFlagResult !== 'correct') {
-                              setRogueAIChatLog([]);
-                              setRogueAIHintLevel(0);
-                              setRogueAIFlagResult(null);
-                              setRogueAISuccess(false);
-                              setRogueAIAttempts(0);
-                            }
-                          }}
-                          className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
-                          style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
-                        >
-                          ← Back
-                        </button>
                         <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--lcars-orange)' }}>
                           Starfleet AI Console
                         </div>
@@ -2285,25 +2288,26 @@ export default function Communicator() {
                   };
                   return (
                     <div className="flex flex-col gap-3">
+                      {/* Back button — above header */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveCTF(null);
+                          setBorgFilter({ dns: false, http: false, internal: false, suspicious: false });
+                          setBorgExpandedEntries([]);
+                          setBorgFlagInput('');
+                          if (borgFlagResult !== 'correct') {
+                            setBorgHintLevel(0);
+                            setBorgFlagResult(null);
+                          }
+                        }}
+                        className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded self-start"
+                        style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
+                      >
+                        ← Back
+                      </button>
                       {/* Header */}
                       <div className="flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveCTF(null);
-                            setBorgFilter({ dns: false, http: false, internal: false, suspicious: false });
-                            setBorgExpandedEntries([]);
-                            setBorgFlagInput('');
-                            if (borgFlagResult !== 'correct') {
-                              setBorgHintLevel(0);
-                              setBorgFlagResult(null);
-                            }
-                          }}
-                          className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded"
-                          style={{ backgroundColor: 'var(--lcars-blue)', color: '#000', border: 'none', cursor: 'pointer' }}
-                        >
-                          ← Back
-                        </button>
                         <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--lcars-orange)' }}>
                           Borg Command Console
                         </div>
