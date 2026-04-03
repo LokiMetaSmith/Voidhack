@@ -264,9 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/leaderboard", requireAuth, async (req, res) => {
     try {
       const rows = await storage.getAllUsersProgress();
-      // Only include users who have actually earned XP, with computed rank
-      const active = rows.filter(row => row.xp > 0);
-      const leaderboard = active.map((row, index) => ({
+      const leaderboard = rows.map((row, index) => ({
         position: index + 1,
         userId: row.userId,
         xp: row.xp,

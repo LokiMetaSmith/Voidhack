@@ -572,6 +572,15 @@ export default function Communicator() {
 
   // Save CTF progress to server whenever relevant state changes (debounced per challenge)
   const saveCTFRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const refreshLeaderboard = useCallback(() => {
+    if (!currentUserId) return;
+    setLeaderboardLoading(true);
+    fetch('/api/leaderboard', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(data => { setLeaderboard(data.leaderboard ?? []); setLeaderboardLoading(false); })
+      .catch(() => setLeaderboardLoading(false));
+  }, [currentUserId]);
+
   const saveCTFProgress = useCallback((challengeId: string, completed: boolean, progressData: Record<string, unknown>) => {
     if (!currentUserId) return;
     if (saveCTFRef.current[challengeId]) clearTimeout(saveCTFRef.current[challengeId]);
@@ -585,10 +594,11 @@ export default function Communicator() {
         .then(data => {
           if (data.xp !== undefined) setUserXp(data.xp);
           if (data.rank !== undefined) setUserRank(data.rank);
+          if (data.xp !== undefined) refreshLeaderboard();
         })
         .catch(err => console.error(`Failed to save CTF progress for ${challengeId}:`, err));
     }, 800);
-  }, [currentUserId]);
+  }, [currentUserId, refreshLeaderboard]);
 
   // Immediately update dbCompletedCTF when a flag is solved in the current session
   useEffect(() => {
@@ -1481,13 +1491,7 @@ export default function Communicator() {
                   type="button"
                   onClick={() => {
                     setRankView('leaderboard');
-                    if (leaderboard.length === 0) {
-                      setLeaderboardLoading(true);
-                      fetch('/api/leaderboard', { headers: authHeaders() })
-                        .then(r => r.json())
-                        .then(data => { setLeaderboard(data.leaderboard ?? []); setLeaderboardLoading(false); })
-                        .catch(() => setLeaderboardLoading(false));
-                    }
+                    refreshLeaderboard();
                   }}
                   className="flex-1 text-xs font-bold uppercase tracking-wider py-2 rounded transition-colors"
                   style={{
