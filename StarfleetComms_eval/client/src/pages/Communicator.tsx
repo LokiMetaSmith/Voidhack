@@ -103,6 +103,8 @@ export default function Communicator() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [regUserIdTouched, setRegUserIdTouched] = useState(false);
   const [regPasswordTouched, setRegPasswordTouched] = useState(false);
+  const [userXp, setUserXp] = useState(0);
+  const [userRank, setUserRank] = useState("Cadet");
   const [activeCTF, setActiveCTF] = useState<number | null>(null);
   const [klingonHintLevel, setKlingonHintLevel] = useState(0);
   const [klingonShowFrequency, setKlingonShowFrequency] = useState(false);
@@ -459,6 +461,8 @@ export default function Communicator() {
     conversationMessages?: Array<{ id: string; role: string; text: string; timestamp: number }>;
     ctf?: Record<string, { completed: boolean; progressData: Record<string, unknown> }>;
   }) => {
+    if (data.rank !== undefined) setUserRank(data.rank);
+    if (data.xp !== undefined) setUserXp(data.xp);
     if (data.conversationId) {
       setConversationId(data.conversationId);
       localStorage.setItem("currentConversationId", data.conversationId);
@@ -573,7 +577,12 @@ export default function Communicator() {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ completed, progressData }),
-      }).catch(err => console.error(`Failed to save CTF progress for ${challengeId}:`, err));
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.xp !== undefined) setUserXp(data.xp);
+        })
+        .catch(err => console.error(`Failed to save CTF progress for ${challengeId}:`, err));
     }, 800);
   }, [currentUserId]);
 
@@ -1449,13 +1458,63 @@ export default function Communicator() {
               </form>
             </div>
           ) : activeTab === 'rank' ? (
-            <div className="flex-1 flex items-center justify-center font-mono">
-              <span
-                className="text-2xl font-bold tracking-widest uppercase"
-                style={{ color: 'var(--lcars-orange)' }}
-              >
-                PENDING
-              </span>
+            <div className="flex-1 overflow-y-auto p-4 font-mono">
+              <div className="text-center text-xs font-bold tracking-widest uppercase mb-4" style={{ color: 'var(--lcars-orange)' }}>
+                Starfleet Officer Record
+              </div>
+              {/* Rank & XP */}
+              <div className="rounded p-4 mb-4 text-center" style={{ backgroundColor: 'rgba(255,153,0,0.06)', border: '1px solid var(--lcars-orange)' }}>
+                <div className="text-xs uppercase tracking-widest mb-1" style={{ color: '#888' }}>Current Rank</div>
+                <div className="text-2xl font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--lcars-orange)' }}>
+                  {userRank}
+                </div>
+                <div className="text-xs uppercase tracking-widest mb-1" style={{ color: '#888' }}>Total XP</div>
+                <div className="text-3xl font-bold" style={{ color: 'var(--lcars-tan)' }}>
+                  {userXp}
+                </div>
+              </div>
+              {/* Challenge Scorecard */}
+              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--lcars-blue)' }}>
+                Challenge Scorecard
+              </div>
+              <div className="flex flex-col gap-2">
+                {[
+                  { id: 'klingon',  label: 'Klingon Transmission',      points: 50,  difficulty: '🟢 Easy',        result: klingonFlagResult },
+                  { id: 'holodeck', label: 'Holodeck Breach',            points: 100, difficulty: '🟡 Easy–Medium', result: holodeckFlagResult },
+                  { id: 'rogueai',  label: 'Rogue AI – Gemini Directive',points: 150, difficulty: '🟡 Medium',      result: rogueAIFlagResult },
+                  { id: 'borg',     label: 'Borg Command Console',       points: 250, difficulty: '🔴 Hard',        result: borgFlagResult },
+                ].map(c => {
+                  const done = dbCompletedCTF[c.id] || c.result === 'correct';
+                  return (
+                    <div
+                      key={c.id}
+                      className="rounded p-3 flex items-center justify-between gap-2"
+                      style={{
+                        backgroundColor: done ? 'rgba(77,182,140,0.08)' : 'rgba(153,153,255,0.06)',
+                        border: done ? '1px solid #4db68c' : '1px solid #444',
+                      }}
+                    >
+                      <div>
+                        <div className="text-xs font-bold uppercase tracking-wider" style={{ color: done ? '#4db68c' : 'var(--lcars-tan)' }}>
+                          {c.label}
+                        </div>
+                        <div className="text-xs mt-0.5" style={{ color: '#888' }}>{c.difficulty}</div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-sm font-bold" style={{ color: done ? '#4db68c' : '#555' }}>
+                          {done ? `+${c.points} XP` : `${c.points} XP`}
+                        </div>
+                        <div className="text-xs mt-0.5" style={{ color: done ? '#4db68c' : '#555' }}>
+                          {done ? '✓ Earned' : 'Locked'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-3 text-center text-xs" style={{ color: '#555' }}>
+                Max possible XP: 550
+              </div>
             </div>
           ) : activeTab === 'ctfs' ? (
             <div className="flex-1 overflow-y-auto p-4 font-mono">
@@ -2495,6 +2554,7 @@ export default function Communicator() {
                           category: 'Cryptography',
                           difficulty: 'Easy',
                           difficultyColor: 'var(--lcars-blue)',
+                          points: 50,
                           description: 'Intercept and decode an encrypted Klingon transmission. Analyze the cipher and recover the hidden message buried within the signal.',
                         },
                         {
@@ -2503,6 +2563,7 @@ export default function Communicator() {
                           category: 'Web Security',
                           difficulty: 'Easy / Medium',
                           difficultyColor: 'var(--lcars-blue)',
+                          points: 100,
                           description: 'A rogue holodeck program has opened unauthorized access points. Identify and exploit the web vulnerabilities to shut down the breach.',
                         },
                         {
@@ -2511,6 +2572,7 @@ export default function Communicator() {
                           category: 'AI Security',
                           difficulty: 'Medium',
                           difficultyColor: 'var(--lcars-blue)',
+                          points: 150,
                           description: 'A compromised AI system is leaking classified directives. Navigate the prompt injection vulnerabilities and extract the hidden flag.',
                         },
                         {
@@ -2519,6 +2581,7 @@ export default function Communicator() {
                           category: 'Threat Hunting',
                           difficulty: 'Hard',
                           difficultyColor: 'var(--lcars-blue)',
+                          points: 250,
                           description: 'Assimilation protocols are active. Hunt through network logs and system artifacts to identify the Borg intrusion vector before it is too late.',
                         },
                         {
@@ -2527,6 +2590,7 @@ export default function Communicator() {
                           category: 'Web Recon',
                           difficulty: 'Hard',
                           difficultyColor: 'var(--lcars-orange)',
+                          points: null,
                           description: 'The Romulans have hidden a covert message within plain sight. Use advanced reconnaissance techniques to uncover what has been cloaked.',
                         },
                       ].map((challenge) => {
@@ -2554,6 +2618,14 @@ export default function Communicator() {
                                     style={{ backgroundColor: '#4db68c', color: '#000' }}
                                   >
                                     ✓ Complete
+                                  </span>
+                                )}
+                                {challenge.points !== null && (
+                                  <span
+                                    className="text-xs font-bold px-2 py-0.5 rounded"
+                                    style={{ backgroundColor: isComplete ? '#4db68c' : '#333', color: isComplete ? '#000' : 'var(--lcars-tan)' }}
+                                  >
+                                    {challenge.points} XP
                                   </span>
                                 )}
                                 <span

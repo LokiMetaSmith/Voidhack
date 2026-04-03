@@ -35,6 +35,14 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// Points awarded per challenge on first completion
+const CHALLENGE_POINTS: Record<string, number> = {
+  klingon: 50,
+  holodeck: 100,
+  rogueai: 150,
+  borg: 250,
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth: check current session/token
   app.get("/api/auth/me", (req, res) => {
@@ -178,17 +186,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Save CTF challenge progress
+  // Save CTF challenge progress — awards XP on first completion
   app.put("/api/ctf/:challengeId", requireAuth, async (req, res) => {
     try {
       const userId = (req as any).authenticatedUserId as string;
       const { challengeId } = req.params;
       const validated = saveCTFProgressSchema.parse(req.body);
+
+      // Check if this challenge was already completed before this save
+      const existing = await storage.getCTFProgress(userId, challengeId);
+      const wasAlreadyCompleted = existing?.completed ?? false;
+
       const updated = await storage.upsertCTFProgress(userId, challengeId, {
         completed: validated.completed,
         progressData: validated.progressData as Record<string, unknown>,
       });
-      res.json({ success: true, challengeId: updated.challengeId, completed: updated.completed });
+
+      // Award XP only on first-time completion
+      let newXp: number | undefined;
+      if (validated.completed && !wasAlreadyCompleted) {
+        const pointsToAdd = CHALLENGE_POINTS[challengeId] ?? 0;
+        if (pointsToAdd > 0) {
+          const userProg = await storage.getUserProgress(userId);
+          const currentXp = userProg?.xp ?? 0;
+          const result = await storage.upsertUserProgress(userId, { xp: currentXp + pointsToAdd });
+          newXp = result.xp;
+        }
+      }
+
+      res.json({
+        success: true,
+        challengeId: updated.challengeId,
+        completed: updated.completed,
+        ...(newXp !== undefined ? { xp: newXp } : {}),
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid request data." });
