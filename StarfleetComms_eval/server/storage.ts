@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 import * as schema from "@shared/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -28,6 +28,9 @@ export interface IStorage {
   getAllCTFProgress(userId: string): Promise<schema.CtfProgress[]>;
   getCTFProgress(userId: string, challengeId: string): Promise<schema.CtfProgress | undefined>;
   upsertCTFProgress(userId: string, challengeId: string, data: { completed: boolean; progressData: Record<string, unknown> }): Promise<schema.CtfProgress>;
+
+  // Leaderboard — all users with their XP and rank
+  getAllUsersProgress(): Promise<Array<{ userId: string; xp: number; rank: string }>>;
 }
 
 export class DbStorage implements IStorage {
@@ -174,6 +177,20 @@ export class DbStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  async getAllUsersProgress(): Promise<Array<{ userId: string; xp: number; rank: string }>> {
+    // Left join app_users with user_progress so users with no activity still appear
+    const rows = await db
+      .select({
+        userId: schema.appUsers.userId,
+        xp: sql<number>`coalesce(${schema.userProgress.xp}, 0)`,
+        rank: sql<string>`coalesce(${schema.userProgress.rank}, 'Cadet')`,
+      })
+      .from(schema.appUsers)
+      .leftJoin(schema.userProgress, eq(schema.appUsers.userId, schema.userProgress.userId))
+      .orderBy(desc(sql`coalesce(${schema.userProgress.xp}, 0)`));
+    return rows;
   }
 }
 

@@ -260,6 +260,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Leaderboard — all users ranked by XP, with computed ranks
+  app.get("/api/leaderboard", requireAuth, async (req, res) => {
+    try {
+      const rows = await storage.getAllUsersProgress();
+      // Re-derive rank from XP so it's always current
+      const leaderboard = rows.map((row, index) => ({
+        position: index + 1,
+        userId: row.userId,
+        xp: row.xp,
+        rank: getRankFromXp(row.xp),
+      }));
+      res.json({ leaderboard });
+    } catch (error) {
+      console.error("Leaderboard error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
   // Chat endpoint for Enterprise Computer
   app.post("/api/chat", requireAuth, async (req, res) => {
     try {

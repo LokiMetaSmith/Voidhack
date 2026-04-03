@@ -105,6 +105,9 @@ export default function Communicator() {
   const [regPasswordTouched, setRegPasswordTouched] = useState(false);
   const [userXp, setUserXp] = useState(0);
   const [userRank, setUserRank] = useState("Cadet");
+  const [rankView, setRankView] = useState<'my-record' | 'leaderboard'>('my-record');
+  const [leaderboard, setLeaderboard] = useState<Array<{ position: number; userId: string; xp: number; rank: string }>>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [activeCTF, setActiveCTF] = useState<number | null>(null);
   const [klingonHintLevel, setKlingonHintLevel] = useState(0);
   const [klingonShowFrequency, setKlingonShowFrequency] = useState(false);
@@ -1460,6 +1463,86 @@ export default function Communicator() {
             </div>
           ) : activeTab === 'rank' ? (
             <div className="flex-1 overflow-y-auto p-4 font-mono">
+              {/* View toggle */}
+              <div className="flex gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setRankView('my-record')}
+                  className="flex-1 text-xs font-bold uppercase tracking-wider py-2 rounded transition-colors"
+                  style={{
+                    backgroundColor: rankView === 'my-record' ? 'var(--lcars-orange)' : '#222',
+                    color: rankView === 'my-record' ? '#000' : '#888',
+                    border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  My Record
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRankView('leaderboard');
+                    if (leaderboard.length === 0) {
+                      setLeaderboardLoading(true);
+                      fetch('/api/leaderboard', { headers: authHeaders() })
+                        .then(r => r.json())
+                        .then(data => { setLeaderboard(data.leaderboard ?? []); setLeaderboardLoading(false); })
+                        .catch(() => setLeaderboardLoading(false));
+                    }
+                  }}
+                  className="flex-1 text-xs font-bold uppercase tracking-wider py-2 rounded transition-colors"
+                  style={{
+                    backgroundColor: rankView === 'leaderboard' ? 'var(--lcars-orange)' : '#222',
+                    color: rankView === 'leaderboard' ? '#000' : '#888',
+                    border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  All Officers
+                </button>
+              </div>
+
+              {rankView === 'leaderboard' ? (
+                <div>
+                  <div className="text-center text-xs font-bold tracking-widest uppercase mb-4" style={{ color: 'var(--lcars-orange)' }}>
+                    Starfleet Officer Rankings
+                  </div>
+                  {leaderboardLoading ? (
+                    <div className="text-center text-xs py-8" style={{ color: '#888' }}>Loading...</div>
+                  ) : leaderboard.length === 0 ? (
+                    <div className="text-center text-xs py-8" style={{ color: '#888' }}>No officers on record.</div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {leaderboard.map((entry) => {
+                        const isMe = entry.userId === currentUserId;
+                        const medalColor = entry.position === 1 ? '#FFD700' : entry.position === 2 ? '#C0C0C0' : entry.position === 3 ? '#CD7F32' : null;
+                        return (
+                          <div
+                            key={entry.userId}
+                            className="rounded px-3 py-2 flex items-center gap-3"
+                            style={{
+                              backgroundColor: isMe ? 'rgba(255,153,0,0.10)' : 'rgba(153,153,255,0.06)',
+                              border: isMe ? '1px solid var(--lcars-orange)' : '1px solid #333',
+                            }}
+                          >
+                            <div className="text-sm font-bold flex-shrink-0 w-6 text-center" style={{ color: medalColor ?? '#555' }}>
+                              {entry.position <= 3 ? ['🥇','🥈','🥉'][entry.position - 1] : `#${entry.position}`}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-bold uppercase tracking-wider truncate" style={{ color: isMe ? 'var(--lcars-orange)' : 'var(--lcars-tan)' }}>
+                                {entry.userId}{isMe && <span style={{ color: '#888', fontWeight: 'normal' }}> (you)</span>}
+                              </div>
+                              <div className="text-xs" style={{ color: '#888' }}>{entry.rank}</div>
+                            </div>
+                            <div className="text-xs font-bold flex-shrink-0" style={{ color: entry.xp > 0 ? 'var(--lcars-tan)' : '#555' }}>
+                              {entry.xp} XP
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+              <div>
               <div className="text-center text-xs font-bold tracking-widest uppercase mb-4" style={{ color: 'var(--lcars-orange)' }}>
                 Starfleet Officer Record
               </div>
@@ -1588,6 +1671,8 @@ export default function Communicator() {
               <div className="mt-3 text-center text-xs" style={{ color: '#555' }}>
                 Max possible XP: 550
               </div>
+              </div>
+              )}
             </div>
           ) : activeTab === 'ctfs' ? (
             <div className="flex-1 overflow-y-auto p-4 font-mono">
