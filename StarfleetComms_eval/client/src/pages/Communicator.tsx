@@ -2746,15 +2746,6 @@ export default function Communicator() {
                           points: 250,
                           description: 'Assimilation protocols are active. Hunt through network logs and system artifacts to identify the Borg intrusion vector before it is too late.',
                         },
-                        {
-                          id: 5,
-                          title: 'Romulan Cloaked Message',
-                          category: 'Web Recon',
-                          difficulty: 'Hard',
-                          difficultyColor: 'var(--lcars-orange)',
-                          points: null,
-                          description: 'The Romulans have hidden a covert message within plain sight. Use advanced reconnaissance techniques to uncover what has been cloaked.',
-                        },
                       ].map((challenge) => {
                         const isComplete = completionMap[challenge.id] ?? false;
                         return (
