@@ -164,26 +164,8 @@ export function VoiceControlPanel({
           ? "Computer is processing your request"
           : isSpeaking
           ? "Computer is responding"
-          : isContinuousModeActive
-          ? "Continuous mode active"
           : "Tap the button to speak"}
       </p>
-
-      {continuousModeAvailable && onToggleContinuousMode && !isListening && !isProcessing && !isSpeaking && !isCheckingPermission && !isPermissionDenied && (
-        <button
-          className="text-xs text-center mt-2 uppercase tracking-wider"
-          style={{
-            color: isContinuousModeActive ? 'var(--lcars-red)' : 'rgba(255, 153, 0, 0.5)',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-          }}
-          onClick={onToggleContinuousMode}
-          data-testid="button-continuous-mode"
-        >
-          {isContinuousModeActive ? "Disable continuous mode" : "Enable continuous mode"}
-        </button>
-      )}
     </div>
   );
 }
