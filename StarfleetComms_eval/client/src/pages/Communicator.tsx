@@ -1513,7 +1513,7 @@ export default function Communicator() {
                     <div className="flex flex-col gap-2">
                       {leaderboard.map((entry) => {
                         const isMe = entry.userId === currentUserId;
-                        const medalColor = entry.position === 1 ? '#FFD700' : entry.position === 2 ? '#C0C0C0' : entry.position === 3 ? '#CD7F32' : null;
+                        const rankColor = entry.position === 1 ? '#FFD700' : entry.position === 2 ? '#C0C0C0' : entry.position === 3 ? '#CD7F32' : '#666';
                         return (
                           <div
                             key={entry.userId}
@@ -1523,8 +1523,8 @@ export default function Communicator() {
                               border: isMe ? '1px solid var(--lcars-orange)' : '1px solid #333',
                             }}
                           >
-                            <div className="text-sm font-bold flex-shrink-0 w-6 text-center" style={{ color: medalColor ?? '#555' }}>
-                              {entry.position <= 3 ? ['🥇','🥈','🥉'][entry.position - 1] : `#${entry.position}`}
+                            <div className="text-xs font-bold flex-shrink-0 w-7 text-right" style={{ color: rankColor, fontVariantNumeric: 'tabular-nums' }}>
+                              #{entry.position}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="text-xs font-bold uppercase tracking-wider truncate" style={{ color: isMe ? 'var(--lcars-orange)' : 'var(--lcars-tan)' }}>
@@ -1532,7 +1532,7 @@ export default function Communicator() {
                               </div>
                               <div className="text-xs" style={{ color: '#888' }}>{entry.rank}</div>
                             </div>
-                            <div className="text-xs font-bold flex-shrink-0" style={{ color: entry.xp > 0 ? 'var(--lcars-tan)' : '#555' }}>
+                            <div className="text-xs font-bold flex-shrink-0" style={{ color: 'var(--lcars-tan)' }}>
                               {entry.xp} XP
                             </div>
                           </div>
