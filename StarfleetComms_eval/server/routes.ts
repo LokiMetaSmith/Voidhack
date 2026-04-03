@@ -43,6 +43,25 @@ const CHALLENGE_POINTS: Record<string, number> = {
   borg: 250,
 };
 
+// Rank thresholds — ordered ascending by XP required
+const RANK_THRESHOLDS: { rank: string; xp: number }[] = [
+  { rank: "Cadet",                xp: 0   },
+  { rank: "Ensign",               xp: 50  },
+  { rank: "Lieutenant",           xp: 150 },
+  { rank: "Lieutenant Commander", xp: 250 },
+  { rank: "Commander",            xp: 400 },
+  { rank: "Captain",              xp: 500 },
+];
+
+function getRankFromXp(xp: number): string {
+  let rank = RANK_THRESHOLDS[0].rank;
+  for (const tier of RANK_THRESHOLDS) {
+    if (xp >= tier.xp) rank = tier.rank;
+    else break;
+  }
+  return rank;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth: check current session/token
   app.get("/api/auth/me", (req, res) => {
@@ -157,9 +176,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }
 
+      const currentXp = userProg?.xp ?? 0;
+      const computedRank = getRankFromXp(currentXp);
+
+      // Sync rank in DB if it has drifted from the computed value
+      if (userProg && userProg.rank !== computedRank) {
+        await storage.upsertUserProgress(userId, { rank: computedRank });
+      }
+
       res.json({
-        rank: userProg?.rank ?? "Cadet",
-        xp: userProg?.xp ?? 0,
+        rank: computedRank,
+        xp: currentXp,
         conversationId,
         conversationMessages,
         ctf: ctfMap,
@@ -202,15 +229,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         progressData: validated.progressData as Record<string, unknown>,
       });
 
-      // Award XP only on first-time completion
+      // Award XP and update rank only on first-time completion
       let newXp: number | undefined;
+      let newRank: string | undefined;
       if (validated.completed && !wasAlreadyCompleted) {
         const pointsToAdd = CHALLENGE_POINTS[challengeId] ?? 0;
         if (pointsToAdd > 0) {
           const userProg = await storage.getUserProgress(userId);
           const currentXp = userProg?.xp ?? 0;
-          const result = await storage.upsertUserProgress(userId, { xp: currentXp + pointsToAdd });
+          const updatedXp = currentXp + pointsToAdd;
+          const computedRank = getRankFromXp(updatedXp);
+          const result = await storage.upsertUserProgress(userId, { xp: updatedXp, rank: computedRank });
           newXp = result.xp;
+          newRank = result.rank;
         }
       }
 
@@ -218,7 +249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         challengeId: updated.challengeId,
         completed: updated.completed,
-        ...(newXp !== undefined ? { xp: newXp } : {}),
+        ...(newXp !== undefined ? { xp: newXp, rank: newRank } : {}),
       });
     } catch (error) {
       if (error instanceof z.ZodError) {

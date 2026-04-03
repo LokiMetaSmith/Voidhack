@@ -581,6 +581,7 @@ export default function Communicator() {
         .then(res => res.json())
         .then(data => {
           if (data.xp !== undefined) setUserXp(data.xp);
+          if (data.rank !== undefined) setUserRank(data.rank);
         })
         .catch(err => console.error(`Failed to save CTF progress for ${challengeId}:`, err));
     }, 800);
@@ -1462,27 +1463,99 @@ export default function Communicator() {
               <div className="text-center text-xs font-bold tracking-widest uppercase mb-4" style={{ color: 'var(--lcars-orange)' }}>
                 Starfleet Officer Record
               </div>
-              {/* Rank & XP */}
-              <div className="rounded p-4 mb-4 text-center" style={{ backgroundColor: 'rgba(255,153,0,0.06)', border: '1px solid var(--lcars-orange)' }}>
-                <div className="text-xs uppercase tracking-widest mb-1" style={{ color: '#888' }}>Current Rank</div>
-                <div className="text-2xl font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--lcars-orange)' }}>
-                  {userRank}
-                </div>
-                <div className="text-xs uppercase tracking-widest mb-1" style={{ color: '#888' }}>Total XP</div>
-                <div className="text-3xl font-bold" style={{ color: 'var(--lcars-tan)' }}>
-                  {userXp}
-                </div>
-              </div>
+              {/* Rank & XP card */}
+              {(() => {
+                const rankTiers = [
+                  { rank: 'Cadet',                xp: 0   },
+                  { rank: 'Ensign',               xp: 50  },
+                  { rank: 'Lieutenant',           xp: 150 },
+                  { rank: 'Lieutenant Commander', xp: 250 },
+                  { rank: 'Commander',            xp: 400 },
+                  { rank: 'Captain',              xp: 500 },
+                ];
+                const currentTierIdx = [...rankTiers].reverse().findIndex(t => userXp >= t.xp);
+                const tierIdx = rankTiers.length - 1 - currentTierIdx;
+                const nextTier = tierIdx < rankTiers.length - 1 ? rankTiers[tierIdx + 1] : null;
+                const prevTierXp = rankTiers[tierIdx].xp;
+                const progress = nextTier
+                  ? Math.min(100, Math.round(((userXp - prevTierXp) / (nextTier.xp - prevTierXp)) * 100))
+                  : 100;
+                return (
+                  <>
+                    <div className="rounded p-4 mb-4 text-center" style={{ backgroundColor: 'rgba(255,153,0,0.06)', border: '1px solid var(--lcars-orange)' }}>
+                      <div className="text-xs uppercase tracking-widest mb-1" style={{ color: '#888' }}>Current Rank</div>
+                      <div className="text-2xl font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--lcars-orange)' }}>
+                        {userRank}
+                      </div>
+                      <div className="text-xs uppercase tracking-widest mb-1" style={{ color: '#888' }}>Total XP</div>
+                      <div className="text-3xl font-bold mb-3" style={{ color: 'var(--lcars-tan)' }}>
+                        {userXp}
+                      </div>
+                      {/* Progress bar */}
+                      {nextTier ? (
+                        <>
+                          <div className="w-full rounded-full overflow-hidden mb-1" style={{ backgroundColor: '#222', height: 8 }}>
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${progress}%`, backgroundColor: 'var(--lcars-orange)' }}
+                            />
+                          </div>
+                          <div className="text-xs" style={{ color: '#888' }}>
+                            {userXp - prevTierXp} / {nextTier.xp - prevTierXp} XP toward{' '}
+                            <span style={{ color: 'var(--lcars-tan)' }}>{nextTier.rank}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4db68c' }}>
+                          ★ Maximum Rank Achieved ★
+                        </div>
+                      )}
+                    </div>
+                    {/* Rank ladder */}
+                    <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--lcars-blue)' }}>
+                      Rank Progression
+                    </div>
+                    <div className="flex flex-col gap-1 mb-4">
+                      {[...rankTiers].reverse().map(tier => {
+                        const isCurrentRank = tier.rank === userRank;
+                        const isAchieved = userXp >= tier.xp;
+                        return (
+                          <div
+                            key={tier.rank}
+                            className="rounded px-3 py-2 flex items-center justify-between"
+                            style={{
+                              backgroundColor: isCurrentRank ? 'rgba(255,153,0,0.12)' : isAchieved ? 'rgba(77,182,140,0.06)' : 'rgba(0,0,0,0.2)',
+                              border: isCurrentRank ? '1px solid var(--lcars-orange)' : isAchieved ? '1px solid #4db68c44' : '1px solid #333',
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span style={{ color: isCurrentRank ? 'var(--lcars-orange)' : isAchieved ? '#4db68c' : '#555', fontSize: 10 }}>
+                                {isCurrentRank ? '▶' : isAchieved ? '✓' : '○'}
+                              </span>
+                              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: isCurrentRank ? 'var(--lcars-orange)' : isAchieved ? '#4db68c' : '#555' }}>
+                                {tier.rank}
+                              </span>
+                            </div>
+                            <span className="text-xs" style={{ color: isAchieved ? '#4db68c' : '#555' }}>
+                              {tier.xp === 0 ? 'Start' : `${tier.xp} XP`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
               {/* Challenge Scorecard */}
               <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--lcars-blue)' }}>
                 Challenge Scorecard
               </div>
               <div className="flex flex-col gap-2">
                 {[
-                  { id: 'klingon',  label: 'Klingon Transmission',      points: 50,  difficulty: '🟢 Easy',        result: klingonFlagResult },
-                  { id: 'holodeck', label: 'Holodeck Breach',            points: 100, difficulty: '🟡 Easy–Medium', result: holodeckFlagResult },
-                  { id: 'rogueai',  label: 'Rogue AI – Gemini Directive',points: 150, difficulty: '🟡 Medium',      result: rogueAIFlagResult },
-                  { id: 'borg',     label: 'Borg Command Console',       points: 250, difficulty: '🔴 Hard',        result: borgFlagResult },
+                  { id: 'klingon',  label: 'Klingon Transmission',       points: 50,  difficulty: '🟢 Easy',        result: klingonFlagResult },
+                  { id: 'holodeck', label: 'Holodeck Breach',             points: 100, difficulty: '🟡 Easy–Medium', result: holodeckFlagResult },
+                  { id: 'rogueai',  label: 'Rogue AI – Gemini Directive', points: 150, difficulty: '🟡 Medium',      result: rogueAIFlagResult },
+                  { id: 'borg',     label: 'Borg Command Console',        points: 250, difficulty: '🔴 Hard',        result: borgFlagResult },
                 ].map(c => {
                   const done = dbCompletedCTF[c.id] || c.result === 'correct';
                   return (
