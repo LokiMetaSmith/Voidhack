@@ -199,25 +199,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Chat endpoint for Enterprise Computer
-  app.post("/api/chat", async (req, res) => {
+  app.post("/api/chat", requireAuth, async (req, res) => {
     try {
       const validatedData = chatRequestSchema.parse(req.body);
-      const userId = getUserIdFromRequest(req);
+      const userId = (req as any).authenticatedUserId as string;
 
       let conversationId = validatedData.conversationId;
+
+      // If a conversationId was provided, verify it belongs to this user
+      if (conversationId) {
+        const conversation = await storage.getConversation(conversationId);
+        if (!conversation || conversation.userId !== userId) {
+          return res.status(403).json({ error: "Access denied." });
+        }
+      }
+
       if (!conversationId) {
-        if (userId) {
-          const userProg = await storage.getUserProgress(userId);
-          if (userProg?.conversationId) {
-            conversationId = userProg.conversationId;
-          }
+        const userProg = await storage.getUserProgress(userId);
+        if (userProg?.conversationId) {
+          conversationId = userProg.conversationId;
         }
         if (!conversationId) {
           const newConversation = await storage.createConversation(userId);
           conversationId = newConversation.id;
-          if (userId) {
-            await storage.upsertUserProgress(userId, { conversationId });
-          }
+          await storage.upsertUserProgress(userId, { conversationId });
         }
       }
 
@@ -272,10 +277,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get conversation history
-  app.get("/api/conversations/:id/messages", async (req, res) => {
+  // Get conversation history — only accessible by the conversation owner
+  app.get("/api/conversations/:id/messages", requireAuth, async (req, res) => {
     try {
+      const userId = (req as any).authenticatedUserId as string;
       const conversationId = req.params.id;
+
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
       const messages = await storage.getConversationMessages(conversationId);
       res.json({
         messages: messages.map(msg => ({
@@ -293,17 +305,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete conversation
-  app.delete("/api/conversations/:id", async (req, res) => {
+  // Delete conversation — only the owner can delete their conversation
+  app.delete("/api/conversations/:id", requireAuth, async (req, res) => {
     try {
+      const userId = (req as any).authenticatedUserId as string;
       const conversationId = req.params.id;
+
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
       await storage.deleteConversation(conversationId);
-      const userId = getUserIdFromRequest(req);
-      if (userId) {
-        const userProg = await storage.getUserProgress(userId);
-        if (userProg?.conversationId === conversationId) {
-          await storage.upsertUserProgress(userId, { conversationId: null });
-        }
+      const userProg = await storage.getUserProgress(userId);
+      if (userProg?.conversationId === conversationId) {
+        await storage.upsertUserProgress(userId, { conversationId: null });
       }
       res.json({ success: true });
     } catch (error) {
