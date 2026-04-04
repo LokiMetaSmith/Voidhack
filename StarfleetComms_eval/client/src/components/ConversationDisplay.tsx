@@ -7,11 +7,11 @@ interface ConversationDisplayProps {
 }
 
 export function ConversationDisplay({ messages }: ConversationDisplayProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
@@ -35,7 +35,7 @@ export function ConversationDisplay({ messages }: ConversationDisplayProps) {
 
   return (
     <ScrollArea className="h-full rounded-md" style={{ backgroundColor: '#0a0a0a', border: '1px solid rgba(255, 153, 0, 0.15)' }}>
-      <div ref={scrollRef} className="p-4 space-y-4">
+      <div className="p-4 space-y-4">
         {messages.map((message, index) => (
           <div
             key={message.id}
@@ -75,6 +75,7 @@ export function ConversationDisplay({ messages }: ConversationDisplayProps) {
             </div>
           </div>
         ))}
+        <div ref={bottomRef} />
       </div>
     </ScrollArea>
   );

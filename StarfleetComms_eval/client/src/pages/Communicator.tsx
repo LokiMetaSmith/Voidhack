@@ -208,6 +208,21 @@ export default function Communicator() {
   // Centralized VAD restart timer ref to prevent multiple concurrent restart attempts
   const vadRestartTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Mic auto-stop timers: stop after 5s if no speech, or 3s silence after speech detected
+  const micAbsoluteTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const micSilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearMicTimers = useCallback(() => {
+    if (micAbsoluteTimerRef.current) {
+      clearTimeout(micAbsoluteTimerRef.current);
+      micAbsoluteTimerRef.current = null;
+    }
+    if (micSilenceTimerRef.current) {
+      clearTimeout(micSilenceTimerRef.current);
+      micSilenceTimerRef.current = null;
+    }
+  }, []);
+
   // iOS fix: Track if we're currently processing a transcript to prevent duplicate sends
   const isProcessingTranscriptRef = useRef(false);
 
@@ -839,6 +854,29 @@ export default function Communicator() {
     }
   }, [isHandsFreeMode, continuousModeAvailable, startDetection, stopDetection, isListening, stopListening]);
 
+  // Auto-stop mic: switch to 3s silence timer when speech is detected; clear timers when stopped
+  useEffect(() => {
+    if (!isListening) {
+      clearMicTimers();
+      return;
+    }
+    if (interimTranscript) {
+      // Speech detected — cancel the 5s absolute timer and reset the 3s silence timer
+      if (micAbsoluteTimerRef.current) {
+        clearTimeout(micAbsoluteTimerRef.current);
+        micAbsoluteTimerRef.current = null;
+      }
+      if (micSilenceTimerRef.current) {
+        clearTimeout(micSilenceTimerRef.current);
+      }
+      micSilenceTimerRef.current = setTimeout(() => {
+        console.log("[Communicator] Mic auto-stop: 3s silence after speech, stopping");
+        micSilenceTimerRef.current = null;
+        stopListening();
+      }, 3000);
+    }
+  }, [interimTranscript, isListening, clearMicTimers, stopListening]);
+
   // Handle transcript changes - iOS FIX: Remove voiceState dependency
   // On iOS Safari, voiceState can be reset to "idle" by error handlers before
   // the transcript is processed, causing the message to never be sent.
@@ -979,10 +1017,21 @@ export default function Communicator() {
     warmUpSpeech();
     activateMediaSession(); // Activate Media Session for AirPod tap gestures
     startListening();
+
+    // Clear any existing timers before starting fresh
+    clearMicTimers();
+
+    // Absolute timeout: stop mic after 5s if no speech is detected at all
+    micAbsoluteTimerRef.current = setTimeout(() => {
+      console.log("[Communicator] Mic auto-stop: 5s absolute timeout reached, stopping");
+      micAbsoluteTimerRef.current = null;
+      stopListening();
+    }, 5000);
   };
 
   const handleStopListening = () => {
     console.log("[Communicator] Manual mic button clicked - stopping listening");
+    clearMicTimers();
     stopListening();
   };
 
