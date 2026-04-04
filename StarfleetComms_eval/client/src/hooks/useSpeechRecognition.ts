@@ -217,17 +217,23 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
 
     recognition.onerror = (event: any) => {
       const isMobile = isMobileDevice();
-      console.error("[SpeechRecognition] Error:", {
-        error: event.error,
-        message: event.message,
-        userAgent: navigator.userAgent,
-        isMobile,
-        isIOS: isIOSDevice(),
-        hasPendingInterimResults: !!lastInterimTranscriptRef.current
-      });
+      const isSilentError = event.error === 'no-speech' || event.error === 'aborted';
+
+      if (isSilentError) {
+        console.log("[SpeechRecognition] Silent stop:", event.error);
+      } else {
+        console.error("[SpeechRecognition] Error:", {
+          error: event.error,
+          message: event.message,
+          userAgent: navigator.userAgent,
+          isMobile,
+          isIOS: isIOSDevice(),
+          hasPendingInterimResults: !!lastInterimTranscriptRef.current
+        });
+      }
 
       // Mobile fix: Process any pending interim results before clearing on error
-      if (isMobile && lastInterimTranscriptRef.current && event.error !== 'aborted') {
+      if (isMobile && lastInterimTranscriptRef.current && !isSilentError) {
         console.log("[SpeechRecognition] Mobile: Processing interim transcript on error:", lastInterimTranscriptRef.current);
         setTranscript((prev) => prev + lastInterimTranscriptRef.current + " ");
       }
@@ -265,7 +271,10 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
         console.error("[SpeechRecognition] Error aborting after error:", abortErr);
       }
 
-      setError(`Speech recognition error: ${event.error}`);
+      // Only surface real errors to the UI — no-speech and aborted stop silently
+      if (!isSilentError) {
+        setError(`Speech recognition error: ${event.error}`);
+      }
       setInterimTranscript("");
 
       // Update imperative ref and state AFTER abort
