@@ -733,6 +733,11 @@ export default function Communicator() {
         setAudioLevel(Math.random());
       }, 100);
       return () => clearInterval(interval);
+    } else {
+      // If listening stopped while still in "listening" state (e.g. timeout with no speech),
+      // reset back to idle so the mic indicator returns to its default appearance
+      setVoiceState((prev) => (prev === "listening" ? "idle" : prev));
+      setAudioLevel(0);
     }
   }, [isListening, playSound]);
 
