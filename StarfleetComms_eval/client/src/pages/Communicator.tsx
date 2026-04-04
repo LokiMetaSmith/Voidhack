@@ -2813,12 +2813,12 @@ export default function Communicator() {
                           >
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <div
-                                className="text-sm font-bold uppercase tracking-wider"
+                                className="text-sm font-bold uppercase tracking-wider min-w-0"
                                 style={{ color: isComplete ? '#4db68c' : 'var(--lcars-tan)' }}
                               >
                                 {challenge.title}
                               </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
+                              <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
                                 {isComplete && (
                                   <span
                                     className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded"
