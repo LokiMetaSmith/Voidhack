@@ -1426,7 +1426,7 @@ export default function Communicator() {
           className="flex-1 flex flex-col overflow-hidden rounded-2xl"
           style={{ border: '2px solid var(--lcars-orange)', backgroundColor: '#000' }}
         >
-          {!isAuthenticated ? (
+          {!isAuthenticated && activeTab !== 'schedule' ? (
             <div className="flex-1 flex items-center justify-center">
               <form
                 onSubmit={handleLogin}
