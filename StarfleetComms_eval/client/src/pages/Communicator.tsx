@@ -69,7 +69,7 @@ const MAIN_SCHEDULE = [
       { time: "10:00am - 11:00am", title: "Offensive Engineering: Applying DevOps Principles to Offensive Security", speaker: "Sharrone Berry-Davis" },
       { time: "11:00am - 12:00pm", title: "Burned-Out Admins - Your Most Exploitable Vulnerability", speaker: "Stephen Engler" },
       { time: "01:00pm - 02:00pm", title: "Hunting Smarter, Not Harder - Building Threat Hunting Pipelines with Python (Featuring ESXi Hunting)", speaker: "James Honeycutt" },
-      { time: "02:00pm - 03:00pm", title: "Beyond the Prompt - The New Threat Surface of Vibe Coded Apps", speaker: "Yotam Perkal, Gil Maman" },
+      { time: "02:00pm - 03:00pm", title: "Hide, Obfuscate, Destroy - Techniques and Implications of Anti-Forensics", speaker: "Andrew Peters" },
       { time: "03:00pm - 04:00pm", title: "Death By (Python) Pickle - \"Betrayal ML\"", speaker: "Andy Lewis" },
     ],
   },
