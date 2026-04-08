@@ -1293,11 +1293,6 @@ export default function Communicator() {
           </Button>
         )}
 
-        <VoiceSettingsPanel
-          onSettingsChange={setVoiceSettings}
-          onSoundSettingsChange={setSoundSettings}
-        />
-
         <Dialog>
           <DialogTrigger asChild>
             <Button
