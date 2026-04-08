@@ -83,7 +83,7 @@ function rot13(str: string): string {
 }
 
 export default function Communicator() {
-  const [activeTab, setActiveTab] = useState<'computer' | 'schedule' | 'rank' | 'ctfs' | 'account'>("computer");
+  const [activeTab, setActiveTab] = useState<'computer' | 'schedule' | 'rank' | 'ctfs' | 'account'>("schedule");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loginUserId, setLoginUserId] = useState("");
