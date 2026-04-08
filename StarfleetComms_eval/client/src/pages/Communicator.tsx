@@ -1296,7 +1296,7 @@ export default function Communicator() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={isAuthenticated ? handleSignOut : undefined}
+          onClick={isAuthenticated ? handleSignOut : () => setActiveTab('computer')}
           className="uppercase tracking-wider text-xs font-bold h-7 px-2"
           style={{ color: 'var(--lcars-orange)' }}
         >
