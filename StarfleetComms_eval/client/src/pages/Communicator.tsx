@@ -1293,54 +1293,6 @@ export default function Communicator() {
           </Button>
         )}
 
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              style={{ color: 'var(--lcars-blue)' }}
-            >
-              <Info className="h-4 w-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Enterprise Computer Interface</DialogTitle>
-              <DialogDescription className="space-y-4 pt-4">
-                <p>
-                  Welcome to the USS Enterprise Computer voice interface. This system
-                  uses advanced AI to simulate the iconic Star Trek computer experience.
-                </p>
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-foreground">How to Use:</h4>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li>Tap the communicator button to start voice input</li>
-                    <li>Speak your query clearly</li>
-                    <li>The computer will process and respond with voice output</li>
-                    <li>Continue the conversation naturally</li>
-                  </ul>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-foreground">Mobile Devices:</h4>
-                  <p className="text-sm">
-                    On iPhone and Android, tap the on-screen microphone button each time you want to speak.
-                    Bluetooth headset buttons (like AirPods) cannot control this web app due to browser limitations.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-foreground">Status Indicators:</h4>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li style={{ color: 'var(--lcars-red)' }}>Red: Listening to your voice</li>
-                    <li style={{ color: 'var(--lcars-purple)' }}>Purple: Processing your request</li>
-                    <li style={{ color: 'var(--lcars-blue)' }}>Blue: Computer speaking</li>
-                  </ul>
-                </div>
-              </DialogDescription>
-            </DialogHeader>
-          </DialogContent>
-        </Dialog>
-
         <Button
           variant="ghost"
           size="sm"
