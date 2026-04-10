@@ -1,11 +1,28 @@
 import { z } from "zod";
-import { pgTable, text, varchar, timestamp, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, bigint, serial, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
+
+// Users table for authentication
+export const appUsers = pgTable("app_users", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 50 }).unique().notNull(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAppUserSchema = createInsertSchema(appUsers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type AppUser = typeof appUsers.$inferSelect;
+export type InsertAppUser = z.infer<typeof insertAppUserSchema>;
 
 // Database tables
 export const conversations = pgTable("conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 50 }).references(() => appUsers.userId, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -17,6 +34,26 @@ export const messages = pgTable("messages", {
   text: text("text").notNull(),
   timestamp: bigint("timestamp", { mode: "number" }).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// User progress table — tracks rank, XP, and active conversation per user
+export const userProgress = pgTable("user_progress", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 50 }).unique().notNull().references(() => appUsers.userId, { onDelete: "cascade" }),
+  rank: varchar("rank", { length: 50 }).notNull().default("Cadet"),
+  xp: integer("xp").notNull().default(0),
+  conversationId: varchar("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// CTF progress table — per-user, per-challenge state stored as JSON
+export const ctfProgress = pgTable("ctf_progress", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 50 }).notNull().references(() => appUsers.userId, { onDelete: "cascade" }),
+  challengeId: varchar("challenge_id", { length: 50 }).notNull(),
+  completed: boolean("completed").notNull().default(false),
+  progressData: jsonb("progress_data").notNull().default({}),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Insert schemas
@@ -31,11 +68,25 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   createdAt: true,
 });
 
+export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertCtfProgressSchema = createInsertSchema(ctfProgress).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Types
 export type Conversation = typeof conversations.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type UserProgress = typeof userProgress.$inferSelect;
+export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
+export type CtfProgress = typeof ctfProgress.$inferSelect;
+export type InsertCtfProgress = z.infer<typeof insertCtfProgressSchema>;
 
 // Conversation message schema (for frontend)
 export const conversationMessageSchema = z.object({
@@ -97,3 +148,17 @@ export type ChatResponse = z.infer<typeof chatResponseSchema>;
 
 // Voice interaction states
 export type VoiceState = "idle" | "listening" | "processing" | "speaking";
+
+// Progress API types
+export const saveProgressSchema = z.object({
+  rank: z.string().optional(),
+  xp: z.number().optional(),
+});
+
+export const saveCTFProgressSchema = z.object({
+  completed: z.boolean(),
+  progressData: z.record(z.unknown()),
+});
+
+export type SaveProgress = z.infer<typeof saveProgressSchema>;
+export type SaveCTFProgress = z.infer<typeof saveCTFProgressSchema>;

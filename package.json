@@ -1,0 +1,19 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "**Protocol: Omega** is an InfoSec-themed Persistent World Game (ARG) overlaid on a Star Trek LCARS interface. It is designed for conferences and hackathons.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "cd StarfleetComms_eval && npm install && npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@replit/vite-plugin-cartographer": "^0.4.11"
+  }
+}

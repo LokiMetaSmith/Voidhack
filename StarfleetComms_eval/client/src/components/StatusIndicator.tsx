@@ -9,25 +9,25 @@ export function StatusIndicator({ state }: StatusIndicatorProps) {
     switch (state) {
       case "listening":
         return {
-          color: "bg-chart-4",
-          label: "ACTIVE",
+          color: 'var(--lcars-red)',
+          label: "LISTENING",
           pulse: true,
         };
       case "processing":
         return {
-          color: "bg-chart-5",
+          color: 'var(--lcars-purple)',
           label: "PROCESSING",
           pulse: true,
         };
       case "speaking":
         return {
-          color: "bg-chart-2",
+          color: 'var(--lcars-blue)',
           label: "TRANSMITTING",
           pulse: true,
         };
       default:
         return {
-          color: "bg-primary",
+          color: 'var(--lcars-orange)',
           label: "STANDBY",
           pulse: false,
         };
@@ -40,17 +40,17 @@ export function StatusIndicator({ state }: StatusIndicatorProps) {
     <div className="flex items-center gap-3" data-testid="status-indicator">
       <div className="relative">
         <div
-          className={`h-3 w-3 rounded-full ${config.color} ${
-            config.pulse ? "animate-pulse" : ""
-          }`}
+          className={`h-3 w-3 rounded-full ${config.pulse ? "animate-pulse" : ""}`}
+          style={{ backgroundColor: config.color }}
         />
         {config.pulse && (
           <div
-            className={`absolute inset-0 h-3 w-3 rounded-full ${config.color} opacity-50 animate-pulse`}
+            className="absolute inset-0 h-3 w-3 rounded-full opacity-50 animate-pulse"
+            style={{ backgroundColor: config.color }}
           />
         )}
       </div>
-      <span className="text-xs font-medium tracking-wider uppercase text-muted-foreground">
+      <span className="text-sm font-bold tracking-widest uppercase" style={{ color: config.color }}>
         {config.label}
       </span>
     </div>

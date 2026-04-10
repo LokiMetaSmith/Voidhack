@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 interface SpeechRecognitionResult {
   transcript: string;
+  interimTranscript: string;
   isListening: boolean;
   error: string | null;
   startListening: () => void;
@@ -70,6 +71,7 @@ const isMobileDevice = (): boolean => {
 
 export function useSpeechRecognition(): SpeechRecognitionResult {
   const [transcript, setTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -174,6 +176,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
           interimTimeoutRef.current = null;
         }
         lastInterimTranscriptRef.current = "";
+        setInterimTranscript("");
 
         setTranscript((prev) => prev + finalTranscript);
 
@@ -181,6 +184,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
         // We don't need to do anything special here - onend will be called
       } else if (interimTranscript) {
         console.log("[SpeechRecognition] Interim transcript:", interimTranscript);
+        setInterimTranscript(interimTranscript);
 
         // Mobile fix: Process interim results if final results never arrive
         // This applies to both Android and iOS since both can fail to send isFinal=true
@@ -213,17 +217,23 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
 
     recognition.onerror = (event: any) => {
       const isMobile = isMobileDevice();
-      console.error("[SpeechRecognition] Error:", {
-        error: event.error,
-        message: event.message,
-        userAgent: navigator.userAgent,
-        isMobile,
-        isIOS: isIOSDevice(),
-        hasPendingInterimResults: !!lastInterimTranscriptRef.current
-      });
+      const isSilentError = event.error === 'no-speech' || event.error === 'aborted';
+
+      if (isSilentError) {
+        console.log("[SpeechRecognition] Silent stop:", event.error);
+      } else {
+        console.error("[SpeechRecognition] Error:", {
+          error: event.error,
+          message: event.message,
+          userAgent: navigator.userAgent,
+          isMobile,
+          isIOS: isIOSDevice(),
+          hasPendingInterimResults: !!lastInterimTranscriptRef.current
+        });
+      }
 
       // Mobile fix: Process any pending interim results before clearing on error
-      if (isMobile && lastInterimTranscriptRef.current && event.error !== 'aborted') {
+      if (isMobile && lastInterimTranscriptRef.current && !isSilentError) {
         console.log("[SpeechRecognition] Mobile: Processing interim transcript on error:", lastInterimTranscriptRef.current);
         setTranscript((prev) => prev + lastInterimTranscriptRef.current + " ");
       }
@@ -261,7 +271,11 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
         console.error("[SpeechRecognition] Error aborting after error:", abortErr);
       }
 
-      setError(`Speech recognition error: ${event.error}`);
+      // Only surface real errors to the UI — no-speech and aborted stop silently
+      if (!isSilentError) {
+        setError(`Speech recognition error: ${event.error}`);
+      }
+      setInterimTranscript("");
 
       // Update imperative ref and state AFTER abort
       isListeningRef.current = false;
@@ -295,6 +309,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
         iosSilenceTimeoutRef.current = null;
       }
       lastInterimTranscriptRef.current = "";
+      setInterimTranscript("");
 
       // Clear starting flag when recognition ends
       isStartingRef.current = false;
@@ -381,6 +396,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
     const doStartRecognition = () => {
       try {
         setTranscript("");
+        setInterimTranscript("");
         setError(null);
         console.log("[SpeechRecognition] Calling recognition.start()");
 
@@ -484,6 +500,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
 
   return {
     transcript,
+    interimTranscript,
     isListening,
     error,
     startListening,

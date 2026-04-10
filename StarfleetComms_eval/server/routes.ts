@@ -1,26 +1,310 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { z } from "zod";
-import { chatRequestSchema, conversationMessageSchema } from "@shared/schema";
-import { generateComputerResponse } from "./gemini";
-import { storage } from "./storage";
 import { randomUUID } from "crypto";
+import { z } from "zod";
+import {
+  chatRequestSchema,
+  appUsers,
+  saveProgressSchema,
+  saveCTFProgressSchema,
+} from "@shared/schema";
+import { generateComputerResponse } from "./gemini";
+import { storage, db } from "./storage";
+import { eq } from "drizzle-orm";
+import { hashPassword, verifyPassword } from "./auth";
+
+// In-memory token store: token → userId
+// Works reliably in all proxy/iframe environments where cookies may be blocked.
+const tokenStore = new Map<string, string>();
+
+function getUserIdFromRequest(req: Request): string | undefined {
+  const header = req.headers["x-auth-token"];
+  if (typeof header === "string" && header) {
+    return tokenStore.get(header);
+  }
+  return req.session?.userId;
+}
+
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated." });
+  }
+  // Attach for downstream handlers
+  (req as any).authenticatedUserId = userId;
+  next();
+}
+
+// Points awarded per challenge on first completion
+const CHALLENGE_POINTS: Record<string, number> = {
+  klingon: 50,
+  holodeck: 100,
+  rogueai: 150,
+  borg: 250,
+};
+
+// Rank thresholds — ordered ascending by XP required
+const RANK_THRESHOLDS: { rank: string; xp: number }[] = [
+  { rank: "Cadet",                xp: 0   },
+  { rank: "Ensign",               xp: 50  },
+  { rank: "Lieutenant",           xp: 150 },
+  { rank: "Lieutenant Commander", xp: 250 },
+  { rank: "Commander",            xp: 400 },
+  { rank: "Captain",              xp: 500 },
+];
+
+function getRankFromXp(xp: number): string {
+  let rank = RANK_THRESHOLDS[0].rank;
+  for (const tier of RANK_THRESHOLDS) {
+    if (xp >= tier.xp) rank = tier.rank;
+    else break;
+  }
+  return rank;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Chat endpoint for Enterprise Computer
-  app.post("/api/chat", async (req, res) => {
-    try {
-      // Validate request body
-      const validatedData = chatRequestSchema.parse(req.body);
+  // Auth: check current session/token
+  app.get("/api/auth/me", (req, res) => {
+    const userId = getUserIdFromRequest(req);
+    if (userId) {
+      return res.json({ authenticated: true, userId });
+    }
+    res.json({ authenticated: false });
+  });
 
-      // Get or create conversation
-      let conversationId = validatedData.conversationId;
-      if (!conversationId) {
-        const newConversation = await storage.createConversation();
-        conversationId = newConversation.id;
+  // Auth: register a new user
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { userId, password } = req.body;
+      if (!userId || !password) {
+        return res.status(400).json({ error: "User ID and password are required." });
+      }
+      if (password.length < 8 || password.length > 25) {
+        return res.status(400).json({ error: "Password must be 8–25 characters." });
+      }
+      const existing = await db.select().from(appUsers).where(eq(appUsers.userId, userId)).limit(1);
+      if (existing.length > 0) {
+        return res.status(409).json({ error: "User ID already exists." });
+      }
+      const passwordHash = hashPassword(password);
+      const [user] = await db.insert(appUsers).values({ userId, passwordHash }).returning();
+      res.status(201).json({ success: true, userId: user.userId });
+    } catch (error) {
+      console.error("Register error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Auth: login — returns a token for header-based auth
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { userId, password } = req.body;
+      if (!userId || !password) {
+        return res.status(400).json({ error: "User ID and password are required." });
+      }
+      const [user] = await db.select().from(appUsers).where(eq(appUsers.userId, userId)).limit(1);
+      if (!user || !verifyPassword(password, user.passwordHash)) {
+        return res.status(401).json({ error: "Invalid User ID or password." });
+      }
+      const token = randomUUID();
+      tokenStore.set(token, user.userId);
+      // Also set cookie-based session as fallback
+      req.session.userId = user.userId;
+      req.session.save(() => {});
+      res.json({ success: true, userId: user.userId, token });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Auth: logout
+  app.post("/api/auth/logout", (req, res) => {
+    const header = req.headers["x-auth-token"];
+    if (typeof header === "string" && header) {
+      tokenStore.delete(header);
+    }
+    req.session.destroy(() => {});
+    res.json({ success: true });
+  });
+
+  // Auth: delete account — permanently removes user and all associated data
+  app.delete("/api/auth/account", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).authenticatedUserId as string;
+      // Cascading deletes: ctf_progress, user_progress, conversations+messages all cascade from app_users
+      await db.delete(appUsers).where(eq(appUsers.userId, userId));
+      // Revoke the token
+      const header = req.headers["x-auth-token"];
+      if (typeof header === "string" && header) {
+        tokenStore.delete(header);
+      }
+      req.session.destroy(() => {});
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete account error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Get all progress for the current user (game state + CTF progress)
+  app.get("/api/progress", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).authenticatedUserId as string;
+      const [userProg, ctfProgresses] = await Promise.all([
+        storage.getUserProgress(userId),
+        storage.getAllCTFProgress(userId),
+      ]);
+
+      let conversationMessages: Array<{ id: string; role: string; text: string; timestamp: number }> = [];
+      const conversationId = userProg?.conversationId ?? null;
+      if (conversationId) {
+        const msgs = await storage.getConversationMessages(conversationId);
+        conversationMessages = msgs.map(m => ({
+          id: m.id,
+          role: m.role,
+          text: m.text,
+          timestamp: m.timestamp,
+        }));
       }
 
-      // Get conversation history from database if not provided
+      const ctfMap: Record<string, { completed: boolean; progressData: unknown }> = {};
+      for (const cp of ctfProgresses) {
+        ctfMap[cp.challengeId] = {
+          completed: cp.completed,
+          progressData: cp.progressData,
+        };
+      }
+
+      const currentXp = userProg?.xp ?? 0;
+      const computedRank = getRankFromXp(currentXp);
+
+      // Sync rank in DB if it has drifted from the computed value
+      if (userProg && userProg.rank !== computedRank) {
+        await storage.upsertUserProgress(userId, { rank: computedRank });
+      }
+
+      res.json({
+        rank: computedRank,
+        xp: currentXp,
+        conversationId,
+        conversationMessages,
+        ctf: ctfMap,
+      });
+    } catch (error) {
+      console.error("Get progress error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Save game state progress (rank, XP)
+  app.put("/api/progress", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).authenticatedUserId as string;
+      const validated = saveProgressSchema.parse(req.body);
+      const updated = await storage.upsertUserProgress(userId, validated);
+      res.json({ success: true, rank: updated.rank, xp: updated.xp });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data." });
+      }
+      console.error("Save progress error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Save CTF challenge progress — awards XP on first completion
+  app.put("/api/ctf/:challengeId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).authenticatedUserId as string;
+      const { challengeId } = req.params;
+      const validated = saveCTFProgressSchema.parse(req.body);
+
+      // Check if this challenge was already completed before this save
+      const existing = await storage.getCTFProgress(userId, challengeId);
+      const wasAlreadyCompleted = existing?.completed ?? false;
+
+      const updated = await storage.upsertCTFProgress(userId, challengeId, {
+        completed: validated.completed,
+        progressData: validated.progressData as Record<string, unknown>,
+      });
+
+      // Award XP and update rank only on first-time completion
+      let newXp: number | undefined;
+      let newRank: string | undefined;
+      if (validated.completed && !wasAlreadyCompleted) {
+        const pointsToAdd = CHALLENGE_POINTS[challengeId] ?? 0;
+        if (pointsToAdd > 0) {
+          const userProg = await storage.getUserProgress(userId);
+          const currentXp = userProg?.xp ?? 0;
+          const updatedXp = currentXp + pointsToAdd;
+          const computedRank = getRankFromXp(updatedXp);
+          const result = await storage.upsertUserProgress(userId, { xp: updatedXp, rank: computedRank });
+          newXp = result.xp;
+          newRank = result.rank;
+        }
+      }
+
+      res.json({
+        success: true,
+        challengeId: updated.challengeId,
+        completed: updated.completed,
+        ...(newXp !== undefined ? { xp: newXp, rank: newRank } : {}),
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data." });
+      }
+      console.error("Save CTF progress error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Leaderboard — all users ranked by XP, with computed ranks
+  app.get("/api/leaderboard", requireAuth, async (req, res) => {
+    try {
+      const rows = await storage.getAllUsersProgress();
+      const leaderboard = rows.map((row, index) => ({
+        position: index + 1,
+        userId: row.userId,
+        xp: row.xp,
+        rank: getRankFromXp(row.xp),
+      }));
+      res.json({ leaderboard });
+    } catch (error) {
+      console.error("Leaderboard error:", error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  });
+
+  // Chat endpoint for Enterprise Computer
+  app.post("/api/chat", requireAuth, async (req, res) => {
+    try {
+      const validatedData = chatRequestSchema.parse(req.body);
+      const userId = (req as any).authenticatedUserId as string;
+
+      let conversationId = validatedData.conversationId;
+
+      // If a conversationId was provided, verify it belongs to this user
+      if (conversationId) {
+        const conversation = await storage.getConversation(conversationId);
+        if (!conversation || conversation.userId !== userId) {
+          return res.status(403).json({ error: "Access denied." });
+        }
+      }
+
+      if (!conversationId) {
+        const userProg = await storage.getUserProgress(userId);
+        if (userProg?.conversationId) {
+          conversationId = userProg.conversationId;
+        }
+        if (!conversationId) {
+          const newConversation = await storage.createConversation(userId);
+          conversationId = newConversation.id;
+          await storage.upsertUserProgress(userId, { conversationId });
+        }
+      }
+
       let conversationHistory = validatedData.conversationHistory || [];
       if (!validatedData.conversationHistory && conversationId) {
         const dbMessages = await storage.getConversationMessages(conversationId);
@@ -32,7 +316,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
       }
 
-      // Save user message
       const userMessage = await storage.createMessage({
         conversationId,
         role: "user",
@@ -40,20 +323,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: Date.now(),
       });
 
-      // Generate response from Gemini
       const computerResponse = await generateComputerResponse(
         validatedData.message,
         conversationHistory,
         validatedData.shipSystems
       );
 
-      // Save computer response
       const computerMessage = await storage.createMessage({
         conversationId,
         role: "computer",
         text: computerResponse,
         timestamp: Date.now(),
       });
+
+      if (userId) {
+        await storage.upsertUserProgress(userId, { conversationId });
+      }
 
       res.json({
         message: computerResponse,
@@ -62,23 +347,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Chat error:", error);
-
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid request data" });
       }
-
       res.status(500).json({
         error: error instanceof Error ? error.message : "Internal server error"
       });
     }
   });
 
-  // Get conversation history
-  app.get("/api/conversations/:id/messages", async (req, res) => {
+  // Get conversation history — only accessible by the conversation owner
+  app.get("/api/conversations/:id/messages", requireAuth, async (req, res) => {
     try {
+      const userId = (req as any).authenticatedUserId as string;
       const conversationId = req.params.id;
-      const messages = await storage.getConversationMessages(conversationId);
 
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
+      const messages = await storage.getConversationMessages(conversationId);
       res.json({
         messages: messages.map(msg => ({
           id: msg.id,
@@ -95,11 +384,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete conversation
-  app.delete("/api/conversations/:id", async (req, res) => {
+  // Delete conversation — only the owner can delete their conversation
+  app.delete("/api/conversations/:id", requireAuth, async (req, res) => {
     try {
+      const userId = (req as any).authenticatedUserId as string;
       const conversationId = req.params.id;
+
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
       await storage.deleteConversation(conversationId);
+      const userProg = await storage.getUserProgress(userId);
+      if (userProg?.conversationId === conversationId) {
+        await storage.upsertUserProgress(userId, { conversationId: null });
+      }
       res.json({ success: true });
     } catch (error) {
       console.error("Delete conversation error:", error);
@@ -110,6 +410,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
-
   return httpServer;
 }

@@ -278,7 +278,6 @@ async def startup_event():
         import uuid
         token = str(uuid.uuid4())
         os.environ["GAME_ADMIN_TOKEN"] = token
-    logging.info(f"GAME ADMIN TOKEN: {token}")
     asyncio.create_task(radiation_leak_simulator())
 
 async def broadcast_state_change():
