@@ -37,7 +37,8 @@ class TestLocationRestrictions(unittest.TestCase):
         # User is at Bridge, trying to eject warp core (requires Engineering)
         req = CommandRequest(text="Computer, eject warp core immediately!", user_id=self.user_id)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         response = loop.run_until_complete(process_command_logic(req))
 
         print(f"\n[Bridge] Response: {response['response']}")
@@ -54,7 +55,8 @@ class TestLocationRestrictions(unittest.TestCase):
 
         req = CommandRequest(text="Computer, eject warp core immediately!", user_id=self.user_id)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         response = loop.run_until_complete(process_command_logic(req))
 
         print(f"\n[Engineering] Response: {response['response']}")
@@ -66,7 +68,8 @@ class TestLocationRestrictions(unittest.TestCase):
         # User is at Bridge, requesting status
         req = CommandRequest(text="Computer, status report", user_id=self.user_id)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         response = loop.run_until_complete(process_command_logic(req))
 
         print(f"\n[Bridge] Status Response: {response['response']}")
