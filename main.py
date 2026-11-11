@@ -8,11 +8,13 @@ from typing import List
 
 import httpx
 import aiofiles
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
 from server.stt import transcribe_audio
+from server.http_client import get_client
 from server.models import CommandRequest, UserRegister, LocationUpdate, RadiationCleared
 from server.database import r, init_db, get_current_status_dict, update_leaderboard
 from server.game_logic import process_command_logic
@@ -32,7 +34,28 @@ class UvicornErrorFilter(logging.Filter):
 logging.getLogger("uvicorn.error").addFilter(UvicornErrorFilter())
 
 # --- Basic Setup & Configuration ---
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    token = os.environ.get("GAME_ADMIN_TOKEN")
+    if not token:
+        import uuid
+        token = str(uuid.uuid4())
+        os.environ["GAME_ADMIN_TOKEN"] = token
+    logging.info(f"GAME ADMIN TOKEN: {token}")
+
+    # Start background task
+    task = asyncio.create_task(radiation_leak_simulator())
+
+    yield
+
+    # Cleanup
+    task.cancel()
+    from server.http_client import close_client
+    await close_client()
+
+app = FastAPI(lifespan=lifespan)
+
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # --- Constants ---
@@ -124,7 +147,7 @@ async def speak_endpoint(request: CommandRequest):
 
     try:
         # Create client without context manager to allow streaming in generator
-        client = httpx.AsyncClient()
+        client = get_client()
         req = client.build_request("POST", tts_url, json=payload, timeout=10.0)
         r_tts = await client.send(req, stream=True)
         r_tts.raise_for_status()
@@ -146,7 +169,7 @@ async def speak_endpoint(request: CommandRequest):
 
             finally:
                 await r_tts.aclose()
-                await client.aclose()
+                # Do not close the global client here
 
         return StreamingResponse(stream_and_cache(), media_type=media_type)
 
@@ -271,15 +294,7 @@ async def radiation_leak_simulator():
              if random.random() < 0.1: # 10% chance per minute
                 await trigger_radiation_leak()
 
-@app.on_event("startup")
-async def startup_event():
-    token = os.environ.get("GAME_ADMIN_TOKEN")
-    if not token:
-        import uuid
-        token = str(uuid.uuid4())
-        os.environ["GAME_ADMIN_TOKEN"] = token
-    logging.info(f"GAME ADMIN TOKEN: {token}")
-    asyncio.create_task(radiation_leak_simulator())
+
 
 async def broadcast_state_change():
     state = {"type": "state_update", "systems": get_current_status_dict()}

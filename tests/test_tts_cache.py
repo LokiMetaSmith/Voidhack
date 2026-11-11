@@ -37,7 +37,7 @@ async def test_tts_caching():
     # We patch 'main.r' because speak_endpoint uses 'r' from the global namespace of main module
     # We patch 'main.TTS_ENGINE' to control the engine logic
     with patch("main.r", mock_redis), \
-         patch("httpx.AsyncClient", return_value=mock_client), \
+         patch("main.get_client", return_value=mock_client), \
          patch("main.TTS_ENGINE", "kokoro"):
 
         # --- Test Case 1: Cache Miss ---
