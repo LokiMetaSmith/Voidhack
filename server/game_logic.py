@@ -7,6 +7,7 @@ import json
 import asyncio
 import hashlib
 import httpx
+from server.http_client import get_client
 from server.database import r, get_current_status_dict, update_leaderboard, get_user_rank_data, promote_user
 from server.models import CommandRequest
 
@@ -259,8 +260,8 @@ async def process_command_logic(req: CommandRequest):
             if VLLM_API_KEY:
                 headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
 
-            async with httpx.AsyncClient() as client:
-                response = await client.post(VLLM_API_URL, json=payload, headers=headers, timeout=30)
+            client = get_client()
+            response = await client.post(VLLM_API_URL, json=payload, headers=headers, timeout=30)
             response.raise_for_status()
 
             raw_content = response.json()['choices'][0]['message']['content']

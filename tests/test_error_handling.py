@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 import httpx
 import json
 from server.game_logic import process_command_logic
@@ -18,15 +18,15 @@ def mock_redis_fixture():
 
 @pytest.fixture
 def mock_httpx_client():
-    with patch("server.game_logic.httpx.AsyncClient") as mock_client:
+    with patch("server.game_logic.get_client") as mock_client:
         yield mock_client
 
 @pytest.mark.asyncio
 async def test_process_command_llm_timeout(mock_redis_fixture, mock_httpx_client):
     req = CommandRequest(text="analyze anomaly", user_id="user1")
 
-    mock_client_instance = mock_httpx_client.return_value.__aenter__.return_value
-    mock_client_instance.post.side_effect = httpx.TimeoutException("Timeout")
+    mock_client_instance = mock_httpx_client.return_value
+    mock_client_instance.post = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
 
     result = await process_command_logic(req)
     # New specific message
@@ -46,8 +46,8 @@ async def test_process_command_llm_json_error(mock_redis_fixture, mock_httpx_cli
     }
     mock_response.status_code = 200
 
-    mock_client_instance = mock_httpx_client.return_value.__aenter__.return_value
-    mock_client_instance.post.return_value = mock_response
+    mock_client_instance = mock_httpx_client.return_value
+    mock_client_instance.post = AsyncMock(return_value=mock_response)
 
     result = await process_command_logic(req)
     # New specific message: The fallback logic now returns the raw text instead of "Data corruption"
@@ -57,8 +57,8 @@ async def test_process_command_llm_json_error(mock_redis_fixture, mock_httpx_cli
 async def test_process_command_llm_http_error(mock_redis_fixture, mock_httpx_client):
     req = CommandRequest(text="analyze anomaly", user_id="user1")
 
-    mock_client_instance = mock_httpx_client.return_value.__aenter__.return_value
-    mock_client_instance.post.side_effect = httpx.HTTPStatusError("Error", request=None, response=None)
+    mock_client_instance = mock_httpx_client.return_value
+    mock_client_instance.post = AsyncMock(side_effect=httpx.HTTPStatusError("Error", request=None, response=None))
 
     result = await process_command_logic(req)
     # New specific message

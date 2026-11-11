@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 from server.game_logic import process_command_logic
 from server.models import CommandRequest
 from server.database import get_user_rank_data
@@ -22,7 +22,7 @@ def mock_redis_fixture():
 @pytest.fixture
 def mock_httpx_client():
     # Patch httpx where it is used
-    with patch("server.game_logic.httpx.AsyncClient") as mock_client:
+    with patch("server.game_logic.get_client") as mock_client:
         yield mock_client
 
 @pytest.mark.asyncio
@@ -70,8 +70,8 @@ async def test_process_command_llm_fallback(mock_redis_fixture, mock_httpx_clien
     mock_response.status_code = 200
 
     # Setup async context manager for httpx.AsyncClient
-    mock_client_instance = mock_httpx_client.return_value.__aenter__.return_value
-    mock_client_instance.post.return_value = mock_response
+    mock_client_instance = mock_httpx_client.return_value
+    mock_client_instance.post = AsyncMock(return_value=mock_response)
 
     result = await process_command_logic(req)
 
@@ -94,8 +94,8 @@ async def test_process_command_rank_up(mock_redis_fixture, mock_httpx_client):
             "message": {"content": '{"updates": {}, "response": "Well done.", "mission_success": true}'}
         }]
     }
-    mock_client_instance = mock_httpx_client.return_value.__aenter__.return_value
-    mock_client_instance.post.return_value = mock_response
+    mock_client_instance = mock_httpx_client.return_value
+    mock_client_instance.post = AsyncMock(return_value=mock_response)
 
     def hget_side_effect(name, key):
         if key == "radiation_leak": return "0"
